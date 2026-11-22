@@ -1,0 +1,70 @@
+{
+  "kit_name": "PocketMod_Starter_Kit_v1.0",
+  "sample_format_spec": "48 kHz, 16-bit or 24-bit uncompressed PCM WAV (decoded to 32-bit float in RAM via dr_wav)",
+  "pads": [
+    {
+      "pad_id": 0,
+      "name": "Kick",
+      "midi_note": 36,
+      "note_label": "C1",
+      "sample_path": "kicks/kick_01.wav",
+      "choke_group": 0
+    },
+    {
+      "pad_id": 1,
+      "name": "Snare",
+      "midi_note": 37,
+      "note_label": "C#1",
+      "sample_path": "snares/snare_01.wav",
+      "choke_group": 0
+    },
+    {
+      "pad_id": 2,
+      "name": "Clap",
+      "midi_note": 38,
+      "note_label": "D1",
+      "sample_path": "claps/clap_01.wav",
+      "choke_group": 0
+    },
+    {
+      "pad_id": 3,
+      "name": "Closed Hat",
+      "midi_note": 39,
+      "note_label": "D#1",
+      "sample_path": "hats/chhat_01.wav",
+      "choke_group": 1
+    },
+    {
+      "pad_id": 4,
+      "name": "Open Hat",
+      "midi_note": 40,
+      "note_label": "E1",
+      "sample_path": "hats/ohhat_01.wav",
+      "choke_group": 1
+    },
+    {
+      "pad_id": 5,
+      "name": "Rimshot",
+      "midi_note": 41,
+      "note_label": "F1",
+      "sample_path": "perc/rim_01.wav",
+      "choke_group": 0
+    },
+    {
+      "pad_id": 6,
+      "name": "Tom",
+      "midi_note": 42,
+      "note_label": "F#1",
+      "sample_path": "toms/tom_01.wav",
+      "choke_group": 2
+    },
+    {
+      "pad_id": 7,
+      "name": "Perc",
+      "midi_note": 43,
+      "note_label": "G1",
+      "sample_path": "perc/perc_01.wav",
+      "choke_group": 2
+    }
+  ]
+}

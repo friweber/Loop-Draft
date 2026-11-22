@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PocketMod Project & Preset Schema v1.0",
+  "type": "object",
+  "required": [
+    "pocketmod_version",
+    "project_name",
+    "tempo",
+    "scale",
+    "root_note",
+    "tracks",
+    "scenes",
+    "arrangement_chain"
+  ],
+  "properties": {
+    "pocketmod_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "project_name": {
+      "type": "string"
+    },
+    "tempo": {
+      "type": "number",
+      "minimum": 40,
+      "maximum": 240
+    },
+    "scale": {
+      "type": "string",
+      "enum": [
+        "Major",
+        "Minor",
+        "Dorian",
+        "Pentatonic",
+        "Chromatic"
+      ]
+    },
+    "root_note": {
+      "type": "string"
+    },
+    "tracks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "track_id",
+          "track_name",
+          "type"
+        ],
+        "properties": {
+          "track_id": {
+            "type": "integer"
+          },
+          "track_name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "SAMPLER",
+              "SYNTH"
+            ]
+          },
+          "volume": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "pan": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1
+          },
+          "pads": {
+            "type": "array"
+          },
+          "synth_params": {
+            "type": "object"
+          },
+          "mod_matrix": {
+            "type": "array"
+          },
+          "insert_fx": {
+            "type": "array"
+          }
+        }
+      }
+    },
+    "scenes": {
+      "type": "array"
+    },
+    "arrangement_chain": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    },
+    "global_sends": {
+      "type": "object",
+      "properties": {
+        "delay_send": {
+          "type": "number"
+        },
+        "delay_feedback": {
+          "type": "number"
+        },
+        "reverb_send": {
+          "type": "number"
+        },
+        "master_limiter_ceiling_dbfs": {
+          "type": "number",
+          "default": -0.5
+        }
+      }
+    }
+  }
+}
