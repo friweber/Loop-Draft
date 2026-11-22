@@ -67,6 +67,7 @@ val Danger = Color(0xFFFF4D6D)
 val CellOff = Color(0xFF141824)
 
 val PAD_NAMES = listOf("Kick", "Snare", "Clap", "CH", "OH", "Rim", "Tom", "Perc")
+val PAD_SHORT = listOf("Kik", "Snr", "Clp", "CH", "OH", "Rim", "Tom", "Prc")
 val SCENE_NAMES = listOf("A", "B", "C", "D")
 val TRACK_NAMES = listOf("Drums", "Bass", "Lead")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
@@ -154,12 +155,12 @@ fun Label(text: String, color: Color = Muted, size: Int = 11, bold: Boolean = tr
 
 @Composable
 fun Btn(text: String, modifier: Modifier = Modifier, on: Boolean = false, onColor: Color = Accent, enabled: Boolean = true,
-        height: Dp = 38.dp, onClick: () -> Unit) {
+        height: Dp = 38.dp, pad: Dp = 10.dp, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Box(
         modifier.height(height).clip(shape).background(if (on) onColor else Panel2)
             .border(1.dp, if (on) onColor else Line, shape)
-            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 10.dp),
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = pad),
         contentAlignment = Alignment.Center
     ) {
         Label(text, color = if (!enabled) Muted.copy(alpha = 0.4f) else if (on) Color(0xFF0B1020) else Ink, size = 12)
@@ -335,7 +336,7 @@ fun BarPicker(bars: Int, current: Int, playingBar: Int, onPick: (Int) -> Unit) {
     if (bars <= 1) return
     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (b in 0 until bars) {
-            Btn("${b + 1}", Modifier.weight(1f), on = b == current, onColor = if (b == playingBar) Green else Accent, height = 30.dp) { onPick(b) }
+            Btn("${b + 1}", Modifier.weight(1f), on = b == current, onColor = if (b == playingBar) Green else Accent, height = 32.dp, pad = 1.dp) { onPick(b) }
         }
     }
 }
@@ -353,8 +354,8 @@ fun DrumsTab(s: AppState) {
     }
     Card("Steps: ${PAD_NAMES[s.selPad]}", trailing = { Btn("Accent", on = s.accent, onColor = Yellow, height = 30.dp) { s.accent = !s.accent } }) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {      // pick a lane without making a sound
-            PAD_NAMES.forEachIndexed { i, name ->
-                Btn(name, Modifier.weight(1f), on = s.selPad == i, height = 30.dp) { s.selPad = i }
+            PAD_SHORT.forEachIndexed { i, name ->
+                Btn(name, Modifier.weight(1f), on = s.selPad == i, height = 34.dp, pad = 1.dp) { s.selPad = i }
             }
         }
         BarPicker(bars, bar, if (s.playing) s.step / 16 else -1) { s.drumBar = it }
@@ -562,7 +563,7 @@ fun SongTab(s: AppState) {
     Card("Scene ${SCENE_NAMES[s.scene]}") {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Label("Length", size = 10, modifier = Modifier.width(48.dp))
-            for (b in 1..8) Btn("$b", Modifier.weight(1f), on = bars == b, height = 34.dp) { Native.setSceneBars(s.scene, b); s.rev++ }
+            for (b in 1..8) Btn("$b", Modifier.weight(1f), on = bars == b, height = 34.dp, pad = 1.dp) { Native.setSceneBars(s.scene, b); s.rev++ }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
             Label("Copy to", size = 10, modifier = Modifier.width(48.dp))

@@ -7,10 +7,18 @@ A mobile groovebox for getting a loop going quickly and finishing it later: sket
 Version 1 is a native Android app (Kotlin and Compose for the screen, C++ with Oboe for sound), so it responds as fast as the phone allows. The HTML prototype stays as the design reference.
 
 1. Engine in portable C++, tested on a desktop. **Done:** see `engine/`.
-2. First APK: Oboe output, pads and step grid, to measure latency on a real phone.
-3. Full UI after the prototype: Drums, Synth, FX, Song.
-4. Projects, autosave, undo, export of MIDI and stems.
-5. Polish and device tests.
+2. Android app with Oboe output and the four screens (Drums, Synth, Mix, Song), autosave and undo. **Done:** see `android/`.
+3. Still to do: loading your own WAV samples, export of MIDI and stems from the app, several projects, note lengths in the piano roll, playing on with the screen off.
+4. Polish and tests on real devices.
+
+## Install on your phone
+
+Every push to `main` builds the app on GitHub, runs it on an emulator, and publishes the result:
+
+**https://github.com/friweber/Loop-Draft/releases/latest** then tap `LoopDraft.apk`.
+
+Android asks once to allow installs from your browser. New builds install over the old one and keep your project.
+The line under the app title shows the audio path in use (API, sample rate, burst size, output latency as the phone reports it).
 
 ## Try the prototype
 
@@ -32,6 +40,7 @@ Known limits of v0.2: loaded WAV samples are not kept after a reload, patterns a
 | Path | Contents |
 | :-- | :-- |
 | `engine/` | Native C++ audio engine with desktop tests. See `engine/README.md` |
+| `android/` | The Android app: Kotlin/Compose UI, JNI bridge, Oboe audio. `android/ci/` holds the APK checks and the emulator test |
 | `prototype/index.html` | Interactive prototype v0.2. The reference for look and behaviour |
 | `tests/` | Unit tests for the core logic, and an end-to-end browser test |
 | `docs/SPEC.md` | Master development spec (imported from the Google Doc) |

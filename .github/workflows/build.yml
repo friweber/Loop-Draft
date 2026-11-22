@@ -104,6 +104,6 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag || true
           sleep 3
-          gh release create latest LoopDraft.apk --prerelease --target "$GITHUB_SHA" \
+          gh release create latest LoopDraft.apk --latest --target "$GITHUB_SHA" \
             --title "Latest build (#${{ github.run_number }})" \
             --notes "Built automatically from main. Download LoopDraft.apk on the phone and open it to install. It installs over the previous build and keeps the saved project."

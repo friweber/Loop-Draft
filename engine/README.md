@@ -20,14 +20,18 @@ The UI thread owns the `Project` (plain data). Every edit sends a snapshot with 
 
 ```sh
 cmake -S . -B build -G Ninja && cmake --build build
-./build/ld_tests                  # 17 tests
+./build/ld_tests                  # 19 tests
 ./build/ld_render some/folder     # demo song: master WAV, stems, MIDI
 ```
 
 Sanitizer builds: `-DLD_SANITIZE=ON` (address + undefined behaviour) and `-DLD_TSAN=ON` (threads).
 
+## Session
+
+`Session` is what the app's UI thread uses: parameters by id, one undo step per gesture, autosave to a file, and live-recorded hits written into the project.
+
 ## Not in yet
 
-Project files (JSON), sample loading from the app's storage, the Android/Oboe wrapper and the UI.
+Portable project files (the autosave is a raw snapshot tied to this version), and loading samples from the app's storage.
 
 `third_party/dr_wav.h` is dr_wav by David Reid (public domain or MIT-0), as chosen in the spec.
