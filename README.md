@@ -2,6 +2,16 @@
 
 A mobile groovebox for getting a loop going quickly and finishing it later: sketch on the phone, then export MIDI and audio and keep editing in a DAW. Working title in the older documents: **PocketMod**.
 
+## Direction
+
+Version 1 is a native Android app (Kotlin and Compose for the screen, C++ with Oboe for sound), so it responds as fast as the phone allows. The HTML prototype stays as the design reference.
+
+1. Engine in portable C++, tested on a desktop. **Done:** see `engine/`.
+2. First APK: Oboe output, pads and step grid, to measure latency on a real phone.
+3. Full UI after the prototype: Drums, Synth, FX, Song.
+4. Projects, autosave, undo, export of MIDI and stems.
+5. Polish and device tests.
+
 ## Try the prototype
 
 Open `prototype/index.html` in a browser (phone or desktop) and press **PLAY**. It is one self-contained file with no dependencies.
@@ -21,7 +31,8 @@ Known limits of v0.2: loaded WAV samples are not kept after a reload, patterns a
 
 | Path | Contents |
 | :-- | :-- |
-| `prototype/index.html` | Interactive prototype v0.2 |
+| `engine/` | Native C++ audio engine with desktop tests. See `engine/README.md` |
+| `prototype/index.html` | Interactive prototype v0.2. The reference for look and behaviour |
 | `tests/` | Unit tests for the core logic, and an end-to-end browser test |
 | `docs/SPEC.md` | Master development spec (imported from the Google Doc) |
 | `specs/` | Project file schema |
