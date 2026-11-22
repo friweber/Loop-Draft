@@ -47,14 +47,60 @@ jobs:
         run: gradle -p android :app:assembleRelease --no-daemon --stacktrace
       - name: Name the APK
         run: cp android/app/build/outputs/apk/release/app-release.apk LoopDraft.apk
+      - name: Check the APK
+        run: bash android/ci/check_apk.sh LoopDraft.apk
       - uses: actions/upload-artifact@v4
         with:
           name: LoopDraft-apk
           path: LoopDraft.apk
-      - name: Publish as "Latest build"
-        if: github.ref == 'refs/heads/main'
+
+  smoke:
+    name: Run the app on an emulator
+    runs-on: ubuntu-latest
+    needs: apk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: LoopDraft-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start the app and watch it play
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: bash android/ci/smoke.sh LoopDraft.apk smoke-out
+      - name: Keep screenshots and log (branch ci-smoke)
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p smoke-out && cd smoke-out
+          echo "Smoke test output of run ${{ github.run_number }} (${{ github.sha }})" > README.md
+          git init -q && git checkout -q -b ci-smoke && git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Smoke test output, run ${{ github.run_number }}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-smoke
+
+  publish:
+    name: Publish latest build
+    runs-on: ubuntu-latest
+    needs: smoke
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: LoopDraft-apk
+      - name: Publish as "Latest build"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
           sleep 3
