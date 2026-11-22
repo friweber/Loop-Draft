@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
         Native.setSongMode(state.songMode)
         Native.setRecording(state.rec)
         state.rev++
+        Log.i("LoopDraft", "boot audio=${state.audioOk} bpm=${Native.getParam(P.BPM, 0).toInt()} ${state.info}")
         if (selfTest) runSelfTest()
     }
 
@@ -48,13 +49,9 @@ class MainActivity : ComponentActivity() {
     private fun runSelfTest() {
         selfTest = false
         val handler = Handler(Looper.getMainLooper())
-        Log.i("LoopDraft", "selftest audio=${state.audioOk} ${Native.info()}")
-        // Save and restore: change the tempo, stop (saves), start again (loads) and compare.
+        // Change the tempo and save. The test then kills the app and checks the next start reports this tempo.
         Native.beginEdit(); Native.setParam(P.BPM, 0, 131f)
-        Native.stop()
-        Native.start(filesDir.absolutePath)
-        Log.i("LoopDraft", "selftest saved=${Native.getParam(P.BPM, 0) == 131f}")
-        Native.undo()
+        Native.saveIfDirty()
         Native.play(0)
         var loudest = 0f
         for (i in 1..12) handler.postDelayed({

@@ -30,6 +30,7 @@ grep -q "selftest playing=true" "$OUT/selftest.txt" || { echo "FAIL: transport n
 steps=$(grep -o "selftest playing=true step=[0-9]*" "$OUT/selftest.txt" | sort -u | wc -l)
 [ "$steps" -ge 3 ] || { echo "FAIL: the step counter is not advancing ($steps distinct steps)"; fail=1; }
 grep -E "selftest .*sound=true" "$OUT/selftest.txt" >/dev/null || { echo "FAIL: no sound reached the output"; fail=1; }
-grep -q "selftest saved=true" "$OUT/selftest.txt" || { echo "FAIL: project was not saved and restored"; fail=1; }
+grep -q "boot audio=true" "$OUT/selftest.txt" || { echo "FAIL: audio output did not open"; fail=1; }
+[ "$(grep -c "boot audio=true bpm=131" "$OUT/selftest.txt")" -ge 4 ] || { echo "FAIL: the saved project was not restored after restarting the app"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"
