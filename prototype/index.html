@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Loop Draft v0.2 - Mobile Groovebox Prototype</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #181c26; --panel-2: #202636; --border: #2e364d;
+    --text: #e8ecf7; --muted: #8b95b0; --accent: #5b8cff; --accent-2: #ff6b4a;
+    --green: #2ee59d; --yellow: #ffd166; --purple: #b388ff; --danger: #ff4d6d;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: #07090d; color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 12px;
+  }
+  .phone-frame {
+    width: 100%; max-width: 430px; height: 860px; max-height: 96vh; background: var(--bg);
+    border: 2px solid var(--border); border-radius: 28px; overflow: hidden;
+    display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,0.65);
+  }
+  @media (max-width: 480px) {
+    body { padding: 0; }
+    .phone-frame { max-width: none; height: 100vh; height: 100dvh; max-height: none; border: none; border-radius: 0; }
+  }
+  .topbar {
+    background: var(--panel); border-bottom: 1px solid var(--border); padding: 8px 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-shrink: 0;
+  }
+  .brand { display: flex; flex-direction: column; min-width: 0; }
+  .brand-title { font-weight: 800; font-size: 14px; letter-spacing: 0.6px; }
+  .brand-title small { color: var(--muted); font-weight: 700; }
+  .brand-sub { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .btn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 11px; min-height: 36px; font-size: 12px; font-weight: 700; cursor: pointer; user-select: none;
+    font-family: inherit;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.35; }
+  .btn.sm { padding: 5px 9px; min-height: 30px; font-size: 11px; }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-play.on { background: var(--green); color: #062116; border-color: var(--green); }
+  .btn-rec.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn-warn.on { background: var(--yellow); color: #1f1700; border-color: var(--yellow); }
+  .content { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+  .tab-view { display: none; flex-direction: column; gap: 10px; }
+  .tab-view.active { display: flex; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 10px; }
+  .card-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.9px; color: var(--muted); font-weight: 800; }
+  .hint { font-size: 10px; color: var(--muted); margin-top: 6px; }
+  /* pads */
+  .pad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .drum-pad {
+    aspect-ratio: 1 / 0.8; background: linear-gradient(180deg, #252c40, #1a1f2e); border: 1.5px solid var(--border);
+    border-radius: 12px; padding: 7px; display: flex; flex-direction: column; justify-content: space-between;
+    cursor: pointer; user-select: none; touch-action: none;
+  }
+  .drum-pad.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .drum-pad.hit { transform: scale(0.95); background: linear-gradient(180deg, #3c5491, #26355c); border-color: var(--green); }
+  .pad-name { font-size: 11px; font-weight: 800; }
+  .pad-badge { font-size: 9px; color: var(--green); font-weight: 700; }
+  .chip-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; margin-bottom: 8px; }
+  .chip {
+    font-size: 9px; font-weight: 800; text-align: center; padding: 7px 0; border-radius: 7px; cursor: pointer;
+    background: #141824; border: 1px solid var(--border); color: var(--muted); user-select: none;
+  }
+  .chip.active { border-color: var(--accent); color: var(--text); background: rgba(91,140,255,0.2); }
+  /* controls */
+  .ctrl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .ctrl-grid.three { grid-template-columns: repeat(3, 1fr); margin-bottom: 8px; }
+  .ctrl-item { background: #131722; border: 1px solid var(--border); border-radius: 10px; padding: 7px 8px; }
+  .ctrl-item.mod-ready { border-color: var(--yellow); box-shadow: 0 0 8px rgba(255,209,102,0.35); cursor: pointer; }
+  .ctrl-item.mod-linked { border-color: var(--purple); }
+  .ctrl-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+  .ctrl-label .val { color: var(--text); }
+  .ctrl-label em { color: var(--purple); font-style: normal; }
+  input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; height: 26px; touch-action: pan-y; }
+  select {
+    width: 100%; background: #10131d; color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 6px; font-size: 12px; font-weight: 600; font-family: inherit;
+  }
+  /* grids */
+  .step-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .cell {
+    height: 40px; border-radius: 7px; border: 1px solid var(--border); background: #141824; color: var(--muted);
+    font-size: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  .cell.beat { border-top: 2px solid #49577a; }
+  .cell.on { background: #b9482f; border-color: var(--accent-2); color: #fff; }
+  .cell.acc { background: var(--accent-2); border-color: #ffd0c4; color: #fff; box-shadow: 0 0 0 1px #ffd0c4 inset; }
+  .cell.playhead { outline: 2px solid var(--green); outline-offset: -2px; }
+  .lanes { display: flex; flex-direction: column; gap: 4px; }
+  .lane-row { display: grid; grid-template-columns: 40px repeat(8, 1fr); gap: 4px; align-items: center; }
+  .lane-row .cell { height: 30px; }
+  .lane-name { font-size: 9px; font-weight: 800; color: var(--muted); cursor: pointer; }
+  .lane-name.active { color: var(--accent); }
+  .roll .cell.on { background: #7d5bd0; border-color: var(--purple); }
+  .roll .cell.acc { background: var(--purple); border-color: #e7dbff; box-shadow: 0 0 0 1px #e7dbff inset; }
+  .scale-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .scale-pad {
+    height: 56px; border-radius: 10px; background: linear-gradient(180deg, #222b44, #171d2f); border: 1px solid var(--border);
+    font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none; touch-action: none;
+  }
+  .scale-pad.hit { background: var(--accent); border-color: #93b4ff; }
+  /* meter, chain */
+  .meter-bar { height: 12px; background: #0d1018; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 5px; }
+  .meter-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--green) 0%, var(--yellow) 75%, var(--danger) 100%); }
+  .chain-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .chain-chip {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px;
+    font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 8px;
+  }
+  .chain-chip.playing { border-color: var(--green); color: var(--green); }
+  .chain-chip button { background: transparent; border: none; color: var(--muted); cursor: pointer; font-weight: 900; font-size: 14px; padding: 0 2px; }
+  /* bottom zone */
+  .scene-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 8px 10px 0; background: var(--panel);
+    border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .scene-pill {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 4px; text-align: center;
+    font-size: 11px; font-weight: 700; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .scene-pill.active { background: rgba(91,140,255,0.2); border-color: var(--accent); color: var(--text); }
+  .scene-pill.queued { border-color: var(--yellow); color: var(--yellow); animation: blink 0.5s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0.45; } }
+  .transport { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--panel); flex-shrink: 0; }
+  .transport .btn { min-height: 44px; }
+  .transport .btn-play { flex: 1; font-size: 14px; }
+  .bpm-box {
+    display: flex; align-items: center; gap: 2px; background: #12151f; border: 1px solid var(--border);
+    border-radius: 10px; padding: 2px 4px; font-size: 10px; font-weight: 700; color: var(--muted); min-height: 44px;
+  }
+  .bpm-box input { width: 42px; background: transparent; border: none; color: var(--yellow); font-weight: 800; font-size: 15px; text-align: center; outline: none; font-family: inherit; }
+  .bpm-box button { background: transparent; border: none; color: var(--text); font-size: 18px; font-weight: 800; width: 28px; height: 38px; cursor: pointer; }
+  .bottom-nav { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--panel); border-top: 1px solid var(--border); flex-shrink: 0; }
+  .nav-btn { padding: 13px 4px; text-align: center; font-size: 12px; font-weight: 800; color: var(--muted); cursor: pointer; border-top: 2px solid transparent; user-select: none; }
+  .nav-btn.active { color: var(--accent); border-top-color: var(--accent); background: rgba(91,140,255,0.08); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="phone-frame">
+  <div class="topbar">
+    <div class="brand">
+      <span class="brand-title">LOOP DRAFT <small>v0.2</small></span>
+      <span class="brand-sub" id="statusText">Ready - press PLAY</span>
+    </div>
+    <div class="row">
+      <button class="btn sm" id="undoBtn" disabled>&#8630; Undo</button>
+      <button class="btn sm" id="redoBtn" disabled>Redo &#8631;</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- DRUMS -->
+    <div class="tab-view active" id="tab-drums">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Drum Pads</span>
+          <label class="btn sm">Load .WAV &rarr; <span id="loadTarget">Kick</span>
+            <input type="file" id="wavLoader" accept=".wav,audio/*" hidden />
+          </label>
+        </div>
+        <div class="pad-grid" id="drumPadGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Steps</span>
+          <div class="row">
+            <button class="btn sm btn-warn accentBtn">Accent</button>
+            <button class="btn sm" id="laneModeBtn">All lanes</button>
+            <button class="btn sm" id="drumPageBtn" hidden>1-8</button>
+          </div>
+        </div>
+        <div class="chip-row" id="laneChips"></div>
+        <div id="drumGrid"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title" id="padTitle">Pad: Kick</span></div>
+        <div class="ctrl-grid" id="padCtrls"></div>
+        <div class="ctrl-grid" style="margin-top:8px;">
+          <div class="ctrl-item"><div class="ctrl-label"><span>Choke Group</span></div><select id="padChoke"></select></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SYNTH -->
+    <div class="tab-view" id="tab-synth">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Play &bull; <span id="scaleLabel">D minor</span></span>
+          <div class="row">
+            <button class="btn sm" id="chordBtn">Chord</button>
+            <button class="btn sm btn-warn accentBtn">Accent</button>
+            <button class="btn sm" id="rollBtn">Piano roll</button>
+            <button class="btn sm" id="synthPageBtn" hidden>1-8</button>
+          </div>
+        </div>
+        <div class="ctrl-grid three">
+          <select id="rootSel" aria-label="Root note"></select>
+          <select id="scaleSel" aria-label="Scale"></select>
+          <select id="octSel" aria-label="Octave"></select>
+        </div>
+        <div id="scalePadGrid" class="scale-grid"></div>
+        <div id="rollGrid" class="lanes roll" hidden></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Synth: Dual OSC &rarr; Filter &rarr; Amp</span>
+          <button class="btn sm btn-warn" id="assignBtn">Assign LFO</button>
+        </div>
+        <div class="ctrl-grid" style="margin-bottom:8px;">
+          <div class="ctrl-item"><div class="ctrl-label"><span>OSC 1 Wave</span></div><select id="wave1Sel"></select></div>
+          <div class="ctrl-item"><div class="ctrl-label"><span>OSC 2 Wave</span></div><select id="wave2Sel"></select></div>
+        </div>
+        <div class="ctrl-grid" id="synthCtrls"></div>
+        <div class="hint" id="lfoHint">LFO target: tap "Assign LFO", then a highlighted control.</div>
+      </div>
+    </div>
+
+    <!-- FX -->
+    <div class="tab-view" id="tab-fx">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Track Inserts &amp; Sends</span>
+          <div class="row">
+            <button class="btn sm fxTrackBtn" data-track="0">Drums</button>
+            <button class="btn sm fxTrackBtn" data-track="1">Synth</button>
+          </div>
+        </div>
+        <div class="ctrl-grid" id="fxTrackCtrls"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Global: Delay (dotted 8th) &amp; Master</span></div>
+        <div class="ctrl-grid" id="fxGlobalCtrls"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Master Output L / R</span></div>
+        <div class="meter-bar"><div class="meter-fill" id="meterL"></div></div>
+        <div class="meter-bar"><div class="meter-fill" id="meterR"></div></div>
+        <div class="hint">A master compressor (20:1) catches peaks. It is not a true brickwall limiter.</div>
+      </div>
+    </div>
+
+    <!-- SONG -->
+    <div class="tab-view" id="tab-song">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Song Chain</span>
+          <button class="btn sm btn-play" id="songModeBtn">Song mode: OFF</button>
+        </div>
+        <div class="chain-list" id="chainList"></div>
+        <div class="row" id="chainAdd"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Groove</span></div>
+        <div class="ctrl-grid" id="grooveCtrls"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title" id="sceneToolsTitle">Scene A</span></div>
+        <div class="row" id="copyRow"></div>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn sm" id="clearSceneBtn">Clear scene</button>
+          <button class="btn sm" id="resetBtn">Reset project</button>
+        </div>
+        <div class="hint">Everything here can be undone.</div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Export for your DAW</span></div>
+        <div class="row">
+          <button class="btn on" id="exportMidiBtn" style="flex:1;">Export .MID</button>
+          <button class="btn" id="exportWavBtn" style="flex:1;">Render .WAV</button>
+        </div>
+        <div class="hint" id="exportHint"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scene-strip" id="sceneStrip"></div>
+  <div class="transport">
+    <button class="btn btn-play" id="playBtn">&#9654; PLAY</button>
+    <button class="btn btn-rec" id="recBtn">&#9679; REC</button>
+    <div class="bpm-box">
+      <button id="bpmDown" aria-label="Slower">&minus;</button>
+      <input type="number" id="bpmInput" min="40" max="240" aria-label="BPM" />
+      <button id="bpmUp" aria-label="Faster">+</button>
+      <span>BPM</span>
+    </div>
+  </div>
+  <div class="bottom-nav">
+    <div class="nav-btn active" data-tab="drums">Drums</div>
+    <div class="nav-btn" data-tab="synth">Synth</div>
+    <div class="nav-btn" data-tab="fx">FX</div>
+    <div class="nav-btn" data-tab="song">Song</div>
+  </div>
+</div>
+
+<!-- =====================================================================
+     CORE: pure logic, no DOM and no audio. Unit-tested in tests/core.test.js
+     ===================================================================== -->
+<script id="core">
+var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+var SCALES = {
+  minor:      [0,2,3,5,7,8,10],
+  major:      [0,2,4,5,7,9,11],
+  dorian:     [0,2,3,5,7,9,10],
+  pentatonic: [0,3,5,7,10]
+};
+var SCENE_NAMES = ['A: Intro','B: Verse','C: Chorus','D: Bridge'];
+var STEPS = 16, ROWS = 8;
+// gm = General MIDI drum note, so exported MIDI lands on the right drums in a DAW.
+var DEFAULT_PADS = [
+  { name:'Kick',   type:'kick',  gm:36, vol:0.95, pitch:0, decay:0.35, choke:0 },
+  { name:'Snare',  type:'snare', gm:38, vol:0.85, pitch:0, decay:0.22, choke:0 },
+  { name:'Clap',   type:'clap',  gm:39, vol:0.80, pitch:0, decay:0.20, choke:0 },
+  { name:'CH Hat', type:'chhat', gm:42, vol:0.70, pitch:0, decay:0.08, choke:1 },
+  { name:'OH Hat', type:'ohhat', gm:46, vol:0.65, pitch:0, decay:0.38, choke:1 },
+  { name:'Rim',    type:'rim',   gm:37, vol:0.75, pitch:0, decay:0.10, choke:0 },
+  { name:'Tom',    type:'tom',   gm:45, vol:0.80, pitch:0, decay:0.28, choke:2 },
+  { name:'Perc',   type:'perc',  gm:64, vol:0.70, pitch:0, decay:0.16, choke:2 }
+];
+
+function emptyScene() {
+  function grid() { var g = []; for (var r = 0; r < ROWS; r++) { var row = []; for (var s = 0; s < STEPS; s++) row.push(0); g.push(row); } return g; }
+  return { drums: grid(), synth: grid() };
+}
+
+function defaultState() {
+  var st = {
+    v: 2, bpm: 122, swing: 0, root: 2, scale: 'minor', octave: 3, chord: false,
+    pads: JSON.parse(JSON.stringify(DEFAULT_PADS)),
+    synth: { wave1:'sawtooth', wave2:'triangle', detune:7, cutoff:1800, res:3.2, attack:0.008, decay:0.35,
+             level:0.8, lfoRate:3, lfoDepth:0.45, lfoTarget:'cutoff' },
+    fx: {
+      tracks: [
+        { drive:8,  eqLow:2, eqHigh:1, delaySend:0.05, revSend:0.10, level:0.9 },
+        { drive:15, eqLow:0, eqHigh:1, delaySend:0.30, revSend:0.25, level:0.75 }
+      ],
+      delayFb: 0.38, master: 0.85
+    },
+    scenes: [emptyScene(), emptyScene(), emptyScene(), emptyScene()],
+    chain: [0,1,2,3]
+  };
+  function d(sc, pad, steps) { steps.forEach(function (s) { st.scenes[sc].drums[pad][s] = 1; }); }
+  function n(sc, steps, degs) { steps.forEach(function (s, i) { st.scenes[sc].synth[degs[i]][s] = 1; }); }
+  d(0,0,[0,4,8,12]); d(0,3,[2,6,10,14]); n(0,[0,3,6,10],[0,2,4,0]);
+  d(1,0,[0,4,8,12,14]); d(1,1,[4,12]); d(1,3,[0,2,4,6,8,10,12,14]); n(1,[0,3,6,8,11,14],[0,2,4,5,4,2]);
+  d(2,0,[0,4,8,10,12]); d(2,1,[4,12]); d(2,2,[4,12]); d(2,3,[0,2,4,6,8,10,12,14]); d(2,4,[15]);
+  n(2,[0,2,4,6,8,10,12,14],[0,4,5,7,6,4,2,3]);
+  d(3,0,[0,8]); d(3,5,[6,14]); n(3,[0,4,8,12],[5,4,2,0]);
+  return st;
+}
+
+// Accepts a previously saved state. Returns a complete state, or null if unusable.
+function migrateState(o) {
+  if (!o || o.v !== 2 || !Array.isArray(o.scenes) || o.scenes.length !== 4) return null;
+  function okGrid(g) {
+    return Array.isArray(g) && g.length === ROWS && g.every(function (r) { return Array.isArray(r) && r.length === STEPS; });
+  }
+  for (var i = 0; i < 4; i++) if (!o.scenes[i] || !okGrid(o.scenes[i].drums) || !okGrid(o.scenes[i].synth)) return null;
+  var d = defaultState(), s = {}, k;
+  for (k in d) s[k] = (o[k] !== undefined) ? o[k] : d[k];
+  s.synth = {}; for (k in d.synth) s.synth[k] = (o.synth && o.synth[k] !== undefined) ? o.synth[k] : d.synth[k];
+  var of = o.fx || {};
+  s.fx = { delayFb: of.delayFb !== undefined ? of.delayFb : d.fx.delayFb, master: of.master !== undefined ? of.master : d.fx.master, tracks: [] };
+  for (i = 0; i < 2; i++) {
+    var t = {}, ot = (Array.isArray(of.tracks) && of.tracks[i]) || {};
+    for (k in d.fx.tracks[i]) t[k] = ot[k] !== undefined ? ot[k] : d.fx.tracks[i][k];
+    s.fx.tracks.push(t);
+  }
+  if (!Array.isArray(s.pads) || s.pads.length !== 8) s.pads = d.pads;
+  if (!SCALES[s.scale]) s.scale = 'minor';
+  s.chain = (Array.isArray(s.chain) ? s.chain : []).filter(function (x) { return x === 0 || x === 1 || x === 2 || x === 3; });
+  if (!s.chain.length) s.chain = [0];
+  s.bpm = Math.max(40, Math.min(240, Number(s.bpm) || 122));
+  s.swing = Math.max(0, Math.min(0.5, Number(s.swing) || 0));
+  return s;
+}
+
+// ---- scales and chords ----
+function degreeToMidi(st, deg) {
+  var iv = SCALES[st.scale] || SCALES.minor, n = iv.length;
+  var oct = Math.floor(deg / n), idx = ((deg % n) + n) % n;
+  return 12 * (st.octave + 1) + st.root + 12 * oct + iv[idx];
+}
+function noteName(midi) { return NOTE_NAMES[((midi % 12) + 12) % 12] + (Math.floor(midi / 12) - 1); }
+function scaleLabel(st) { return NOTE_NAMES[st.root] + ' ' + st.scale; }
+// Chord mode stacks thirds inside the scale, so every chord stays in key.
+function chordMidis(st, deg) {
+  var degs = st.chord ? [deg, deg + 2, deg + 4] : [deg];
+  return degs.map(function (d) { return degreeToMidi(st, d); });
+}
+
+// ---- sequencing ----
+function velGain(v) { return v === 2 ? 1.0 : 0.72; }
+function velMidi(v) { return v === 2 ? 127 : 96; }
+// Swing delays every second 16th note by st.swing steps (0 = straight, 0.5 = hard shuffle).
+function swingOffset(st, step) { return (step % 2 === 1) ? st.swing : 0; }
+function stepEvents(st, sceneIdx, step) {
+  var sc = st.scenes[sceneIdx], out = [], r, v;
+  for (r = 0; r < ROWS; r++) { v = sc.drums[r][step]; if (v) out.push({ kind:'drum', row:r, vel:v }); }
+  for (r = 0; r < ROWS; r++) { v = sc.synth[r][step]; if (v) out.push({ kind:'synth', row:r, vel:v }); }
+  return out;
+}
+// One bar per entry in `order`. `pos` is in 16th-note steps from the start, swing included.
+function buildEvents(st, order) {
+  var events = [];
+  order.forEach(function (sceneIdx, bar) {
+    for (var s = 0; s < STEPS; s++) {
+      var pos = bar * STEPS + s + swingOffset(st, s);
+      stepEvents(st, sceneIdx, s).forEach(function (e) { e.pos = pos; events.push(e); });
+    }
+  });
+  return { events: events, totalSteps: order.length * STEPS };
+}
+function exportOrder(st, songMode, cur) { return songMode ? st.chain.slice() : [cur]; }
+
+// Snap a live hit at audio time t to the closest sequencer step.
+// log = recently scheduled steps [{step, time, scene}], oldest first.
+function quantizeHit(t, log, stepDur) {
+  if (!log.length) return null;
+  var best = null;
+  log.forEach(function (e) {
+    var d = Math.abs(e.time - t);
+    if (!best || d < best.d) best = { step: e.step, scene: e.scene, time: e.time, predicted: false, d: d };
+  });
+  var last = log[log.length - 1], pt = last.time + stepDur;
+  if (Math.abs(pt - t) < best.d) best = { step: (last.step + 1) % STEPS, scene: null, time: pt, predicted: true, d: Math.abs(pt - t) };
+  best.future = best.time > t;
+  return best;
+}
+
+// ---- Standard MIDI File (format 1: tempo track, drums on channel 10, synth on channel 1) ----
+function vlq(n) { var out = [n & 0x7f]; while ((n >>= 7) > 0) out.unshift((n & 0x7f) | 0x80); return out; }
+function midiChunk(id, bytes) {
+  var n = bytes.length;
+  return [id.charCodeAt(0), id.charCodeAt(1), id.charCodeAt(2), id.charCodeAt(3),
+          (n >> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255].concat(bytes);
+}
+function buildMidi(st, order) {
+  var TPQ = 480, ST = TPQ / 4;
+  var us = Math.round(60000000 / st.bpm);
+  var tempo = [0,0xFF,0x51,3,(us >> 16) & 255,(us >> 8) & 255,us & 255, 0,0xFF,0x58,4,4,2,24,8, 0,0xFF,0x2F,0];
+  var dr = [], sy = [];
+  buildEvents(st, order).events.forEach(function (e) {
+    var tick = Math.round(e.pos * ST);
+    if (e.kind === 'drum') {
+      var note = st.pads[e.row].gm;
+      dr.push({ tick: tick, on: 1, note: note, vel: velMidi(e.vel) });
+      dr.push({ tick: tick + 30, on: 0, note: note, vel: 0 });
+    } else {
+      chordMidis(st, e.row).forEach(function (m) {
+        sy.push({ tick: tick, on: 1, note: m, vel: velMidi(e.vel) });
+        sy.push({ tick: tick + 54, on: 0, note: m, vel: 0 });
+      });
+    }
+  });
+  function track(evs, ch, name) {
+    evs.sort(function (a, b) { return a.tick - b.tick || a.on - b.on; });
+    var b = [0, 0xFF, 0x03, name.length], last = 0, i;
+    for (i = 0; i < name.length; i++) b.push(name.charCodeAt(i));
+    evs.forEach(function (ev) {
+      b = b.concat(vlq(ev.tick - last), [(ev.on ? 0x90 : 0x80) | ch, ev.note, ev.vel]);
+      last = ev.tick;
+    });
+    return b.concat([0, 0xFF, 0x2F, 0]);
+  }
+  var header = midiChunk('MThd', [0,1, 0,3, (TPQ >> 8) & 255, TPQ & 255]);
+  return new Uint8Array(header.concat(midiChunk('MTrk', tempo), midiChunk('MTrk', track(dr, 9, 'Drums')), midiChunk('MTrk', track(sy, 0, 'Synth'))));
+}
+
+// ---- 16-bit PCM WAV ----
+function encodeWav(channels, sampleRate) {
+  var nCh = channels.length, n = channels[0].length, bytes = n * nCh * 2;
+  var buf = new ArrayBuffer(44 + bytes), v = new DataView(buf);
+  function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+  str(0, 'RIFF'); v.setUint32(4, 36 + bytes, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, nCh, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * nCh * 2, true);
+  v.setUint16(32, nCh * 2, true); v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, bytes, true);
+  var o = 44;
+  for (var i = 0; i < n; i++) for (var c = 0; c < nCh; c++) {
+    var x = Math.max(-1, Math.min(1, channels[c][i]));
+    v.setInt16(o, Math.round(x * 32767), true); o += 2;
+  }
+  return buf;
+}
+
+// ---- small helpers ----
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+// amount 0..100. Blends from clean to tanh saturation, so 0 is exactly linear.
+function makeDriveCurve(amount, n) {
+  n = n || 1024;
+  var m = Math.max(0, Math.min(1, amount / 100)), g = 1 + m * 24, c = new Float32Array(n);
+  for (var i = 0; i < n; i++) {
+    var x = (i * 2) / (n - 1) - 1;
+    c[i] = (1 - m) * x + m * Math.tanh(g * x) / Math.tanh(g);
+  }
+  return c;
+}
+function getPath(obj, path) { return path.split('.').reduce(function (o, k) { return o[k]; }, obj); }
+function setPath(obj, path, val) {
+  var ks = path.split('.'), last = ks.pop();
+  ks.reduce(function (o, k) { return o[k]; }, obj)[last] = val;
+}
+</script>
+
+<!-- =====================================================================
+     AUDIO: one graph builder used for live playback AND offline render,
+     so the exported WAV is made by the same engine you hear.
+     ===================================================================== -->
+<script id="audio">
+function pmImpulse(ctx, dur, decay) {
+  var sr = ctx.sampleRate, len = Math.floor(sr * dur), b = ctx.createBuffer(2, len, sr);
+  for (var ch = 0; ch < 2; ch++) {
+    var rnd = mulberry32(1234 + ch), data = b.getChannelData(ch);
+    for (var i = 0; i < len; i++) data[i] = (rnd() * 2 - 1) * Math.pow(1 - i / len, decay);
+  }
+  return b;
+}
+function pmNoise(ctx) {
+  var len = Math.floor(ctx.sampleRate * 1.5), b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0), rnd = mulberry32(99);
+  for (var i = 0; i < len; i++) d[i] = rnd() * 2 - 1;
+  return b;
+}
+
+// tracks[0] = drums, tracks[1] = synth. Each: level -> drive -> low shelf -> high shelf -> master (+ sends).
+function buildGraph(ctx) {
+  var g = { ctx: ctx, tracks: [], chokes: {}, noise: pmNoise(ctx) };
+  g.master = ctx.createGain();
+  g.out = ctx.createDynamicsCompressor();
+  g.out.threshold.value = -3; g.out.knee.value = 3; g.out.ratio.value = 20; g.out.attack.value = 0.002; g.out.release.value = 0.08;
+  g.delay = ctx.createDelay(2); g.fb = ctx.createGain();
+  g.delay.connect(g.fb); g.fb.connect(g.delay); g.delay.connect(g.master);
+  g.rev = ctx.createConvolver(); g.rev.buffer = pmImpulse(ctx, 1.8, 2.5); g.rev.connect(g.master);
+  for (var i = 0; i < 2; i++) {
+    var t = { input: ctx.createGain(), drive: ctx.createWaveShaper(), lo: ctx.createBiquadFilter(), hi: ctx.createBiquadFilter(),
+              dSend: ctx.createGain(), rSend: ctx.createGain(), driveAmt: null };
+    t.lo.type = 'lowshelf'; t.lo.frequency.value = 180;
+    t.hi.type = 'highshelf'; t.hi.frequency.value = 4200;
+    t.input.connect(t.drive); t.drive.connect(t.lo); t.lo.connect(t.hi);
+    t.hi.connect(g.master);
+    t.hi.connect(t.dSend); t.dSend.connect(g.delay);
+    t.hi.connect(t.rSend); t.rSend.connect(g.rev);
+    g.tracks.push(t);
+  }
+  g.master.connect(g.out); g.out.connect(ctx.destination);
+  return g;
+}
+
+function applyParams(g, st) {
+  st.fx.tracks.forEach(function (p, i) {
+    var t = g.tracks[i];
+    t.input.gain.value = p.level;
+    if (t.driveAmt !== p.drive) { t.drive.curve = makeDriveCurve(p.drive); t.driveAmt = p.drive; }
+    t.lo.gain.value = p.eqLow; t.hi.gain.value = p.eqHigh;
+    t.dSend.gain.value = p.delaySend; t.rSend.gain.value = p.revSend;
+  });
+  g.fb.gain.value = st.fx.delayFb;
+  g.master.gain.value = st.fx.master;
+  g.delay.delayTime.value = Math.min(1.9, (60 / st.bpm) * 0.75);
+}
+
+function playDrum(g, st, samples, padIdx, t, vel) {
+  var ctx = g.ctx, pad = st.pads[padIdx], pm = Math.pow(2, pad.pitch / 12), dec = pad.decay;
+  if (pad.choke > 0 && g.chokes[pad.choke]) g.chokes[pad.choke].gain.setTargetAtTime(0, t, 0.004);
+  var env = ctx.createGain(), chk = ctx.createGain();
+  env.connect(chk); chk.connect(g.tracks[0].input);
+  if (pad.choke > 0) g.chokes[pad.choke] = chk;
+  env.gain.setValueAtTime(pad.vol * velGain(vel), t);
+  env.gain.exponentialRampToValueAtTime(0.001, t + dec);
+  function tone(type, f0, f1) {
+    var o = ctx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0 * pm, t);
+    if (f1) o.frequency.exponentialRampToValueAtTime(f1 * pm, t + dec * 0.6);
+    o.connect(env); o.start(t); o.stop(t + dec + 0.02);
+  }
+  function noise(ftype, f, q) {
+    var s = ctx.createBufferSource(); s.buffer = g.noise;
+    var fl = ctx.createBiquadFilter(); fl.type = ftype; fl.frequency.value = f * pm; if (q) fl.Q.value = q;
+    s.connect(fl); fl.connect(env); s.start(t); s.stop(t + dec + 0.02);
+  }
+  var buf = samples && samples[padIdx];
+  if (buf) {
+    var src = ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = pm;
+    src.connect(env); src.start(t); src.stop(t + dec + 0.05);
+    return;
+  }
+  switch (pad.type) {
+    case 'kick':  tone('sine', 140, 42); break;
+    case 'tom':   tone('sine', 210, 85); break;
+    case 'snare': noise('bandpass', 1800, 0.7); tone('triangle', 190, 150); break;
+    case 'clap':  noise('bandpass', 1300, 1.2); break;
+    case 'chhat': case 'ohhat': noise('highpass', 7000); break;
+    case 'rim':   tone('triangle', 820, 780); noise('bandpass', 3000, 2); break;
+    default:      tone('sine', 540, 420);
+  }
+}
+
+function playSynth(g, st, midi, t, vel, nVoices) {
+  var ctx = g.ctx, s = st.synth, f = 440 * Math.pow(2, (midi - 69) / 12);
+  var peak = 0.3 * s.level * velGain(vel) / Math.sqrt(nVoices || 1), end = t + s.attack + s.decay + 0.05;
+  var o1 = ctx.createOscillator(), o2 = ctx.createOscillator(), flt = ctx.createBiquadFilter(), env = ctx.createGain(), trem = ctx.createGain();
+  o1.type = s.wave1; o2.type = s.wave2;
+  o1.frequency.setValueAtTime(f, t); o2.frequency.setValueAtTime(f, t); o2.detune.setValueAtTime(s.detune, t);
+  flt.type = 'lowpass'; flt.frequency.setValueAtTime(s.cutoff, t); flt.Q.value = s.res;
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.linearRampToValueAtTime(Math.max(0.0002, peak), t + s.attack);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + s.attack + s.decay);
+  o1.connect(flt); o2.connect(flt); flt.connect(env); env.connect(trem); trem.connect(g.tracks[1].input);
+  if (s.lfoDepth > 0 && s.lfoTarget !== 'off') {
+    var lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = s.lfoRate; lfo.connect(lg);
+    if (s.lfoTarget === 'cutoff') { lg.gain.value = s.cutoff * 0.9 * s.lfoDepth; lg.connect(flt.frequency); }
+    else if (s.lfoTarget === 'pitch') { lg.gain.value = 100 * s.lfoDepth; lg.connect(o1.detune); lg.connect(o2.detune); }
+    else { lg.gain.value = 0.5 * s.lfoDepth; lg.connect(trem.gain); }
+    lfo.start(t); lfo.stop(end);
+  }
+  o1.start(t); o2.start(t); o1.stop(end); o2.stop(end);
+}
+
+function playEvent(g, st, samples, e, t) {
+  if (e.kind === 'drum') { playDrum(g, st, samples, e.row, t, e.vel); return; }
+  var ms = chordMidis(st, e.row);
+  ms.forEach(function (m) { playSynth(g, st, m, t, e.vel, ms.length); });
+}
+
+// Renders `order` (one bar per entry) through the same graph as live playback. Resolves to an AudioBuffer.
+function renderOffline(st, order, samples) {
+  var OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  var sr = 48000, sd = 60 / st.bpm / 4, evs = buildEvents(st, order), dur = evs.totalSteps * sd + 2.5;
+  var ctx = new OAC(2, Math.ceil(dur * sr), sr), g = buildGraph(ctx);
+  applyParams(g, st);
+  evs.events.forEach(function (e) { playEvent(g, st, samples, e, 0.02 + e.pos * sd); });
+  return ctx.startRendering();
+}
+</script>
+
+<!-- ===================================================================== UI ===================================================================== -->
+<script id="ui">
+(function () {
+  var KEY = 'loopdraft.v2';
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- state ----
+  var st = defaultState();
+  var cur = 0;            // scene shown in the editors
+  var selPad = 0, fxTrack = 0;
+  var allLanes = false, drumPage = 0, synthPage = 0, rollMode = false;
+  var accentMode = false, assignMode = false, songMode = false, rec = false;
+  var samples = [];       // decoded AudioBuffers per pad (not persisted yet)
+  var undoStack = [], redoStack = [];
+
+  // ---- audio + transport ----
+  var ctx = null, g = null, anL = null, anR = null;
+  var playing = false, timer = null, nextBase = 0, stepIdx = 0, playScene = 0, pending = null, chainPos = 0;
+  var log = [], uiQueue = [], suppress = {};
+  var LOOKAHEAD = 0.12, TICK_MS = 25;
+
+  // ---- persistence + undo ----
+  var saveTimer = null;
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify({ st: st, cur: cur })); status('Saved'); }
+    catch (e) { status('Could not save in this browser'); }
+  }
+  function scheduleSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 250); }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY); if (!raw) return;
+      var o = JSON.parse(raw), m = migrateState(o && o.st);
+      if (m) { st = m; cur = (o.cur >= 0 && o.cur < 4) ? o.cur : 0; }
+    } catch (e) { /* start fresh */ }
+  }
+  function pushUndo() {
+    var snap = JSON.stringify(st);
+    if (undoStack.length && undoStack[undoStack.length - 1] === snap) return;
+    undoStack.push(snap); if (undoStack.length > 80) undoStack.shift();
+    redoStack.length = 0; updateUndoBtns();
+  }
+  function swapState(from, to) {
+    if (!from.length) return;
+    to.push(JSON.stringify(st)); st = JSON.parse(from.pop());
+    changed(); refreshAll(); updateUndoBtns();
+  }
+  function updateUndoBtns() { $('undoBtn').disabled = !undoStack.length; $('redoBtn').disabled = !redoStack.length; }
+  function changed() { if (g) applyParams(g, st); scheduleSave(); }
+
+  var statusTimer = null;
+  function status(msg) {
+    $('statusText').textContent = msg;
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () {
+      $('statusText').textContent = scaleLabel(st) + ' • ' + st.bpm + ' BPM' + (playing ? ' • playing' : '');
+    }, 1600);
+  }
+
+  // ---- audio init ----
+  function initAudio() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC({ latencyHint: 'interactive' });
+    g = buildGraph(ctx); applyParams(g, st);
+    var split = ctx.createChannelSplitter(2);
+    anL = ctx.createAnalyser(); anR = ctx.createAnalyser(); anL.fftSize = anR.fftSize = 256;
+    g.out.connect(split); split.connect(anL, 0); split.connect(anR, 1);
+  }
+
+  // ---- scheduler: notes are placed on the audio clock a little ahead of time ----
+  function stepDur() { return 60 / st.bpm / 4; }
+  function tick() {
+    if (nextBase < ctx.currentTime - 0.05) nextBase = ctx.currentTime + 0.02;   // fell behind (tab was in background)
+    while (nextBase < ctx.currentTime + LOOKAHEAD) {
+      var sd = stepDur(), t = nextBase + swingOffset(st, stepIdx) * sd;
+      stepEvents(st, playScene, stepIdx).forEach(function (e) {
+        var k = playScene + ':' + e.kind + ':' + e.row + ':' + stepIdx;
+        if (suppress[k]) { delete suppress[k]; return; }
+        playEvent(g, st, samples, e, t);
+      });
+      var entry = { step: stepIdx, time: t, scene: playScene, chainPos: chainPos };
+      log.push(entry); if (log.length > 32) log.shift();
+      uiQueue.push(entry);
+      nextBase += sd;
+      stepIdx = (stepIdx + 1) % STEPS;
+      if (stepIdx === 0) {            // bar boundary: scene changes land here
+        if (songMode) { chainPos = (chainPos + 1) % st.chain.length; playScene = st.chain[chainPos]; }
+        else if (pending !== null) { playScene = pending; pending = null; }
+      }
+    }
+  }
+  function upcomingScene() {
+    if (songMode) return st.chain[(chainPos + 1) % st.chain.length];
+    return pending !== null ? pending : playScene;
+  }
+  function start() {
+    initAudio();
+    playing = true; stepIdx = 0; nextBase = ctx.currentTime + 0.08; log = []; uiQueue = []; suppress = {}; pending = null;
+    if (songMode) { chainPos = 0; playScene = st.chain[0]; } else playScene = cur;
+    shownChainPos = 0;
+    timer = setInterval(tick, TICK_MS); tick();
+    updateTransport(); renderScenes(); renderChain();
+  }
+  function stop() {
+    playing = false; clearInterval(timer); pending = null; uiQueue = [];
+    updateTransport(); renderScenes(); setPlayhead(-1); renderChain();
+  }
+  function updateTransport() {
+    $('playBtn').classList.toggle('on', playing);
+    $('playBtn').innerHTML = playing ? '&#9632; STOP' : '&#9654; PLAY';
+    $('recBtn').classList.toggle('on', rec);
+    status(playing ? (rec ? 'Recording - play the pads' : 'Playing') : 'Stopped');
+  }
+
+  // ---- live input ----
+  function recordHit(kind, row) {
+    if (!(playing && rec)) return;
+    var q = quantizeHit(ctx.currentTime, log, stepDur()); if (!q) return;
+    var scene = q.predicted ? (q.step === 0 ? upcomingScene() : log[log.length - 1].scene) : q.scene;
+    var arr = st.scenes[scene][kind === 'drum' ? 'drums' : 'synth'][row];
+    if (arr[q.step]) return;
+    pushUndo();
+    arr[q.step] = accentMode ? 2 : 1;
+    if (q.predicted) suppress[scene + ':' + kind + ':' + row + ':' + q.step] = true;  // already heard live, do not double it
+    if (scene === cur) { renderDrumGrid(); renderRoll(); }
+    scheduleSave();
+  }
+  function padDown(i) {
+    initAudio();
+    if (selPad !== i) { selPad = i; refreshPadSelection(); }
+    playDrum(g, st, samples, i, ctx.currentTime, accentMode ? 2 : 1);
+    flash(document.querySelector('.drum-pad[data-idx="' + i + '"]'));
+    recordHit('drum', i);
+  }
+  function scaleDown(deg, elx) {
+    initAudio();
+    var ms = chordMidis(st, deg);
+    ms.forEach(function (m) { playSynth(g, st, m, ctx.currentTime, accentMode ? 2 : 1, ms.length); });
+    flash(elx);
+    recordHit('synth', deg);
+  }
+  function flash(elx) { if (!elx) return; elx.classList.add('hit'); setTimeout(function () { elx.classList.remove('hit'); }, 110); }
+
+  // ---- generic slider tiles ----
+  var F = {
+    pct: function (v) { return Math.round(v * 100) + '%'; },
+    semi: function (v) { return (v >= 0 ? '+' : '') + v + ' st'; },
+    sec: function (v) { return v.toFixed(2) + ' s'; },
+    ms: function (v) { return Math.round(v * 1000) + ' ms'; },
+    cent: function (v) { return (v >= 0 ? '+' : '') + v + ' ct'; },
+    hz: function (v) { return Math.round(v) + ' Hz'; },
+    hz1: function (v) { return v.toFixed(1) + ' Hz'; },
+    f1: function (v) { return v.toFixed(1); },
+    db: function (v) { return (v >= 0 ? '+' : '') + v + ' dB'; },
+    raw: function (v) { return v + '%'; },
+    swing: function (v) { return v === 0 ? 'Straight' : Math.round(50 + v * 50) + '%'; }
+  };
+  // [path, label, min, max, step, format, lfoTarget?]   $P = selected pad, $T = selected FX track
+  var CTRLS = {
+    padCtrls: [['pads.$P.vol','Volume',0,1,0.01,F.pct], ['pads.$P.pitch','Pitch',-12,12,1,F.semi], ['pads.$P.decay','Decay',0.05,1.2,0.01,F.sec]],
+    synthCtrls: [['synth.cutoff','Filter Cutoff',120,8000,10,F.hz,'cutoff'], ['synth.res','Resonance',0.5,15,0.1,F.f1],
+                 ['synth.detune','OSC 2 Detune',-30,30,1,F.cent,'pitch'], ['synth.level','Amp Level',0,1,0.01,F.pct,'amp'],
+                 ['synth.attack','Attack',0.002,0.3,0.001,F.ms], ['synth.decay','Decay',0.05,1.5,0.01,F.sec],
+                 ['synth.lfoRate','LFO Rate',0.2,12,0.1,F.hz1], ['synth.lfoDepth','LFO Depth',0,1,0.01,F.pct]],
+    fxTrackCtrls: [['fx.tracks.$T.drive','Overdrive',0,100,1,F.raw], ['fx.tracks.$T.level','Track Level',0,1,0.01,F.pct],
+                   ['fx.tracks.$T.eqLow','Low EQ',-12,12,1,F.db], ['fx.tracks.$T.eqHigh','High EQ',-12,12,1,F.db],
+                   ['fx.tracks.$T.delaySend','Delay Send',0,0.8,0.01,F.pct], ['fx.tracks.$T.revSend','Reverb Send',0,0.8,0.01,F.pct]],
+    fxGlobalCtrls: [['fx.delayFb','Delay Feedback',0,0.8,0.01,F.pct], ['fx.master','Master Volume',0,1,0.01,F.pct]],
+    grooveCtrls: [['swing','Swing',0,0.5,0.01,F.swing]]
+  };
+  var MOD_NAMES = { cutoff: 'Cutoff', pitch: 'Pitch', amp: 'Amp' };
+  function resolve(p) { return p.replace('$P', selPad).replace('$T', fxTrack); }
+  function renderCtrls(id) {
+    var box = $(id); box.innerHTML = '';
+    CTRLS[id].forEach(function (d) {
+      var full = resolve(d[0]), v = getPath(st, full), fmt = d[5], mod = d[6];
+      var tile = document.createElement('div'); tile.className = 'ctrl-item';
+      if (mod) {
+        tile.dataset.mod = mod;
+        tile.classList.toggle('mod-ready', assignMode);
+        tile.classList.toggle('mod-linked', st.synth.lfoTarget === mod);
+      }
+      tile.innerHTML = '<div class="ctrl-label"><span>' + d[1] + (mod && st.synth.lfoTarget === mod ? ' <em>&#8592; LFO</em>' : '') +
+        '</span><span class="val">' + fmt(v) + '</span></div>' +
+        '<input type="range" min="' + d[2] + '" max="' + d[3] + '" step="' + d[4] + '" value="' + v + '" aria-label="' + d[1] + '" />';
+      var input = tile.querySelector('input'), val = tile.querySelector('.val');
+      input.addEventListener('pointerdown', pushUndo);
+      input.addEventListener('keydown', pushUndo);
+      input.addEventListener('input', function () {
+        var nv = parseFloat(input.value); setPath(st, full, nv); val.textContent = fmt(nv); changed();
+      });
+      if (mod) tile.addEventListener('click', function (ev) {
+        if (!assignMode) return;
+        ev.preventDefault();
+        pushUndo(); st.synth.lfoTarget = mod; assignMode = false; changed(); refreshSynth();
+      });
+      box.appendChild(tile);
+    });
+  }
+
+  // ---- selects ----
+  var SELECTS = [];
+  function bindSelect(id, path, opts, numeric, after) {
+    var s = $(id);
+    s.innerHTML = opts.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+    s.addEventListener('change', function () {
+      pushUndo(); setPath(st, resolve(path), numeric ? parseFloat(s.value) : s.value); changed(); if (after) after();
+    });
+    SELECTS.push(function () { s.value = String(getPath(st, resolve(path))); });
+  }
+  function refreshSelects() { SELECTS.forEach(function (f) { f(); }); }
+
+  // ---- drums ----
+  function buildPads() {
+    var grid = $('drumPadGrid'); grid.innerHTML = '';
+    st.pads.forEach(function (p, i) {
+      var d = document.createElement('div'); d.className = 'drum-pad'; d.dataset.idx = i;
+      d.innerHTML = '<div class="pad-name"></div><div class="pad-badge"></div>';
+      d.addEventListener('pointerdown', function (ev) { ev.preventDefault(); padDown(i); });
+      grid.appendChild(d);
+    });
+  }
+  function refreshPadSelection() {
+    var pads = document.querySelectorAll('.drum-pad');
+    st.pads.forEach(function (p, i) {
+      pads[i].classList.toggle('selected', i === selPad);
+      pads[i].querySelector('.pad-name').textContent = p.name;
+      pads[i].querySelector('.pad-badge').textContent = samples[i] ? 'Your WAV' : 'Built-in';
+    });
+    $('padTitle').textContent = 'Pad: ' + st.pads[selPad].name;
+    $('loadTarget').textContent = st.pads[selPad].name;
+    renderCtrls('padCtrls'); refreshSelects(); renderLaneChips(); renderDrumGrid();
+  }
+  function renderLaneChips() {
+    var box = $('laneChips'); box.innerHTML = '';
+    st.pads.forEach(function (p, i) {
+      var c = document.createElement('div'); c.className = 'chip' + (i === selPad ? ' active' : '');
+      c.textContent = p.name.replace(' Hat', ''); c.dataset.lane = i; box.appendChild(c);
+    });
+    box.hidden = allLanes;
+  }
+  function cellClass(v, s) { return 'cell' + (s % 4 === 0 ? ' beat' : '') + (v === 2 ? ' on acc' : v ? ' on' : ''); }
+  function renderDrumGrid() {
+    var sc = st.scenes[cur], box = $('drumGrid'), html = '', s, p;
+    $('drumPageBtn').hidden = !allLanes;
+    $('drumPageBtn').textContent = drumPage ? '9-16' : '1-8';
+    $('laneModeBtn').textContent = allLanes ? 'One lane' : 'All lanes';
+    if (!allLanes) {
+      box.className = 'step-grid';
+      for (s = 0; s < STEPS; s++) html += '<div class="' + cellClass(sc.drums[selPad][s], s) + '" data-row="' + selPad + '" data-step="' + s + '">' + (s + 1) + '</div>';
+    } else {
+      box.className = 'lanes';
+      for (p = 0; p < ROWS; p++) {
+        html += '<div class="lane-row"><span class="lane-name' + (p === selPad ? ' active' : '') + '" data-lane="' + p + '">' + st.pads[p].name.replace(' Hat', '') + '</span>';
+        for (s = drumPage * 8; s < drumPage * 8 + 8; s++) html += '<div class="' + cellClass(sc.drums[p][s], s) + '" data-row="' + p + '" data-step="' + s + '"></div>';
+        html += '</div>';
+      }
+    }
+    box.innerHTML = html;
+    setPlayhead(shownStep);
+  }
+  function toggleCell(kind, row, step) {
+    var arr = st.scenes[cur][kind][row], v = arr[step];
+    pushUndo();
+    arr[step] = accentMode ? (v === 2 ? 1 : 2) : (v ? 0 : 1);
+    scheduleSave();
+    return arr[step];
+  }
+
+  // ---- synth ----
+  function renderScalePads() {
+    var grid = $('scalePadGrid'); grid.innerHTML = '';
+    for (var deg = 0; deg < ROWS; deg++) (function (deg) {
+      var p = document.createElement('div'); p.className = 'scale-pad'; p.dataset.deg = deg;
+      p.textContent = noteName(degreeToMidi(st, deg));
+      p.addEventListener('pointerdown', function (ev) { ev.preventDefault(); scaleDown(deg, p); });
+      grid.appendChild(p);
+    })(deg);
+  }
+  function renderRoll() {
+    var sc = st.scenes[cur], html = '';
+    for (var r = ROWS - 1; r >= 0; r--) {
+      html += '<div class="lane-row"><span class="lane-name">' + noteName(degreeToMidi(st, r)) + '</span>';
+      for (var s = synthPage * 8; s < synthPage * 8 + 8; s++) html += '<div class="' + cellClass(sc.synth[r][s], s) + '" data-row="' + r + '" data-step="' + s + '"></div>';
+      html += '</div>';
+    }
+    $('rollGrid').innerHTML = html;
+    $('synthPageBtn').textContent = synthPage ? '9-16' : '1-8';
+    setPlayhead(shownStep);
+  }
+  function refreshSynth() {
+    $('scaleLabel').textContent = scaleLabel(st);
+    $('chordBtn').classList.toggle('on', !!st.chord);
+    $('chordBtn').textContent = st.chord ? 'Chord: ON' : 'Chord';
+    $('assignBtn').classList.toggle('on', assignMode);
+    $('rollBtn').textContent = rollMode ? 'Pads' : 'Piano roll';
+    $('scalePadGrid').hidden = rollMode; $('rollGrid').hidden = !rollMode; $('synthPageBtn').hidden = !rollMode;
+    $('lfoHint').textContent = assignMode ? 'Now tap Cutoff, Detune (pitch) or Amp Level.' :
+      'LFO target: ' + (MOD_NAMES[st.synth.lfoTarget] || 'off') + '. Tap "Assign LFO", then a highlighted control to change it.';
+    renderCtrls('synthCtrls'); renderScalePads(); renderRoll(); refreshSelects();
+  }
+
+  // ---- scenes, chain, song ----
+  function renderScenes() {
+    var box = $('sceneStrip'); box.innerHTML = '';
+    SCENE_NAMES.forEach(function (n, i) {
+      var p = document.createElement('div');
+      p.className = 'scene-pill' + (i === cur ? ' active' : '') + (pending === i ? ' queued' : '');
+      p.textContent = n; p.dataset.scene = i; box.appendChild(p);
+    });
+  }
+  function showScene(i) {
+    cur = i; renderScenes(); renderDrumGrid(); renderRoll(); renderSceneTools(); scheduleSave();
+  }
+  function renderChain() {
+    var list = $('chainList'); list.innerHTML = '';
+    st.chain.forEach(function (sc, pos) {
+      var chip = document.createElement('div');
+      chip.className = 'chain-chip' + (playing && songMode && pos === shownChainPos ? ' playing' : '');
+      chip.innerHTML = '<span>' + SCENE_NAMES[sc] + '</span><button data-rm="' + pos + '" aria-label="Remove">&times;</button>';
+      list.appendChild(chip);
+    });
+    $('songModeBtn').classList.toggle('on', songMode);
+    $('songModeBtn').textContent = 'Song mode: ' + (songMode ? 'ON' : 'OFF');
+    $('exportHint').textContent = songMode
+      ? 'Song mode is on: exports the whole chain (' + st.chain.length + ' bars).'
+      : 'Exports scene ' + SCENE_NAMES[cur].charAt(0) + ' (MIDI: 1 bar, WAV: 2 bars). Turn on Song mode to export the chain.';
+  }
+  function renderSceneTools() {
+    var L = SCENE_NAMES[cur].charAt(0);
+    $('sceneToolsTitle').textContent = 'Scene ' + L;
+    var row = $('copyRow'); row.innerHTML = '<span class="hint" style="margin:0;">Copy ' + L + ' to</span>';
+    SCENE_NAMES.forEach(function (n, i) {
+      if (i === cur) return;
+      var b = document.createElement('button'); b.className = 'btn sm'; b.textContent = n.charAt(0); b.dataset.copy = i; row.appendChild(b);
+    });
+    renderChain();
+  }
+
+  // ---- playhead + meters, driven by the audio clock ----
+  var shownStep = -1, shownChainPos = 0;
+  function setPlayhead(step) {
+    shownStep = step;
+    var old = document.querySelectorAll('.cell.playhead');
+    for (var i = 0; i < old.length; i++) old[i].classList.remove('playhead');
+    if (step < 0) return;
+    var now = document.querySelectorAll('.cell[data-step="' + step + '"]');
+    for (i = 0; i < now.length; i++) now[i].classList.add('playhead');
+  }
+  function peakOf(an, buf) {
+    an.getByteTimeDomainData(buf); var pk = 0;
+    for (var i = 0; i < buf.length; i++) { var v = Math.abs(buf[i] - 128) / 128; if (v > pk) pk = v; }
+    return Math.min(100, Math.round(pk * 110));
+  }
+  var meterBuf = new Uint8Array(256);
+  function frame() {
+    if (ctx) {
+      while (playing && uiQueue.length && uiQueue[0].time <= ctx.currentTime) {
+        var e = uiQueue.shift();
+        if (e.scene !== cur) showScene(e.scene);
+        if (songMode && e.chainPos !== shownChainPos) { shownChainPos = e.chainPos; renderChain(); }
+        setPlayhead(e.step);
+      }
+      if (anL) { $('meterL').style.width = peakOf(anL, meterBuf) + '%'; $('meterR').style.width = peakOf(anR, meterBuf) + '%'; }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---- export ----
+  function download(blob, name) {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  function exportName(ext) { return 'loopdraft_' + (songMode ? 'song' : 'scene_' + SCENE_NAMES[cur].charAt(0)) + ext; }
+  function exportMidi() {
+    download(new Blob([buildMidi(st, exportOrder(st, songMode, cur))], { type: 'audio/midi' }), exportName('.mid'));
+    status('MIDI exported');
+  }
+  function exportWav() {
+    var btn = $('exportWavBtn'); btn.disabled = true; btn.textContent = 'Rendering...';
+    var order = songMode ? st.chain.slice() : [cur, cur];
+    return renderOffline(st, order, samples).then(function (buf) {
+      var wav = encodeWav([buf.getChannelData(0), buf.getChannelData(1)], buf.sampleRate);
+      download(new Blob([wav], { type: 'audio/wav' }), exportName('.wav'));
+      status('WAV rendered');
+    }).catch(function () { status('Render failed in this browser'); })
+      .then(function () { btn.disabled = false; btn.textContent = 'Render .WAV'; });
+  }
+
+  // ---- refresh everything (after load, undo, reset) ----
+  function refreshAll() {
+    $('bpmInput').value = st.bpm;
+    refreshPadSelection(); refreshSynth();
+    renderCtrls('fxTrackCtrls'); renderCtrls('fxGlobalCtrls'); renderCtrls('grooveCtrls');
+    var fb = document.querySelectorAll('.fxTrackBtn');
+    for (var i = 0; i < fb.length; i++) fb[i].classList.toggle('on', +fb[i].dataset.track === fxTrack);
+    var ab = document.querySelectorAll('.accentBtn');
+    for (i = 0; i < ab.length; i++) ab[i].classList.toggle('on', accentMode);
+    renderScenes(); renderSceneTools();
+  }
+
+  // ---- wiring ----
+  function setBpm(v) {
+    v = Math.max(40, Math.min(240, Math.round(v) || 122));
+    if (v !== st.bpm) { pushUndo(); st.bpm = v; changed(); }
+    $('bpmInput').value = st.bpm; status(st.bpm + ' BPM');
+  }
+  function init() {
+    load();
+    buildPads();
+    bindSelect('padChoke', 'pads.$P.choke', [[0,'None'],[1,'Group 1 (hats)'],[2,'Group 2 (perc)']], true);
+    var waves = [['sawtooth','Sawtooth'],['square','Square'],['triangle','Triangle'],['sine','Sine']];
+    bindSelect('wave1Sel', 'synth.wave1', waves, false);
+    bindSelect('wave2Sel', 'synth.wave2', waves, false);
+    bindSelect('rootSel', 'root', NOTE_NAMES.map(function (n, i) { return [i, n]; }), true, refreshSynth);
+    bindSelect('scaleSel', 'scale', Object.keys(SCALES).map(function (k) { return [k, k.charAt(0).toUpperCase() + k.slice(1)]; }), false, refreshSynth);
+    bindSelect('octSel', 'octave', [[2,'Low'],[3,'Mid'],[4,'High']], true, refreshSynth);
+    var add = $('chainAdd');
+    SCENE_NAMES.forEach(function (n, i) { var b = document.createElement('button'); b.className = 'btn sm'; b.textContent = '+ ' + n.charAt(0); b.dataset.add = i; add.appendChild(b); });
+    refreshAll(); updateUndoBtns(); status('Ready - press PLAY');
+
+    $('playBtn').addEventListener('click', function () { if (playing) stop(); else start(); });
+    $('recBtn').addEventListener('click', function () { rec = !rec; updateTransport(); if (rec && !playing) status('REC armed - press PLAY'); });
+    $('undoBtn').addEventListener('click', function () { swapState(undoStack, redoStack); });
+    $('redoBtn').addEventListener('click', function () { swapState(redoStack, undoStack); });
+    $('bpmInput').addEventListener('change', function () { setBpm(parseFloat($('bpmInput').value)); });
+    $('bpmDown').addEventListener('click', function () { setBpm(st.bpm - 1); });
+    $('bpmUp').addEventListener('click', function () { setBpm(st.bpm + 1); });
+
+    $('sceneStrip').addEventListener('click', function (ev) {
+      var p = ev.target.closest('[data-scene]'); if (!p) return;
+      var i = +p.dataset.scene;
+      if (!playing) { showScene(i); return; }
+      if (songMode) { status('Song mode drives the scenes'); return; }
+      pending = (i === playScene) ? null : i; renderScenes();     // switches on the next bar
+    });
+    var navs = document.querySelectorAll('.nav-btn');
+    for (var i = 0; i < navs.length; i++) navs[i].addEventListener('click', function () {
+      for (var j = 0; j < navs.length; j++) navs[j].classList.remove('active');
+      var views = document.querySelectorAll('.tab-view');
+      for (j = 0; j < views.length; j++) views[j].classList.remove('active');
+      this.classList.add('active'); $('tab-' + this.dataset.tab).classList.add('active');
+    });
+
+    // drums
+    $('drumGrid').addEventListener('click', function (ev) {
+      var lane = ev.target.closest('[data-lane]');
+      if (lane) { selPad = +lane.dataset.lane; refreshPadSelection(); return; }
+      var c = ev.target.closest('.cell'); if (!c) return;
+      toggleCell('drums', +c.dataset.row, +c.dataset.step); renderDrumGrid();
+    });
+    $('laneChips').addEventListener('click', function (ev) {
+      var c = ev.target.closest('[data-lane]'); if (!c) return;
+      selPad = +c.dataset.lane; refreshPadSelection();           // silent select
+    });
+    $('laneModeBtn').addEventListener('click', function () { allLanes = !allLanes; renderLaneChips(); renderDrumGrid(); });
+    $('drumPageBtn').addEventListener('click', function () { drumPage = 1 - drumPage; renderDrumGrid(); });
+    var ab = document.querySelectorAll('.accentBtn');
+    for (i = 0; i < ab.length; i++) ab[i].addEventListener('click', function () {
+      accentMode = !accentMode;
+      for (var j = 0; j < ab.length; j++) ab[j].classList.toggle('on', accentMode);
+      status(accentMode ? 'Accent: taps set loud steps' : 'Accent off');
+    });
+    $('wavLoader').addEventListener('change', function (ev) {
+      var file = ev.target.files[0]; if (!file) return;
+      initAudio();
+      var pad = selPad;
+      file.arrayBuffer().then(function (arr) { return ctx.decodeAudioData(arr); }).then(function (buf) {
+        samples[pad] = buf; refreshPadSelection(); playDrum(g, st, samples, pad, ctx.currentTime, 1);
+        status('Sample loaded (not kept after reload yet)');
+      }).catch(function () { status('Could not read that file'); });
+      ev.target.value = '';
+    });
+
+    // synth
+    $('rollGrid').addEventListener('click', function (ev) {
+      var c = ev.target.closest('.cell'); if (!c) return;
+      var row = +c.dataset.row, v = toggleCell('synth', row, +c.dataset.step);
+      renderRoll();
+      if (v) { initAudio(); var ms = chordMidis(st, row); ms.forEach(function (m) { playSynth(g, st, m, ctx.currentTime, v, ms.length); }); }
+    });
+    $('chordBtn').addEventListener('click', function () { pushUndo(); st.chord = !st.chord; changed(); refreshSynth(); });
+    $('rollBtn').addEventListener('click', function () { rollMode = !rollMode; refreshSynth(); });
+    $('synthPageBtn').addEventListener('click', function () { synthPage = 1 - synthPage; renderRoll(); });
+    $('assignBtn').addEventListener('click', function () { assignMode = !assignMode; refreshSynth(); });
+
+    // fx
+    var fb = document.querySelectorAll('.fxTrackBtn');
+    for (i = 0; i < fb.length; i++) fb[i].addEventListener('click', function () {
+      fxTrack = +this.dataset.track;
+      for (var j = 0; j < fb.length; j++) fb[j].classList.toggle('on', +fb[j].dataset.track === fxTrack);
+      renderCtrls('fxTrackCtrls');
+    });
+
+    // song
+    $('songModeBtn').addEventListener('click', function () {
+      songMode = !songMode; if (playing) { stop(); start(); }
+      renderChain();
+    });
+    $('chainAdd').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-add]'); if (!b) return;
+      pushUndo(); st.chain.push(+b.dataset.add); changed(); renderChain();
+    });
+    $('chainList').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-rm]'); if (!b || st.chain.length < 2) return;
+      pushUndo(); st.chain.splice(+b.dataset.rm, 1); if (chainPos >= st.chain.length) chainPos = 0; changed(); renderChain();
+    });
+    $('copyRow').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-copy]'); if (!b) return;
+      var to = +b.dataset.copy;
+      pushUndo(); st.scenes[to] = JSON.parse(JSON.stringify(st.scenes[cur])); changed();
+      status('Copied ' + SCENE_NAMES[cur].charAt(0) + ' to ' + SCENE_NAMES[to].charAt(0));
+    });
+    $('clearSceneBtn').addEventListener('click', function () {
+      pushUndo(); st.scenes[cur] = emptyScene(); changed(); renderDrumGrid(); renderRoll(); status('Scene cleared - Undo brings it back');
+    });
+    $('resetBtn').addEventListener('click', function () {
+      pushUndo(); st = defaultState(); changed(); refreshAll(); status('Project reset - Undo brings it back');
+    });
+    $('exportMidiBtn').addEventListener('click', exportMidi);
+    $('exportWavBtn').addEventListener('click', exportWav);
+
+    document.addEventListener('keydown', function (ev) {
+      if (ev.code === 'Space' && !/INPUT|SELECT|BUTTON/.test(ev.target.tagName)) { ev.preventDefault(); if (playing) stop(); else start(); }
+    });
+    window.addEventListener('pagehide', save);
+    requestAnimationFrame(frame);
+  }
+
+  // test hook: lets automated tests look at the state without changing behaviour
+  window.__pm = { state: function () { return st; }, scene: function () { return cur; }, playing: function () { return playing; } };
+  init();
+})();
+</script>
+</body>
+</html>

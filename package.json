@@ -1,0 +1,10 @@
+{
+  "name": "loop-draft",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Loop Draft (working title PocketMod): a mobile groovebox for sketching loops and handing them to a DAW",
+  "scripts": {
+    "test": "node --test tests/core.test.js",
+    "test:browser": "node tests/browser.test.js"
+  }
+}
