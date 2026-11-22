@@ -11,7 +11,7 @@ option(LD_SANITIZE "Build with address and undefined-behaviour sanitizers" OFF)
 option(LD_BUILD_TESTS "Build desktop tests and tools" ON)
 
 add_library(loopdraft STATIC
-  src/project.cpp src/voices.cpp src/engine.cpp src/export.cpp src/wav.cpp)
+  src/project.cpp src/voices.cpp src/engine.cpp src/export.cpp src/wav.cpp src/session.cpp)
 target_include_directories(loopdraft PUBLIC include PRIVATE third_party)
 target_compile_options(loopdraft PRIVATE -Wall -Wextra)
 set_source_files_properties(src/wav.cpp PROPERTIES COMPILE_OPTIONS "-w")   # third-party header

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "loopdraft/engine.h"
+#include "loopdraft/session.h"
 
 // ---- count heap allocations, to prove the audio path makes none ----
 static std::atomic<bool> g_count{false};
@@ -400,6 +401,56 @@ static void testTwoThreads() {
   CHECK(done.load()); CHECK(seen > 0);
 }
 
+static void testSessionUndoSaveLoad() {
+  Session s(48000);
+  const float bpm0 = s.getParam(P_BPM, 0);
+  CHECK(!s.canUndo());
+  CHECK_EQ(s.toggleDrumStep(0, 5, 3, false), 1); CHECK_EQ(s.toggleDrumStep(0, 5, 3, true), 2);
+  CHECK_EQ(s.toggleDrumStep(0, 5, 3, true), 1);  CHECK_EQ(s.toggleDrumStep(0, 5, 3, false), 0);
+  CHECK(s.toggleNote(1, 0, 7, 3, false)); CHECK(!s.toggleNote(1, 0, 7, 3, false));
+  s.beginEdit(); s.setParam(P_BPM, 0, 140); s.setParam(P_BPM, 0, 999);       // one gesture, clamped
+  CHECK(s.getParam(P_BPM, 0) == 240.0f);
+  s.beginEdit(); s.setParam(P_SYN_CHORD, 1, 1); s.setParam(P_SCALE, 0, 1); s.setParam(P_SYN_OCTAVE, 0, -2); s.setParam(P_FX_MUTE, 2, 1);
+  CHECK(s.project().synths[1].chord && s.project().scale == Scale::Major && s.project().synths[0].octaveShift == -2 && s.project().fx[2].mute);
+  CHECK(s.getParam(P_SYN_CHORD, 1) == 1.0f && s.getParam(P_SYN_OCTAVE, 0) == -2.0f);
+  s.setSceneBars(2, 8); s.setSceneBars(3, 99); CHECK_EQ(s.project().scenes[2].bars, 8); CHECK_EQ(s.project().scenes[3].bars, 8);
+  s.copyScene(1, 3); CHECK_EQ(s.project().scenes[3].drums.steps[1][4], 1);
+  s.chainAdd(2); CHECK_EQ(s.project().chainLen, 5); s.chainRemove(0); CHECK_EQ(s.project().chain[0], 1);
+  s.clearScene(1); CHECK_EQ(s.project().scenes[1].synth[1].count, 0);
+
+  const std::string path = "/tmp/ld_test_project.ldp";
+  CHECK(s.dirty()); CHECK(s.save(path.c_str())); CHECK(!s.dirty());
+  Session t(44100);
+  CHECK(t.load(path.c_str()));
+  CHECK(t.getParam(P_BPM, 0) == 240.0f); CHECK_EQ(t.project().scenes[2].bars, 8); CHECK_EQ(t.project().chainLen, 4);
+  CHECK(!t.load("/tmp/ld_no_such_project.ldp"));
+  { FILE* f = std::fopen(path.c_str(), "wb"); std::fputs("not a project file", f); std::fclose(f); }
+  CHECK(!t.load(path.c_str())); CHECK(t.getParam(P_BPM, 0) == 240.0f);       // a broken file leaves the project alone
+  std::remove(path.c_str());
+
+  int undos = 0; while (s.undo()) ++undos;
+  CHECK(undos >= 12); CHECK(s.getParam(P_BPM, 0) == bpm0); CHECK(!s.project().synths[1].chord);
+  CHECK_EQ(s.project().scenes[0].drums.steps[5][3], 0); CHECK_EQ(s.project().chainLen, 4);
+  CHECK(s.redo()); CHECK_EQ(s.project().scenes[0].drums.steps[5][3], 1);
+  s.resetToDemo(); CHECK(!s.canRedo());
+}
+
+static void testSessionRecordsLiveHits() {
+  Session s(48000);
+  s.beginEdit(); s.setParam(P_BPM, 0, 120); s.clearScene(0);
+  Engine& e = s.engine();
+  e.setRecording(true); e.play(0);
+  std::vector<float> l;
+  renderN(e, l, 13000, 100);
+  e.triggerPad(2); e.noteOn(1, 4);
+  renderN(e, l, 200, 100);
+  CHECK(s.poll());
+  CHECK_EQ(s.project().scenes[0].drums.steps[2][2], 1);
+  CHECK_EQ(s.project().scenes[0].synth[1].count, 1); CHECK_EQ(s.project().scenes[0].synth[1].notes[0].step, 2);
+  CHECK(!s.poll());
+  CHECK(s.undo()); CHECK_EQ(s.project().scenes[0].drums.steps[2][2], 0);     // one undo removes the recorded take
+}
+
 static void testPatternEditing() {
   SynthPattern pat;
   CHECK(addNote(pat, 4, 2, 3, 2)); CHECK(addNote(pat, 4, 2, 1, 1)); CHECK_EQ(pat.count, 1); CHECK_EQ(pat.notes[0].len, 1);
@@ -427,6 +478,8 @@ int main() {
     {"MIDI export", testMidiExport},
     {"WAV round trip and stems", testWavRoundTripAndStems},
     {"UI thread and audio thread run together", testTwoThreads},
+    {"session: undo, parameters, save and load", testSessionUndoSaveLoad},
+    {"session: live hits are written into the project", testSessionRecordsLiveHits},
     {"pattern editing helpers", testPatternEditing},
   };
   int failedTests = 0;
