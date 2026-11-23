@@ -385,7 +385,6 @@ void Session::switchDrumMode(bool toJungle) {
   } else if (toJungle) {                           // first visit: slice the break, keep the pattern as a start
     sliceAcrossPads(proj_);
     proj_.fx[0].drive = proj_.jungleCrunch;
-    proj_.bpm = 168.0f;
   } else {                                         // an old project that was saved inside the slicer
     const Project def = makeDemoProject();
     for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
@@ -405,6 +404,8 @@ void Session::setDrumEngine(int engine) {
     proj_.breakId = 0;
     sliceAcrossPads(proj_);
   }
+  // The built-in break is made for 168 BPM. An own break keeps the tempo it was made at.
+  if (toJungle && !wasJungle && !proj_.altValid && proj_.breakId == 0) proj_.bpm = 168.0f;
   switchDrumMode(toJungle);                        // the own break (breakId) stays with the project
   proj_.drumEngine = de;
   commit();

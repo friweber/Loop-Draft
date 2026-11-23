@@ -949,7 +949,9 @@ static void testSlicerSurvivesLeaving() {
   const DrumPattern hits = a.project().scenes[0].drums;
   const float kickVol = 0.41f;
   a.setParam(P_PAD_VOL, 0, kickVol);
+  const float tempo = a.project().bpm;
   CHECK(a.resampleSceneToJungle(0));
+  CHECK(a.project().bpm == tempo);                 // a bounced loop stays at its own tempo
   const uint32_t id = a.project().breakId;
   CHECK(id != 0);
   // the bounced scene plays the slices in order
