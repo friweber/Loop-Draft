@@ -363,7 +363,7 @@ static void testWavRoundTripAndStems() {
   CHECK(loadWav("/tmp/ld_no_such_file.wav") == nullptr);
   std::remove(path.c_str());
   std::vector<float> prev;
-  for (int t = 0; t < kNumTracks; ++t) {         // one stem per track, each with sound, each different
+  for (int t = 0; t < 1 + p.activeSynths; ++t) { // one stem per active track, each with sound, each different
     o.soloTrack = t;
     const RenderResult stem = renderOffline(p, o);
     CHECK(peakOf(stem.l) > 0.02f); CHECK(!same(stem.l, master.l)); CHECK(!same(stem.l, prev));
@@ -451,6 +451,13 @@ static void testSessionRecordsLiveHits() {
   CHECK(s.undo()); CHECK_EQ(s.project().scenes[0].drums.steps[2][2], 0);     // one undo removes the recorded take
 }
 
+static std::vector<float> padHit2(Session& s, int pad) {
+  std::vector<float> l;
+  s.engine().triggerPad(pad, 2);
+  renderN(s.engine(), l, 9600);
+  return l;
+}
+
 // A save file written by build 5 (file version 1) must still open, with every setting intact.
 static void testOldSaveFilesAreConverted() {
   Session s(48000);
@@ -472,13 +479,90 @@ static void testOldSaveFilesAreConverted() {
   CHECK_EQ(p.chainLen, 6); CHECK_EQ(p.chain[4], 2); CHECK_EQ(p.chain[5], 0);
   // things that did not exist yet start at their defaults
   CHECK(p.synths[0].mode == SynthMode::Subtractive); CHECK(p.pads[3].sliceEnd == 1.0f); CHECK(!p.pads[3].reverse);
-  CHECK_EQ(p.kit, 0); CHECK(p.chainAuto[0].lanes[0].param == AutoParam::Off);
+  CHECK_EQ(p.kit, 0); CHECK_EQ(p.chainAuto[0].tracks[2][0].paramId, -1); CHECK_EQ(p.activeSynths, 2);
   CHECK(s.dirty());                                // so it is written back in the current format
   const std::string path = "/tmp/ld_test_converted.ldp";
   CHECK(s.save(path.c_str()));
   Session t(48000);
   CHECK(t.load(path.c_str())); CHECK(!t.dirty()); CHECK(t.project().bpm == 97.0f); CHECK_EQ(t.project().chainLen, 6);
   std::remove(path.c_str());
+}
+
+// A project saved by v0.3 (build 7, file version 4) must open with its jungle kit, FM sound and automation.
+static void testV03SaveFilesAreConverted() {
+  Session s(48000);
+  CHECK(s.load(LD_FIXTURES "/project_v4.ldp"));
+  const Project& p = s.project();
+  CHECK(p.bpm == 151.0f); CHECK(p.swing == 0.125f); CHECK_EQ(p.root, 4); CHECK(p.scale == Scale::Pentatonic);
+  CHECK_EQ(p.kit, 1); CHECK_EQ(p.pads[2].choke, 1);
+  CHECK(std::fabs(p.pads[5].sliceStart - 0.3f) < 1e-6f); CHECK(std::fabs(p.pads[5].sliceEnd - 0.7f) < 1e-6f); CHECK(p.pads[5].reverse);
+  CHECK(std::fabs(p.pads[3].sliceStart - 0.375f) < 1e-6f); CHECK(!p.pads[3].reverse);
+  CHECK(p.synths[1].mode == SynthMode::Fm); CHECK(p.synths[1].fmRatio == 3.5f); CHECK(p.synths[1].fmIndex == 6.0f);
+  CHECK(p.synths[0].cutoff == 777.0f); CHECK(std::fabs(p.fx[1].delaySend - 0.44f) < 1e-6f); CHECK(p.fx[2].mute);
+  CHECK_EQ(p.scenes[1].bars, 3); CHECK_EQ(p.scenes[1].drums.steps[2][40], 5);
+  bool lead = false, bass = false;
+  for (int i = 0; i < p.scenes[2].synth[1].count; ++i) { const Note& n = p.scenes[2].synth[1].notes[i]; if (n.step == 9 && n.degree == 12 && n.len == 3 && n.vel == 2) lead = true; }
+  for (int i = 0; i < p.scenes[0].synth[0].count; ++i) { const Note& n = p.scenes[0].synth[0].notes[i]; if (n.step == 3 && n.degree == -7 && n.len == 2) bass = true; }
+  CHECK(lead); CHECK(bass);
+  CHECK_EQ(p.chainLen, 5); CHECK_EQ(p.chain[4], 3);
+  // the four fixed automation targets of v0.3 arrive as free-choice lanes on the right tracks
+  CHECK_EQ(p.chainAuto[0].tracks[1][0].paramId, P_SYN_CUTOFF); CHECK(p.chainAuto[0].tracks[1][0].startVal == 200.0f && p.chainAuto[0].tracks[1][0].endVal == 5000.0f);
+  CHECK_EQ(p.chainAuto[0].tracks[0][0].paramId, P_FX_DRIVE);   CHECK(std::fabs(p.chainAuto[0].tracks[0][0].endVal - 0.9f) < 1e-6f);
+  CHECK_EQ(p.chainAuto[2].tracks[2][0].paramId, P_SYN_CUTOFF); CHECK(p.chainAuto[2].tracks[2][0].startVal == 4000.0f);
+  CHECK_EQ(p.chainAuto[4].tracks[2][0].paramId, P_FX_DELAY);   CHECK(std::fabs(p.chainAuto[4].tracks[2][0].endVal - 0.6f) < 1e-6f);
+  CHECK_EQ(p.chainAuto[1].tracks[2][0].paramId, -1);
+  // new things start at their neutral defaults
+  CHECK_EQ(p.activeSynths, 2); CHECK(p.synths[0].feelWarmth == 0.5f); CHECK(p.fx[0].slots[0].type == FxType::Off);
+  CHECK(s.dirty());
+  CHECK(peakOf(padHit2(s, 1)) > 0.02f);            // and the jungle kit is really loaded
+}
+
+static std::vector<uint8_t> fileBytes(const std::string& path) {
+  std::vector<uint8_t> out;
+  if (FILE* f = std::fopen(path.c_str(), "rb")) { int c; while ((c = std::fgetc(f)) != EOF) out.push_back(uint8_t(c)); std::fclose(f); }
+  return out;
+}
+
+// The current file format: everything survives, and files from a future version with extra or changed
+// fields still open.
+static void testProjectFileFormat() {
+  Session a(48000);
+  a.setActiveSynths(4); a.loadJungleKit(); a.applyInstrument(2, int(InstrumentPreset::SuperPad));
+  a.setFxSlot(3, 1, int(FxType::Phaser), 0.33f, 0.77f, true); a.setFxSlot(0, 0, int(FxType::Bitcrush), 0.9f, 0.1f, false);
+  a.setChainAuto(3, 4, 2, P_SYN_FM_INDEX, 0.5f, 7.0f); a.setChainAuto(0, 0, 1, P_FX_REVERB, 0.0f, 0.5f);
+  a.toggleNote(3, 3, 127, 35, true, 8); a.toggleNote(1, 2, 0, -21, false, 1);
+  a.setSceneBars(3, 8); a.setDrumStep(3, 7, 127, 4); a.chainAdd(2);
+  a.beginEdit(); a.setParam(P_SYN_WARMTH, 3, 0.91f); a.setParam(P_PAD_REVERSE, 6, 1); a.setParam(P_FX_EQ_LOW, 4, -7); a.setParam(P_SWING, 0, 0.33f);
+  const std::string f1 = "/tmp/ld_test_fmt1.ldp", f2 = "/tmp/ld_test_fmt2.ldp";
+  CHECK(a.save(f1.c_str()));
+  Session b(44100);
+  CHECK(b.load(f1.c_str())); CHECK(!b.dirty());
+  const Project& p = b.project();
+  CHECK_EQ(p.activeSynths, 4); CHECK_EQ(p.kit, 1); CHECK(p.synths[2].instrument == InstrumentPreset::SuperPad);
+  CHECK(p.fx[3].slots[1].type == FxType::Phaser && p.fx[3].slots[1].bypass && std::fabs(p.fx[3].slots[1].rate - 0.77f) < 1e-6f);
+  CHECK_EQ(p.chainAuto[3].tracks[4][2].paramId, P_SYN_FM_INDEX); CHECK(p.chainAuto[3].tracks[4][2].endVal == 7.0f);
+  CHECK_EQ(p.scenes[3].synth[3].count, 1); CHECK_EQ(p.scenes[3].synth[3].notes[0].degree, 35); CHECK_EQ(p.scenes[3].synth[3].notes[0].len, 8);
+  CHECK_EQ(p.scenes[1].synth[2].notes[0].degree, -21); CHECK_EQ(p.scenes[3].drums.steps[7][127], 4);
+  CHECK(std::fabs(p.synths[3].feelWarmth - 0.91f) < 1e-6f); CHECK(p.pads[6].reverse); CHECK(p.fx[4].eqLow == -7.0f);
+  CHECK(b.save(f2.c_str()));
+  const std::vector<uint8_t> x = fileBytes(f1), y = fileBytes(f2);
+  CHECK(x.size() > 4000 && x == y);                // saving what was loaded gives the same file, byte for byte
+
+  // a "newer" file: an unknown record, and a known field stored with a different size
+  std::vector<uint8_t> z = x;
+  const auto rec = [&](const std::string& key, const std::vector<uint8_t>& data) {
+    z.push_back(uint8_t(key.size())); z.push_back(0); z.insert(z.end(), key.begin(), key.end());
+    const uint32_t n = uint32_t(data.size()); for (int i = 0; i < 4; ++i) z.push_back(uint8_t(n >> (8 * i)));
+    z.insert(z.end(), data.begin(), data.end());
+  };
+  rec("future.thing", {1, 2, 3, 4, 5, 6, 7}); rec("bpm", {0, 0, 0, 0, 0, 0, 0, 0}); rec("pad0.vol", {0, 0, 0, 0});
+  { FILE* f = std::fopen(f2.c_str(), "wb"); std::fwrite(z.data(), 1, z.size(), f); std::fclose(f); }
+  Session c(48000);
+  CHECK(c.load(f2.c_str())); CHECK(c.project().bpm == 168.0f); CHECK(c.project().pads[0].vol == 0.0f); CHECK_EQ(c.project().activeSynths, 4);
+  // a file cut off in the middle is refused and changes nothing
+  { FILE* f = std::fopen(f2.c_str(), "wb"); std::fwrite(x.data(), 1, x.size() / 2, f); std::fclose(f); }
+  CHECK(!c.load(f2.c_str())); CHECK_EQ(c.project().activeSynths, 4);
+  std::remove(f1.c_str()); std::remove(f2.c_str());
 }
 
 static std::vector<float> padHit(Session& s, int pad) {
@@ -545,9 +629,13 @@ static void testAutomationTiming() {
   Project p = makeDemoProject();
   p.bpm = 120;                                     // one bar = 96000 frames
   p.chain[0] = 1; p.chain[1] = 1; p.chainLen = 2;
-  p.chainAuto[0].lanes[0] = AutoLane{AutoParam::LeadCutoff, 300.0f, 6000.0f};
-  p.chainAuto[0].lanes[1] = AutoLane{AutoParam::DrumsDrive, 0.0f, 0.9f};
-  p.chainAuto[1].lanes[0] = AutoLane{AutoParam::LeadDelay, 0.6f, 0.0f};
+  p.chainAuto[0].tracks[2][0] = AutoLane{int16_t(P_SYN_CUTOFF), 300.0f, 6000.0f};
+  p.chainAuto[0].tracks[2][1] = AutoLane{int16_t(P_SYN_RES), 1.0f, 9.0f};
+  p.chainAuto[0].tracks[0][0] = AutoLane{int16_t(P_FX_DRIVE), 0.0f, 0.9f};
+  p.chainAuto[1].tracks[2][0] = AutoLane{int16_t(P_FX_DELAY), 0.6f, 0.0f};
+  p.chainAuto[1].tracks[1][2] = AutoLane{int16_t(P_SYN_WARMTH), 0.1f, 0.9f};
+  p.fx[2].slots[0] = FxSlot{FxType::Chorus, 0.7f, 0.5f, false}; p.fx[2].slots[1] = FxSlot{FxType::Phaser, 0.6f, 0.4f, false};
+  p.fx[0].slots[0] = FxSlot{FxType::Bitcrush, 0.5f, 0.5f, false}; p.fx[1].slots[2] = FxSlot{FxType::Compressor, 0.6f, 0.0f, false};
   const long total = 96000 * 2 + 5000;
   const std::vector<float> a = renderAutomated(p, [](int) { return 64; }, total);
   const std::vector<float> b = renderAutomated(p, [](int) { return 441; }, total);
@@ -559,7 +647,7 @@ static void testAutomationTiming() {
 
   // A slot's automation must hold until the slot really ends. Slot 1 holds the lead filter at 200 Hz, slot 2 has none.
   Project q = makeDemoProject(); q.bpm = 120; q.chain[0] = 1; q.chain[1] = 1; q.chainLen = 2;
-  q.chainAuto[0].lanes[0] = AutoLane{AutoParam::LeadCutoff, 200.0f, 200.0f};
+  q.chainAuto[0].tracks[2][0] = AutoLane{int16_t(P_SYN_CUTOFF), 200.0f, 200.0f};
   Project fixed = q; fixed.chainAuto[0] = ChainAuto{}; fixed.synths[1].cutoff = 200.0f; fixed.synths[1].lfoDepth = q.synths[1].lfoDepth;
   const std::vector<float> withAuto = renderAutomated(q, [](int) { return 256; }, 96000 + 20000);
   const std::vector<float> staticCut = renderAutomated(fixed, [](int) { return 256; }, 96000 + 20000);
@@ -633,10 +721,13 @@ static void testFmAndOctaveIsolation() {
 
 static void testSongAutomation() {
   ld::Session ses(48000.0);
-  ses.setChainAuto(0, 0, int(ld::AutoParam::LeadCutoff), 180.0f, 6500.0f);
-  ses.setChainAuto(0, 1, int(ld::AutoParam::DrumsDrive), 0.0f, 0.9f);
-  CHECK(ses.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
-  // Render song mode with automation and verify it differs from unautomated render
+  // Free-choice automation: up to 3 lanes per track!
+  ses.setChainAuto(0, 2, 0, ld::P_SYN_CUTOFF, 180.0f, 6500.0f);
+  ses.setChainAuto(0, 2, 1, ld::P_SYN_RES, 1.0f, 10.0f);
+  ses.setChainAuto(0, 2, 2, ld::P_FX_DELAY, 0.0f, 0.7f);
+  ses.setChainAuto(0, 0, 0, ld::P_FX_DRIVE, 0.0f, 0.9f);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[2][0].paramId, ld::P_SYN_CUTOFF);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[2][2].paramId, ld::P_FX_DELAY);
   ld::RenderOptions o; o.songMode = true; o.tailSeconds = 0.2;
   const ld::RenderResult withAuto = ld::renderOffline(ses.project(), o);
   ld::Project plain = ses.project();
@@ -644,14 +735,37 @@ static void testSongAutomation() {
   const ld::RenderResult noAuto = ld::renderOffline(plain, o);
   CHECK(finite(withAuto.l) && peakOf(withAuto.l) > 0.1f && peakOf(withAuto.l) <= 0.9441f);
   CHECK(!same(withAuto.l, noAuto.l));
-  // Save & load v3 preserves automation lanes
+  // Save & load v4 preserves free-choice automation
   const char* pth = "/tmp/ld_auto_test.ldp";
   CHECK(ses.save(pth));
   ld::Session ses2(48000.0);
   CHECK(ses2.load(pth));
-  CHECK(ses2.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
-  CHECK(std::fabs(ses2.project().chainAuto[0].lanes[0].endVal - 6500.0f) < 0.1f);
+  CHECK_EQ(ses2.project().chainAuto[0].tracks[2][0].paramId, ld::P_SYN_CUTOFF);
+  CHECK(std::fabs(ses2.project().chainAuto[0].tracks[2][0].endVal - 6500.0f) < 0.1f);
   std::remove(pth);
+}
+
+static void testFourTracksInstrumentsAndFxChain() {
+  ld::Session ses(48000.0);
+  ses.setActiveSynths(4);
+  CHECK_EQ(ses.project().activeSynths, 4);
+  // Apply Instrument presets + Feel shaping on tracks 3 & 4
+  ses.applyInstrument(2, int(ld::InstrumentPreset::ReeseDnB));
+  ses.applyInstrument(3, int(ld::InstrumentPreset::FmBell));
+  ses.setParam(ld::P_SYN_WARMTH, 2, 0.85f);
+  ses.setParam(ld::P_SYN_MOTION, 2, 0.80f);
+  CHECK(ses.project().synths[2].instrument == ld::InstrumentPreset::ReeseDnB);
+  CHECK(ses.project().synths[3].mode == ld::SynthMode::Fm);
+  // Build a 3-slot Vital-style FX chain on Lead track (track 2)
+  ses.setFxSlot(2, 0, int(ld::FxType::Chorus), 0.7f, 0.5f, false);
+  ses.setFxSlot(2, 1, int(ld::FxType::Phaser), 0.6f, 0.4f, false);
+  ses.setFxSlot(2, 2, int(ld::FxType::Compressor), 0.5f, 0.0f, false);
+  // Add notes on Synth 3 and Synth 4 and render
+  CHECK(ses.toggleNote(0, 2, 0, 0, false));
+  CHECK(ses.toggleNote(0, 3, 4, 4, false));
+  ld::RenderOptions o; o.songMode = false; o.scene = 0; o.tailSeconds = 0.2;
+  const ld::RenderResult r = ld::renderOffline(ses.project(), o);
+  CHECK(finite(r.l) && finite(r.r) && peakOf(r.l) > 0.1f && peakOf(r.l) <= 0.9441f);
 }
 
 static void testJungleSlicerAndRatchets() {
@@ -704,6 +818,8 @@ int main() {
     {"session: undo, parameters, save and load", testSessionUndoSaveLoad},
     {"session: live hits are written into the project", testSessionRecordsLiveHits},
     {"save files from build 5 are converted", testOldSaveFilesAreConverted},
+    {"save files from v0.3 (build 7) are converted", testV03SaveFilesAreConverted},
+    {"project file format: complete and tolerant of newer files", testProjectFileFormat},
     {"drum kit follows the project (restart, undo, export)", testKitFollowsTheProject},
     {"song automation: block-size independent, exact slot ends", testAutomationTiming},
     {"rolls: in MIDI export, no drift", testRollsInMidiAndOverLongRuns},
@@ -711,6 +827,7 @@ int main() {
     {"FM synth engine and per-sequence octave isolation", testFmAndOctaveIsolation},
     {"song-menu sequence automation", testSongAutomation},
     {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
+    {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

@@ -6,25 +6,43 @@
 
 namespace ld {
 
-constexpr int kNumScenes   = 4;
-constexpr int kNumPads     = 8;
-constexpr int kStepsPerBar = 16;
-constexpr int kMaxBars     = 8;
-constexpr int kMaxSteps    = kStepsPerBar * kMaxBars;   // 128
-constexpr int kNumSynths   = 2;                         // 0 = bass, 1 = lead/chords
-constexpr int kNumTracks   = 1 + kNumSynths;            // track 0 = drums
-constexpr int kMaxNotes    = 256;                       // per synth pattern
-constexpr int kMaxChain    = 64;
-constexpr int kDrumVoices  = 16;
-constexpr int kSynthVoices = 8;
+constexpr int kNumScenes    = 4;
+constexpr int kNumPads      = 8;
+constexpr int kStepsPerBar  = 16;
+constexpr int kMaxBars      = 8;
+constexpr int kMaxSteps     = kStepsPerBar * kMaxBars;  // 128
+constexpr int kNumSynths    = 4;                        // 0=Bass, 1=Lead, 2=Synth 3, 3=Synth 4
+constexpr int kNumTracks    = 1 + kNumSynths;           // track 0 = Drums, 1..4 = Synths
+constexpr int kMaxNotes     = 256;                      // per synth pattern
+constexpr int kMaxChain     = 64;
+constexpr int kFxSlots      = 3;                        // modular per-track FX chain slots
+constexpr int kAutoPerTrack = 3;                        // up to 3 free-choice automations per track per chain slot
+constexpr int kDrumVoices   = 16;
+constexpr int kSynthVoices  = 8;
 
 enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
 enum class SynthMode : uint8_t { Subtractive, Fm };
-enum class AutoParam : uint8_t { Off, BassCutoff, LeadCutoff, DrumsDrive, LeadDelay };
+enum class FxType    : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class InstrumentPreset : uint8_t {
+  Custom, AnalogBass, Acid303, ReeseDnB, FmBell, FmEPiano, SuperPad, PluckLead
+};
 
-// Step and note velocity: 0 = off, 1 = normal, 2 = accent.
+// Parameter ids for getParam / setParam. `index` is the pad, synth or track number where it applies.
+enum Param : int {
+  P_BPM = 0, P_SWING, P_MASTER, P_DELAY_FB, P_ROOT, P_SCALE, P_OCTAVE,
+  P_KIT,            // 7, read-only: use load*Kit()
+  P_ACTIVE_SYNTHS,  // 8, read-only: use setActiveSynths()
+  P_PAD_VOL = 10, P_PAD_PAN, P_PAD_PITCH, P_PAD_DECAY, P_PAD_CHOKE, P_PAD_SLICE_START, P_PAD_SLICE_END, P_PAD_REVERSE,
+  P_SYN_WAVE1 = 20, P_SYN_WAVE2, P_SYN_DETUNE, P_SYN_CUTOFF, P_SYN_RES, P_SYN_ATTACK, P_SYN_DECAY, P_SYN_SUSTAIN,
+  P_SYN_RELEASE, P_SYN_LEVEL, P_SYN_LFO_RATE, P_SYN_LFO_DEPTH, P_SYN_LFO_TARGET, P_SYN_OCTAVE, P_SYN_CHORD,
+  P_SYN_MODE, P_SYN_FM_RATIO, P_SYN_FM_INDEX, P_SYN_FM_DECAY, P_SYN_FM_FB,
+  P_SYN_INSTRUMENT = 50, P_SYN_WARMTH = 51, P_SYN_MOTION = 52,
+  P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
+};
+
+// Step and note velocity: 0 = off, 1 = normal, 2 = accent, 3..5 = 2x/3x/4x ratchet roll.
 struct PadParams {
   float vol = 0.9f;
   float pan = 0.0f;        // -1 left .. +1 right
@@ -40,40 +58,51 @@ struct PadParams {
 struct SynthParams {
   Wave wave1 = Wave::Saw;
   Wave wave2 = Wave::Triangle;
-  float detune = 7.0f;     // osc 2, cents
-  float cutoff = 1800.0f;  // Hz
-  float res = 3.2f;        // filter Q, 0.5 .. 15
-  float attack = 0.008f;   // seconds
-  float decay = 0.35f;     // seconds
-  float sustain = 0.0f;    // 0 .. 1
-  float release = 0.08f;   // seconds
+  float detune = 7.0f;       // osc 2, cents
+  float cutoff = 1800.0f;    // Hz
+  float res = 3.2f;          // filter Q, 0.5 .. 15
+  float attack = 0.008f;     // seconds
+  float decay = 0.35f;       // seconds
+  float sustain = 0.0f;      // 0 .. 1
+  float release = 0.08f;     // seconds
   float level = 0.8f;
-  float lfoRate = 3.0f;    // Hz
-  float lfoDepth = 0.45f;  // 0 .. 1
+  float lfoRate = 3.0f;      // Hz
+  float lfoDepth = 0.45f;    // 0 .. 1
   LfoTarget lfoTarget = LfoTarget::Cutoff;
-  int8_t octaveShift = 0;  // relative to Project::octave
-  bool chord = false;      // play each note as a triad built from the scale
+  int8_t octaveShift = 0;    // relative to Project::octave
+  bool chord = false;        // play each note as a triad built from the scale
   SynthMode mode = SynthMode::Subtractive;
-  float fmRatio = 2.0f;    // modulator/carrier ratio (0.5 .. 8.0)
-  float fmIndex = 2.5f;    // modulation depth (0 .. 8)
-  float fmModDecay = 0.25f;// modulator envelope decay (seconds)
-  float fmFeedback = 0.15f;// modulator self-feedback (0 .. 1)
+  float fmRatio = 2.0f;      // modulator/carrier ratio (0.5 .. 8.0)
+  float fmIndex = 2.5f;      // modulation depth (0 .. 8)
+  float fmModDecay = 0.25f;  // modulator envelope decay (seconds)
+  float fmFeedback = 0.15f;  // modulator self-feedback (0 .. 1)
+  InstrumentPreset instrument = InstrumentPreset::Custom;
+  float feelWarmth = 0.5f;   // 0 (bright/crisp) .. 1 (warm/saturated)
+  float feelMotion = 0.3f;   // 0 (static) .. 1 (animated detune/LFO)
+};
+
+struct FxSlot {
+  FxType type = FxType::Off;
+  float amount = 0.5f;       // 0 .. 1 (drive/depth/mix/cutoff)
+  float rate = 0.4f;         // 0 .. 1 (LFO rate / crush rate / resonance)
+  bool bypass = false;
 };
 
 struct TrackFx {
   float level = 0.8f;
-  float drive = 0.1f;      // 0 .. 1
-  float eqLow = 0.0f;      // dB at 180 Hz shelf
-  float eqHigh = 0.0f;     // dB at 4.2 kHz shelf
+  float drive = 0.1f;        // 0 .. 1 (built-in preamp drive)
+  float eqLow = 0.0f;        // dB at 180 Hz shelf
+  float eqHigh = 0.0f;       // dB at 4.2 kHz shelf
   float delaySend = 0.0f;
   float revSend = 0.0f;
   bool mute = false;
+  FxSlot slots[kFxSlots];    // user-configurable Vital-style FX chain
 };
 
 struct Note {
-  uint16_t step = 0;       // start, in 16th notes from the start of the scene
-  int8_t degree = 0;       // scale degree, 0 = root; may go below 0 or above one octave
-  uint8_t len = 1;         // length in 16th notes
+  uint16_t step = 0;         // start, in 16th notes from the start of the scene
+  int8_t degree = 0;         // scale degree, 0 = root; may go below 0 or above one octave
+  uint8_t len = 1;           // length in 16th notes
   uint8_t vel = 1;
 };
 
@@ -81,27 +110,28 @@ struct DrumPattern  { uint8_t steps[kNumPads][kMaxSteps] = {}; };
 struct SynthPattern { Note notes[kMaxNotes] = {}; int32_t count = 0; };
 
 struct AutoLane {
-  AutoParam param = AutoParam::Off;
+  int16_t paramId = -1;      // -1 = off, otherwise any Param id (e.g. P_SYN_CUTOFF, P_FX_DRIVE, P_SYN_FM_INDEX)
   float startVal = 0.0f;
   float endVal = 0.0f;
 };
 
 struct ChainAuto {
-  AutoLane lanes[2];
+  AutoLane tracks[kNumTracks][kAutoPerTrack];
 };
 
 struct Scene {
-  int32_t bars = 1;        // 1 .. kMaxBars, shared by all tracks of the scene
+  int32_t bars = 1;          // 1 .. kMaxBars, shared by all tracks of the scene
   DrumPattern drums;
   SynthPattern synth[kNumSynths];
 };
 
 struct Project {
   float bpm = 122.0f;
-  float swing = 0.0f;      // 0 = straight .. 0.5 = hard shuffle (delay of every 2nd 16th, in steps)
-  int32_t root = 2;        // 0 = C .. 11 = B
+  float swing = 0.0f;        // 0 = straight .. 0.5 = hard shuffle
+  int32_t root = 2;          // 0 = C .. 11 = B
   Scale scale = Scale::Minor;
   int32_t octave = 3;
+  int32_t activeSynths = 2;  // 2 by default (Bass + Lead); user can expand up to 4
   PadParams pads[kNumPads];
   SynthParams synths[kNumSynths];
   TrackFx fx[kNumTracks];
@@ -114,10 +144,8 @@ struct Project {
   uint8_t kit = 0;         // which built-in drum kit the pads play: 0 = standard, 1 = jungle break slices
 };
 
-// Fills in the factory groove (the same one as prototype v0.2, plus a bass line).
 Project makeDemoProject();
 
-// Helpers for editing patterns from the UI thread.
 bool addNote(SynthPattern& p, int step, int degree, int len = 1, int vel = 1);
 bool removeNote(SynthPattern& p, int step, int degree);
 inline int sceneSteps(const Scene& s) {
@@ -130,10 +158,8 @@ inline int   velMidi(int v) { return v >= 2 ? 127 : 96; }
 inline int   rollHits(int v) { return v >= 3 && v <= 5 ? v - 1 : 1; }
 inline float swingOffset(float swing, int step) { return (step & 1) ? swing : 0.0f; }
 
-// Scales and chords.
 int scaleSize(Scale s);
 int degreeToMidi(const Project& p, int octaveShift, int degree);
-// Writes 1 note, or 3 when chord is on. Returns the count.
 int chordMidis(const Project& p, const SynthParams& sp, int degree, int out[3]);
 
 }  // namespace ld

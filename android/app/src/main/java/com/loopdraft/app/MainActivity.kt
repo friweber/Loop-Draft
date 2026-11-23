@@ -18,6 +18,7 @@ class MainActivity : ComponentActivity() {
     private val state = AppState()
     private var selfTest = false
     private var jungleShot = false
+    private var fourShot = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +32,7 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra("roll", false) == true) state.rollMode = true
         selfTest = intent?.getBooleanExtra("selftest", false) == true
         jungleShot = intent?.getBooleanExtra("jungle", false) == true
+        fourShot = intent?.getBooleanExtra("four", false) == true
         state.onExport = { kind -> export(kind) }
 
         setContent { App(state) }
@@ -45,6 +47,12 @@ class MainActivity : ComponentActivity() {
         state.rev++
         Log.i("LoopDraft", "boot audio=${state.audioOk} bpm=${Native.getParam(P.BPM, 0).toInt()} ${state.info}")
         if (jungleShot) { jungleShot = false; Native.loadJungleKit(); Native.writeBreakPattern(0); state.rev++ }
+        if (fourShot) {                             // test option: four synth tracks with instruments and an FX chain
+            fourShot = false
+            Native.setActiveSynths(4); Native.applyInstrument(2, 6); Native.applyInstrument(3, 4)
+            Native.setFxSlot(2, 0, 3, 0.7f, 0.5f, false); Native.setFxSlot(2, 1, 5, 0.6f, 0.3f, false); Native.setFxSlot(2, 2, 6, 0.5f, 0f, false)
+            state.fxTrack = 2; state.synth = 2; state.rev++
+        }
         if (selfTest) runSelfTest()
     }
 
@@ -55,6 +63,8 @@ class MainActivity : ComponentActivity() {
         val scene = state.scene
         val base = "loopdraft_" + (if (song) "song" else "scene_" + SCENE_NAMES[scene])
         val dir = File(cacheDir, "exports").apply { mkdirs() }
+        val tracks = 1 + Native.getParam(P.ACTIVE_SYNTHS, 0).toInt().coerceIn(2, 4)
+        val stemNames = listOf("drums", "bass", "lead", "synth3", "synth4").take(tracks)
         Native.snapshotForExport()
         state.exporting = true
         state.exportMsg = if (kind == 0) "" else "Rendering..."
@@ -64,7 +74,7 @@ class MainActivity : ComponentActivity() {
             when (kind) {
                 0 -> { val f = File(dir, "$base.mid"); ok = Native.exportMidi(f.absolutePath, song, scene); files.add(f) }
                 1 -> { val f = File(dir, "$base.wav"); ok = Native.exportWav(f.absolutePath, song, scene, -1); files.add(f) }
-                else -> listOf("drums", "bass", "lead").forEachIndexed { i, n ->
+                else -> stemNames.forEachIndexed { i, n ->
                     val f = File(dir, "${base}_$n.wav")
                     ok = Native.exportWav(f.absolutePath, song, scene, i) && ok
                     files.add(f)

@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -50,7 +51,9 @@ val PAD_NAMES = listOf("Kick", "Snare", "Clap", "CH", "OH", "Rim", "Tom", "Perc"
 val PAD_SHORT = listOf("Kik", "Snr", "Clp", "CH", "OH", "Rim", "Tom", "Prc")
 val SCENE_NAMES = listOf("A", "B", "C", "D")
 val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
-val TRACK_NAMES = listOf("Drums", "Bass", "Lead")
+val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
+val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
+val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -77,9 +80,12 @@ class AppState {
     var audioOk by mutableStateOf(false)
     var info by mutableStateOf("")
     // Independent per-synth input octave (-2 .. +2). Shifts only played/edited notes without altering other scenes.
-    val inputOctave = mutableStateListOf(0, 0)
+    val inputOctave = mutableStateListOf(0, 0, 0, 0)
+    var selAutoTrack by mutableIntStateOf(2)
+    var selAutoLane by mutableIntStateOf(0)
     var drumRollMode by mutableIntStateOf(0) // 0=normal, 3=2x, 4=3x, 5=4x ratchet roll
     var selChainPos by mutableIntStateOf(0)
+    var wide by mutableStateOf(false)      // landscape: side rail and two panes
     var exporting by mutableStateOf(false)
     var exportMsg by mutableStateOf("")
     /** Set by the activity: 0 = MIDI, 1 = WAV mix, 2 = WAV stems. */
@@ -109,7 +115,7 @@ class AppState {
         return if (sc == 3) 5 else 7 // Pentatonic = 5 notes/oct, others = 7
     }
 
-    fun degreeOffset(synthIdx: Int): Int = inputOctave[synthIdx.coerceIn(0, 1)] * scaleLen()
+    fun degreeOffset(synthIdx: Int): Int = inputOctave[synthIdx.coerceIn(0, 3)] * scaleLen()
 }
 
 @Composable
@@ -129,21 +135,12 @@ fun App(s: AppState) {
             onBackground = HwSilk
         )
     ) {
-        Row(Modifier.fillMaxSize().background(HwChassis).safeDrawingPadding()) {
-            WalnutRail()
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                TopBar(s)
-                SceneStrip(s)
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(horizontal = 6.dp)
-                        .border(2.dp, sceneColor(s.scene), RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+        BoxWithConstraints(Modifier.fillMaxSize().background(HwChassis).safeDrawingPadding()) {
+            val wide = maxWidth > maxHeight && maxWidth >= 520.dp
+            if (s.wide != wide) s.wide = wide
+            val frame = if (wide) RoundedCornerShape(8.dp) else RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+            val content: @Composable (Modifier) -> Unit = { m ->
+                Box(m.border(2.dp, sceneColor(s.scene), frame).padding(horizontal = 8.dp, vertical = 8.dp)) {
                     when (s.tab) {
                         0 -> DrumsTab(s)
                         1 -> SynthTab(s)
@@ -151,9 +148,42 @@ fun App(s: AppState) {
                         else -> SongTab(s)
                     }
                 }
-                BottomNav(s)
             }
-            WalnutRail()
+            Row(Modifier.fillMaxSize()) {
+                WalnutRail()
+                if (wide) {
+                    // Landscape: everything that is not the instrument itself moves into a rail on the left.
+                    SideRail(s)
+                    content(Modifier.weight(1f).fillMaxHeight().padding(top = 6.dp, bottom = 6.dp, end = 6.dp))
+                } else {
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        TopBar(s)
+                        SceneStrip(s)
+                        content(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp))
+                        BottomNav(s)
+                    }
+                }
+                WalnutRail()
+            }
+        }
+    }
+}
+
+/**
+ * A screen is two groups of panels. Portrait stacks them in one scrolling column.
+ * Landscape puts them side by side, each scrolling on its own.
+ */
+@Composable
+fun Panes(s: AppState, left: @Composable () -> Unit, right: @Composable () -> Unit) {
+    if (s.wide) {
+        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) { left() }
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) { right() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            left()
+            right()
         }
     }
 }
@@ -230,38 +260,88 @@ fun TopBar(s: AppState) {
 }
 
 @Composable
+fun SceneTab(s: AppState, i: Int, modifier: Modifier, shape: RoundedCornerShape) {
+    val bars = remember(s.rev, i) { Native.sceneBars(i) }
+    val active = s.scene == i
+    val queued = s.queued == i
+    val col = if (queued) HwYellow else sceneColor(i)
+    Box(
+        modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(if (active || queued) col else Color(0xFF2B2E35))
+            .border(1.dp, if (active || queued) col else HwLine, shape)
+            .clickable {
+                if (!(s.playing && s.songMode)) {       // in song mode the chain decides
+                    Native.queueScene(i)                  // while playing: switches on the next bar line
+                    if (!s.playing) { s.scene = i; s.drumBar = 0; s.rollPage = 0 }
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        SilkLabel(
+            text = if (bars > 1) "${SCENE_NAMES[i]}  $bars bars" else SCENE_NAMES[i],
+            color = if (active || queued) HwPadInk else HwSilk,
+            size = 12
+        )
+    }
+}
+
+@Composable
 fun SceneStrip(s: AppState) {
     val tab = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp)
     Row(
         Modifier.fillMaxWidth().background(HwChassis).padding(start = 6.dp, end = 6.dp, top = 5.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        SCENE_NAMES.forEachIndexed { i, name ->
-            val bars = remember(s.rev, i) { Native.sceneBars(i) }
-            val active = s.scene == i
-            val queued = s.queued == i
-            val col = if (queued) HwYellow else sceneColor(i)
-            Box(
-                Modifier
-                    .weight(1f)
-                    .height(36.dp)
-                    .clip(tab)
-                    .background(if (active || queued) col else Color(0xFF2B2E35))
-                    .border(1.dp, if (active || queued) col else HwLine, tab)
-                    .clickable {
-                        if (!(s.playing && s.songMode)) {       // in song mode the chain decides
-                            Native.queueScene(i)                  // while playing: switches on the next bar line
-                            if (!s.playing) { s.scene = i; s.drumBar = 0; s.rollPage = 0 }
-                        }
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                SilkLabel(
-                    text = if (bars > 1) "$name  $bars bars" else name,
-                    color = if (active || queued) HwPadInk else HwSilk,
-                    size = 12
-                )
+        for (i in 0 until 4) SceneTab(s, i, Modifier.weight(1f), tab)
+    }
+}
+
+val NAV_TABS = listOf("DRUMS" to HwOrange, "SYNTH" to HwCyan, "FX" to HwYellow, "SONG" to HwGreen)
+
+@Composable
+fun NavButton(s: AppState, i: Int, modifier: Modifier) {
+    HwButton(text = NAV_TABS[i].first, modifier = modifier, on = s.tab == i, ledColor = NAV_TABS[i].second, showLed = true, height = 40.dp, pad = 4.dp) { s.tab = i }
+}
+
+/** Landscape: logo, transport, tempo, undo, scenes and screen buttons in one narrow column. */
+@Composable
+fun SideRail(s: AppState) {
+    val canUndo = remember(s.rev) { Native.canUndo() }
+    val canRedo = remember(s.rev) { Native.canRedo() }
+    val bpm = remember(s.rev) { Native.getParam(P.BPM, 0).roundToInt() }
+    fun setBpm(v: Int) { Native.beginEdit(); Native.setParam(P.BPM, 0, v.coerceIn(40, 240).toFloat()); s.rev++ }
+    val gap = Arrangement.spacedBy(5.dp)
+    val all = RoundedCornerShape(9.dp)
+    Column(
+        Modifier.width(210.dp).fillMaxHeight().background(HwFaceplate).verticalScroll(rememberScrollState()).padding(6.dp),
+        verticalArrangement = gap
+    ) {
+        Logo()
+        SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = HwMuted, size = 8, bold = false)
+        Row(horizontalArrangement = gap) {
+            HwButton(if (s.playing) "STOP" else "PLAY", Modifier.weight(1f), on = s.playing, ledColor = HwGreen, showLed = true, height = 38.dp) {
+                if (s.playing) Native.stopTransport() else Native.play(s.scene)
             }
+            HwButton("REC", on = s.rec, ledColor = HwRed, showLed = true, height = 38.dp, pad = 8.dp) {
+                s.rec = !s.rec; Native.setRecording(s.rec)
+            }
+        }
+        Row(horizontalArrangement = gap, verticalAlignment = Alignment.CenterVertically) {
+            HwButton("-", Modifier.weight(1f), height = 36.dp) { setBpm(bpm - 1) }
+            SevenSegmentBpm(bpm)
+            HwButton("+", Modifier.weight(1f), height = 36.dp) { setBpm(bpm + 1) }
+        }
+        Row(horizontalArrangement = gap) {
+            HwButton("UNDO", Modifier.weight(1f), enabled = canUndo, height = 30.dp, pad = 4.dp) { if (Native.undo()) s.rev++ }
+            HwButton("REDO", Modifier.weight(1f), enabled = canRedo, height = 30.dp, pad = 4.dp) { if (Native.redo()) s.rev++ }
+        }
+        for (row in 0 until 2) Row(horizontalArrangement = gap) {
+            for (col in 0 until 2) SceneTab(s, row * 2 + col, Modifier.weight(1f), all)
+        }
+        for (row in 0 until 2) Row(horizontalArrangement = gap) {
+            for (col in 0 until 2) NavButton(s, row * 2 + col, Modifier.weight(1f))
         }
     }
 }
@@ -276,18 +356,7 @@ fun BottomNav(s: AppState) {
             .padding(horizontal = 6.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        val tabs = listOf("DRUMS" to HwOrange, "SYNTH" to HwCyan, "FX" to HwYellow, "SONG" to HwGreen)
-        tabs.forEachIndexed { i, (name, col) ->
-            HwButton(
-                text = name,
-                modifier = Modifier.weight(1f),
-                on = s.tab == i,
-                ledColor = col,
-                showLed = true,
-                height = 40.dp,
-                pad = 4.dp
-            ) { s.tab = i }
-        }
+        for (i in 0 until 4) NavButton(s, i, Modifier.weight(1f))
     }
 }
 
@@ -359,6 +428,8 @@ fun DrumsTab(s: AppState) {
     val accent = if (jungle) HwCyan else HwOrange
     val padLabel: (Int) -> String = { i -> if (jungle) "Slice ${i + 1}" else PAD_NAMES[i] }
 
+    val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
+    Panes(s, left = {
     ModulePanel(
         title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "Drums: ${padLabel(s.selPad)}",
         accent = accent,
@@ -402,7 +473,7 @@ fun DrumsTab(s: AppState) {
         }
     }
 
-    val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
+    }, right = {
     ModulePanel(
         title = "Steps: ${padLabel(s.selPad)}",
         accent = HwOrange,
@@ -441,6 +512,7 @@ fun DrumsTab(s: AppState) {
             }
         }
     }
+    })
 }
 
 // ------------------------------------------------------------------ SYNTH TAB (SUB + FM + PER-SYNTH ISOLATED OCTAVE)
@@ -491,14 +563,40 @@ fun SynthTab(s: AppState) {
     val degOffset = remember(s.rev, s.synth, s.inputOctave[s.synth]) { s.degreeOffset(s.synth) }
     val octVal = s.inputOctave[s.synth]
 
+    val activeSynths = remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
+    if (s.synth >= activeSynths) s.synth = activeSynths - 1
+    val curInst = remember(s.rev, s.synth) { Native.getParam(P.SYN_INSTRUMENT, s.synth).roundToInt() }
+
+    Panes(s, left = {
     ModulePanel(
         title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${if (isFm) "FM" else "SUB"})",
         accent = HwCyan,
         trailing = {
-            HwButton("BASS", on = s.synth == 0, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.synth = 0 }
-            HwButton("LEAD", on = s.synth == 1, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.synth = 1 }
+            for (idx in 0 until activeSynths) {
+                HwButton(TRACK_NAMES[idx + 1].uppercase(), on = s.synth == idx, ledColor = HwCyan, height = 26.dp, pad = 5.dp) { s.synth = idx }
+            }
+            if (activeSynths < 4) {
+                HwButton("+TRK", ledColor = HwGreen, height = 26.dp, pad = 5.dp) {
+                    Native.setActiveSynths(activeSynths + 1)
+                    s.synth = activeSynths
+                    s.rev++
+                }
+            }
         }
     ) {
+        // Instrument Engine & Feel Shaping
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("INST", size = 9, modifier = Modifier.width(34.dp))
+            INSTRUMENT_NAMES.forEachIndexed { idx, nm ->
+                HwButton(nm, on = curInst == idx, ledColor = HwYellow, height = 26.dp, pad = 6.dp) {
+                    Native.applyInstrument(s.synth, idx); s.rev++
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            RotaryKnob(s, "Warmth", P.SYN_WARMTH, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { pct(it) }
+            RotaryKnob(s, "Motion", P.SYN_MOTION, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+        }
         OledScopeDisplay(
             isFm = isFm,
             wave = wave1,
@@ -549,6 +647,7 @@ fun SynthTab(s: AppState) {
         Choice(s, "LFO ->", P.SYN_LFO_TARGET, s.synth, listOf("Off", "Cutoff", "Pitch", "Amp"), accent = HwCyan)
     }
 
+    }, right = {
     // Playable Scale Pads / Mini Piano Roll with ISOLATED per-synth octave switching
     ModulePanel(
         title = "Play ${TRACK_NAMES[s.synth + 1]} • OCT ${if (octVal >= 0) "+$octVal" else "$octVal"}",
@@ -603,21 +702,26 @@ fun SynthTab(s: AppState) {
         }
         SilkLabel("OCT-/+ shifts only new/edited notes for ${TRACK_NAMES[s.synth + 1]} without changing other scenes.", color = HwMuted, size = 9, bold = false)
     }
+    })
 }
 
 // ------------------------------------------------------------------ FX & MASTER TAB
 
 @Composable
 fun MixTab(s: AppState) {
-    val t = s.fxTrack
+    val activeTracks = 1 + remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
+    val t = s.fxTrack.coerceIn(0, activeTracks - 1)
     val mute = remember(s.rev, t) { Native.getParam(P.FX_MUTE, t) > 0.5f }
 
+    Panes(s, left = {
     ModulePanel(
-        title = "Insert FX & Sends: ${TRACK_NAMES[t]}",
+        title = "Channel Strip: ${TRACK_NAMES[t]}",
         accent = HwYellow,
         trailing = {
-            TRACK_NAMES.forEachIndexed { i, name ->
-                HwButton(name.uppercase(), on = s.fxTrack == i, ledColor = HwYellow, height = 26.dp, pad = 6.dp) { s.fxTrack = i }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (i in 0 until activeTracks) {
+                    HwButton(TRACK_NAMES[i].uppercase(), on = t == i, ledColor = HwYellow, height = 26.dp, pad = 5.dp) { s.fxTrack = i }
+                }
             }
         }
     ) {
@@ -636,6 +740,48 @@ fun MixTab(s: AppState) {
         }
     }
 
+    }, right = {
+    // Vital-style 3-Slot Modular FX Chain per track
+    ModulePanel("Modular FX Chain: ${TRACK_NAMES[t]} (Slot 1 → 2 → 3)", accent = HwCyan) {
+        for (slot in 0 until 3) {
+            val fd = remember(s.rev, t, slot) { Native.fxSlot(t, slot) }
+            val fxType = fd.getOrElse(0) { 0f }.roundToInt()
+            val fxAmt = fd.getOrElse(1) { 0.5f }
+            val fxRate = fd.getOrElse(2) { 0.4f }
+            val fxBypass = fd.getOrElse(3) { 0f } > 0.5f
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                SilkLabel("FX${slot + 1}", color = HwCyan, size = 9, modifier = Modifier.width(26.dp))
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    FX_SLOT_NAMES.forEachIndexed { idx, nm ->
+                        HwButton(nm, on = fxType == idx, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
+                            Native.setFxSlot(t, slot, idx, fxAmt, fxRate, false); s.rev++
+                        }
+                    }
+                }
+            }
+            if (fxType > 0) {
+                val rateName = when (fxType) { 2 -> "Rate"; 3, 4 -> "Speed"; 5 -> "Reso"; else -> "" }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Knob(if (fxType == 5) "Cutoff" else "Amount", fxAmt, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = { pct(it) },
+                        onStart = { Native.beginEdit() },
+                        onChange = { Native.setFxSlotLive(t, slot, fxType, it, fxRate, fxBypass) },
+                        onEnd = { s.rev++ })
+                    if (rateName.isNotEmpty()) {
+                        Knob(rateName, fxRate, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = { pct(it) },
+                            onStart = { Native.beginEdit() },
+                            onChange = { Native.setFxSlotLive(t, slot, fxType, fxAmt, it, fxBypass) },
+                            onEnd = { s.rev++ })
+                    } else {
+                        Box(Modifier.weight(1f))
+                    }
+                    HwButton(if (fxBypass) "BYPASSED" else "ON", Modifier.weight(1f), on = !fxBypass, ledColor = HwGreen, showLed = true, height = 38.dp, pad = 2.dp) {
+                        Native.setFxSlot(t, slot, fxType, fxAmt, fxRate, !fxBypass); s.rev++
+                    }
+                }
+            }
+        }
+    }
+
     ModulePanel("Master Bus & Analog VU", accent = HwOrange) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RotaryKnob(s, "Master", P.MASTER, 0, 0f, 1f, Modifier.weight(1f)) { pct(it) }
@@ -644,6 +790,7 @@ fun MixTab(s: AppState) {
         }
         AnalogVuMeter(s.peakL, s.peakR)
     }
+    })
 }
 
 // ------------------------------------------------------------------ SONG TAB
@@ -653,13 +800,43 @@ fun SongTab(s: AppState) {
     val chain = remember(s.rev) { Native.chain() }
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
 
+    val activeTracks = 1 + remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
     val selPos = s.selChainPos.coerceIn(0, (chain.size - 1).coerceAtLeast(0))
-    val autoData = remember(s.rev, selPos) { Native.chainAuto(selPos) }
-    val p0 = autoData.getOrElse(0) { 0f }.roundToInt()
-    val s0 = autoData.getOrElse(1) { 300f }
-    val e0 = autoData.getOrElse(2) { 4500f }
-    val autoNames = listOf("Off", "Bass Cut", "Lead Cut", "Drm Drv", "Lead Dly")
+    val autoTrk = s.selAutoTrack.coerceIn(0, activeTracks - 1)
+    val autoLn = s.selAutoLane.coerceIn(0, 2)
+    val autoData = remember(s.rev, selPos, autoTrk) { Native.chainAuto(selPos, autoTrk) }
+    val curPid = autoData.getOrElse(autoLn * 3) { -1f }.roundToInt()
+    val curStart = autoData.getOrElse(autoLn * 3 + 1) { 0f }
+    val curEnd = autoData.getOrElse(autoLn * 3 + 2) { 0f }
 
+    data class AutoChoice(val id: Int, val label: String, val lo: Float, val hi: Float)
+    val paramChoices = if (autoTrk == 0) {
+        listOf(
+            AutoChoice(-1, "Off", 0f, 0f),
+            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f),
+            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
+            AutoChoice(P.FX_EQ_LOW, "Low EQ", -10f, 10f),
+            AutoChoice(P.FX_EQ_HIGH, "High EQ", -10f, 10f),
+            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
+            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f)
+        )
+    } else {
+        listOf(
+            AutoChoice(-1, "Off", 0f, 0f),
+            AutoChoice(P.SYN_CUTOFF, "Cutoff", 140f, 7500f),
+            AutoChoice(P.SYN_RES, "Res", 0.8f, 12f),
+            AutoChoice(P.SYN_FM_INDEX, "FM Idx", 0.2f, 7.5f),
+            AutoChoice(P.SYN_WARMTH, "Warmth", 0f, 1f),
+            AutoChoice(P.SYN_MOTION, "Motion", 0f, 1f),
+            AutoChoice(P.SYN_LFO_DEPTH, "LFO Dep", 0f, 1f),
+            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
+            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
+            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f),
+            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f)
+        )
+    }
+
+    Panes(s, left = {
     ModulePanel(
         title = "Arrangement Chain",
         accent = HwGreen,
@@ -675,12 +852,8 @@ fun SongTab(s: AppState) {
             chain.forEachIndexed { pos, sc ->
                 val playingHere = s.playing && s.songMode && s.chainPos == pos
                 val selectedHere = pos == selPos
-                val hasAuto = remember(s.rev, pos) {
-                    val a = Native.chainAuto(pos)
-                    a.getOrElse(0) { 0f } > 0.5f || a.getOrElse(3) { 0f } > 0.5f
-                }
                 HwButton(
-                    text = "${pos + 1}:${SCENE_NAMES[sc.coerceIn(0, 3)]}" + if (hasAuto) "*" else "",
+                    text = "${pos + 1}:${SCENE_NAMES[sc.coerceIn(0, 3)]}",
                     on = playingHere || selectedHere,
                     ledColor = if (playingHere) HwGreen else HwCyan,
                     height = 34.dp
@@ -700,60 +873,72 @@ fun SongTab(s: AppState) {
         }
     }
 
-    // Song-Menu Sequence Automation Editor for the selected chain slot
+    // Free-Choice Song-Menu Automation (up to 3 lanes per track!)
     ModulePanel(
-        title = "Slot #${selPos + 1} (${SCENE_NAMES[chain.getOrElse(selPos) { 0 }.coerceIn(0, 3)]}) Automation",
+        title = "Slot #${selPos + 1} Free Automation (3 / Track)",
         accent = HwOrange
     ) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            autoNames.forEachIndexed { idx, nm ->
-                HwButton(nm, on = p0 == idx, ledColor = HwOrange, height = 28.dp, pad = 7.dp) {
-                    val defStart = when (idx) { 1, 2 -> 250f; 3 -> 0.05f; 4 -> 0.05f; else -> 0f }
-                    val defEnd = when (idx) { 1, 2 -> 5500f; 3 -> 0.85f; 4 -> 0.65f; else -> 0f }
-                    Native.setChainAuto(selPos, 0, idx, defStart, defEnd)
-                    s.rev++
+            for (t in 0 until activeTracks) {
+                HwButton(TRACK_NAMES[t].uppercase(), on = autoTrk == t, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.selAutoTrack = t }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            for (ln in 0 until 3) {
+                val activeLn = autoData.getOrElse(ln * 3) { -1f } >= 0f
+                HwButton(
+                    text = "LANE ${ln + 1}" + if (activeLn) " ●" else "",
+                    modifier = Modifier.weight(1f),
+                    on = autoLn == ln,
+                    ledColor = HwOrange,
+                    height = 28.dp
+                ) { s.selAutoLane = ln }
+            }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            paramChoices.forEach { ch ->
+                HwButton(ch.label, on = curPid == ch.id, ledColor = HwYellow, height = 28.dp, pad = 7.dp) {
+                    Native.setChainAuto(selPos, autoTrk, autoLn, ch.id, ch.lo, ch.hi); s.rev++
                 }
             }
         }
-        if (p0 > 0) {
-            val isCut = (p0 == 1 || p0 == 2)
-            val lo = if (isCut) 120f else 0f
-            val hi = if (isCut) 7500f else if (p0 == 3) 1f else 0.75f
-            val fmtVal: (Float) -> String = { v -> if (isCut) "${v.roundToInt()} Hz" else pct(v) }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                SilkLabel("SWEEP: ${fmtVal(s0)} → ${fmtVal(e0)}", color = HwSilk, size = 10, mono = true, modifier = Modifier.weight(1f))
-            }
+        val activeChoice = paramChoices.firstOrNull { it.id == curPid }
+        if (activeChoice != null && curPid >= 0) {
+            SilkLabel("SWEEP: ${"%.2f".format(curStart)} → ${"%.2f".format(curEnd)}", color = HwSilk, size = 10, mono = true)
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 HwButton("RISE ↑", Modifier.weight(1f), ledColor = HwOrange, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, lo, hi); s.rev++
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.lo, activeChoice.hi); s.rev++
                 }
                 HwButton("DROP ↓", Modifier.weight(1f), ledColor = HwCyan, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, hi, lo); s.rev++
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.hi, activeChoice.lo); s.rev++
                 }
                 HwButton("MID ↑", Modifier.weight(1f), ledColor = HwYellow, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, lo + (hi - lo) * 0.2f, lo + (hi - lo) * 0.7f); s.rev++
+                    val m0 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.25f
+                    val m1 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.75f
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, m0, m1); s.rev++
                 }
-                HwButton("OFF", Modifier.weight(1f), height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, 0, 0f, 0f); s.rev++
+                HwButton("CLEAR", Modifier.weight(1f), height = 30.dp) {
+                    Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.rev++
                 }
             }
         } else {
-            SilkLabel("Select a target above to sweep Cutoff, Drive, or Delay across this song block.", color = HwMuted, size = 9, bold = false)
+            SilkLabel("Pick any parameter above to automate on ${TRACK_NAMES[autoTrk]} (Lane ${autoLn + 1}).", color = HwMuted, size = 9, bold = false)
         }
     }
 
+    }, right = {
     ModulePanel("Mixer", accent = HwGreen) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TRACK_NAMES.forEachIndexed { t, name ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (t in 0 until activeTracks) {
+                Column(Modifier.width(74.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     val mute = remember(s.rev, t) { Native.getParam(P.FX_MUTE, t) > 0.5f }
-                    RotaryKnob(s, name, P.FX_LEVEL, t, 0f, 1f, Modifier.fillMaxWidth()) { pct(it) }
+                    RotaryKnob(s, TRACK_NAMES[t], P.FX_LEVEL, t, 0f, 1f, Modifier.fillMaxWidth()) { pct(it) }
                     HwButton(if (mute) "MUTED" else "MUTE", Modifier.fillMaxWidth(), on = mute, ledColor = HwRed, height = 28.dp, pad = 2.dp) {
                         Native.beginEdit(); Native.setParam(P.FX_MUTE, t, if (mute) 0f else 1f); s.rev++
                     }
                 }
             }
-            RotaryKnob(s, "Master", P.MASTER, 0, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+            RotaryKnob(s, "Master", P.MASTER, 0, 0f, 1f, Modifier.width(74.dp)) { pct(it) }
         }
     }
 
@@ -796,4 +981,5 @@ fun SongTab(s: AppState) {
         Choice(s, "Scale", P.SCALE, 0, listOf("Minor", "Major", "Dorian", "Penta"), accent = HwYellow)
         Choice(s, "Base Oct", P.OCTAVE, 0, listOf("Low", "Mid", "High"), offset = 2, accent = HwYellow)
     }
+    })
 }

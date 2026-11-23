@@ -10,45 +10,7 @@ namespace ld {
 
 namespace {
 constexpr size_t kMaxUndo = 64;
-constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 4;
 
-// ---- save files written by build 5 of the app (file version 1) ----
-// The layout must stay exactly as it was then. TrackFx, Scene and Note have not changed since.
-namespace v1 {
-struct PadParams { float vol, pan, pitch, decay; uint8_t choke, gmNote; };
-struct SynthParams {
-  Wave wave1, wave2;
-  float detune, cutoff, res, attack, decay, sustain, release, level, lfoRate, lfoDepth;
-  LfoTarget lfoTarget; int8_t octaveShift; bool chord;
-};
-struct Project {
-  float bpm, swing; int32_t root; Scale scale; int32_t octave;
-  PadParams pads[kNumPads]; SynthParams synths[kNumSynths]; TrackFx fx[kNumTracks];
-  float delayFeedback, master; Scene scenes[kNumScenes]; int32_t chain[kMaxChain]; int32_t chainLen;
-};
-static_assert(sizeof(Project) == 17060, "version 1 layout changed");
-ld::Project upgrade(const Project& o) {
-  ld::Project p;                                 // everything newer than version 1 keeps its default
-  p.bpm = o.bpm; p.swing = o.swing; p.root = o.root; p.scale = o.scale; p.octave = o.octave;
-  for (int i = 0; i < kNumPads; ++i) {
-    p.pads[i].vol = o.pads[i].vol; p.pads[i].pan = o.pads[i].pan; p.pads[i].pitch = o.pads[i].pitch;
-    p.pads[i].decay = o.pads[i].decay; p.pads[i].choke = o.pads[i].choke; p.pads[i].gmNote = o.pads[i].gmNote;
-  }
-  for (int i = 0; i < kNumSynths; ++i) {
-    ld::SynthParams& d = p.synths[i]; const SynthParams& s = o.synths[i];
-    d.wave1 = s.wave1; d.wave2 = s.wave2; d.detune = s.detune; d.cutoff = s.cutoff; d.res = s.res; d.attack = s.attack;
-    d.decay = s.decay; d.sustain = s.sustain; d.release = s.release; d.level = s.level; d.lfoRate = s.lfoRate;
-    d.lfoDepth = s.lfoDepth; d.lfoTarget = s.lfoTarget; d.octaveShift = s.octaveShift; d.chord = s.chord;
-  }
-  for (int i = 0; i < kNumTracks; ++i) p.fx[i] = o.fx[i];
-  p.delayFeedback = o.delayFeedback; p.master = o.master;
-  for (int i = 0; i < kNumScenes; ++i) p.scenes[i] = o.scenes[i];
-  for (int i = 0; i < kMaxChain; ++i) p.chain[i] = o.chain[i];
-  p.chainLen = o.chainLen;
-  return p;
-}
-}  // namespace v1
 template <typename T> T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float fin(float v, float fallback) { return v == v && v > -1e30f && v < 1e30f ? v : fallback; }
 bool sceneOk(int s) { return s >= 0 && s < kNumScenes; }
@@ -60,6 +22,7 @@ void sanitize(Project& p) {
   p.root = clampT(p.root, 0, 11);
   if (uint8_t(p.scale) > uint8_t(Scale::Pentatonic)) p.scale = Scale::Minor;
   p.octave = clampT(p.octave, 1, 5);
+  p.activeSynths = clampT(p.activeSynths, 2, kNumSynths);
   p.delayFeedback = clampT(fin(p.delayFeedback, 0.38f), 0.0f, 0.85f);
   p.master = clampT(fin(p.master, 0.85f), 0.0f, 1.0f);
   for (auto& d : p.pads) {
@@ -84,11 +47,19 @@ void sanitize(Project& p) {
     s.fmIndex = clampT(fin(s.fmIndex, 2.5f), 0.0f, 8.0f);
     s.fmModDecay = clampT(fin(s.fmModDecay, 0.25f), 0.01f, 3.0f);
     s.fmFeedback = clampT(fin(s.fmFeedback, 0.15f), 0.0f, 1.0f);
+    if (uint8_t(s.instrument) > uint8_t(InstrumentPreset::PluckLead)) s.instrument = InstrumentPreset::Custom;
+    s.feelWarmth = clampT(fin(s.feelWarmth, 0.5f), 0.0f, 1.0f);
+    s.feelMotion = clampT(fin(s.feelMotion, 0.3f), 0.0f, 1.0f);
   }
   for (auto& f : p.fx) {
     f.level = clampT(fin(f.level, 0.8f), 0.0f, 1.0f); f.drive = clampT(fin(f.drive, 0), 0.0f, 1.0f);
     f.eqLow = clampT(fin(f.eqLow, 0), -12.0f, 12.0f); f.eqHigh = clampT(fin(f.eqHigh, 0), -12.0f, 12.0f);
     f.delaySend = clampT(fin(f.delaySend, 0), 0.0f, 1.0f); f.revSend = clampT(fin(f.revSend, 0), 0.0f, 1.0f);
+    for (auto& sl : f.slots) {
+      if (uint8_t(sl.type) > uint8_t(FxType::Compressor)) sl.type = FxType::Off;
+      sl.amount = clampT(fin(sl.amount, 0.5f), 0.0f, 1.0f);
+      sl.rate = clampT(fin(sl.rate, 0.4f), 0.0f, 1.0f);
+    }
   }
   for (auto& sc : p.scenes) {
     sc.bars = clampT(sc.bars, 1, kMaxBars);
@@ -107,10 +78,12 @@ void sanitize(Project& p) {
   p.chainLen = clampT(p.chainLen, 1, kMaxChain);
   for (int i = 0; i < kMaxChain; ++i) {
     p.chain[i] = clampT(p.chain[i], 0, kNumScenes - 1);
-    for (int ln = 0; ln < 2; ++ln) {
-      auto& al = p.chainAuto[i].lanes[ln];
-      if (uint8_t(al.param) > uint8_t(AutoParam::LeadDelay)) al.param = AutoParam::Off;
-      al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
+    for (int t = 0; t < kNumTracks; ++t) {
+      for (int ln = 0; ln < kAutoPerTrack; ++ln) {
+        auto& al = p.chainAuto[i].tracks[t][ln];
+        if (al.paramId < -1 || al.paramId > 60) al.paramId = -1;
+        al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
+      }
     }
   }
 }
@@ -175,6 +148,7 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_SCALE: kind = 2; return reinterpret_cast<float*>(&p.scale);
     case P_OCTAVE: kind = 1; return reinterpret_cast<float*>(&p.octave);
     case P_KIT: kind = 2; return reinterpret_cast<float*>(&p.kit);
+    case P_ACTIVE_SYNTHS: kind = 1; return reinterpret_cast<float*>(&p.activeSynths);
     case P_PAD_VOL: return &pad().vol;
     case P_PAD_PAN: return &pad().pan;
     case P_PAD_PITCH: return &pad().pitch;
@@ -203,6 +177,9 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_SYN_FM_INDEX: return &syn().fmIndex;
     case P_SYN_FM_DECAY: return &syn().fmModDecay;
     case P_SYN_FM_FB: return &syn().fmFeedback;
+    case P_SYN_INSTRUMENT: kind = 2; return reinterpret_cast<float*>(&syn().instrument);
+    case P_SYN_WARMTH: return &syn().feelWarmth;
+    case P_SYN_MOTION: return &syn().feelMotion;
     case P_FX_LEVEL: return &fx().level;
     case P_FX_DRIVE: return &fx().drive;
     case P_FX_EQ_LOW: return &fx().eqLow;
@@ -284,12 +261,73 @@ void Session::setDrumStep(int scene, int pad, int step, int value) {
   proj_.scenes[scene].drums.steps[pad][step] = uint8_t(clampT(value, 0, 5));
   commit();
 }
-void Session::setChainAuto(int pos, int lane, int param, float startVal, float endVal) {
-  if (pos < 0 || pos >= proj_.chainLen || lane < 0 || lane > 1) return;
+void Session::setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal) {
+  if (pos < 0 || pos >= proj_.chainLen || track < 0 || track >= kNumTracks || lane < 0 || lane >= kAutoPerTrack) return;
   beginEdit();
-  auto& al = proj_.chainAuto[pos].lanes[lane];
-  al.param = AutoParam(clampT(param, 0, int(AutoParam::LeadDelay)));
+  auto& al = proj_.chainAuto[pos].tracks[track][lane];
+  al.paramId = int16_t(paramId);
   al.startVal = startVal; al.endVal = endVal;
+  commit();
+}
+void Session::setFxSlot(int track, int slot, int type, float amount, float rate, bool bypass, bool undoStep) {
+  if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
+  if (undoStep) beginEdit();
+  auto& sl = proj_.fx[track].slots[slot];
+  sl.type = FxType(clampT(type, 0, int(FxType::Compressor)));
+  sl.amount = clampT(amount, 0.0f, 1.0f);
+  sl.rate = clampT(rate, 0.0f, 1.0f);
+  sl.bypass = bypass;
+  commit();
+}
+void Session::setActiveSynths(int count) {
+  beginEdit();
+  proj_.activeSynths = clampT(count, 2, kNumSynths);
+  commit();
+}
+void Session::applyInstrument(int synth, int preset) {
+  if (synth < 0 || synth >= kNumSynths) return;
+  beginEdit();
+  SynthParams& sp = proj_.synths[synth];
+  const auto pr = InstrumentPreset(clampT(preset, 0, int(InstrumentPreset::PluckLead)));
+  sp.instrument = pr;
+  switch (pr) {
+    case InstrumentPreset::AnalogBass:
+      sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Saw; sp.wave2 = Wave::Square;
+      sp.detune = 5.0f; sp.cutoff = 520.0f; sp.res = 2.4f; sp.attack = 0.004f; sp.decay = 0.28f; sp.sustain = 0.55f; sp.release = 0.06f;
+      sp.lfoTarget = LfoTarget::Off; sp.feelWarmth = 0.72f; sp.feelMotion = 0.20f;
+      break;
+    case InstrumentPreset::Acid303:
+      sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Saw; sp.wave2 = Wave::Saw;
+      sp.detune = 0.0f; sp.cutoff = 950.0f; sp.res = 10.5f; sp.attack = 0.002f; sp.decay = 0.22f; sp.sustain = 0.1f; sp.release = 0.05f;
+      sp.lfoTarget = LfoTarget::Cutoff; sp.lfoRate = 2.0f; sp.lfoDepth = 0.35f; sp.feelWarmth = 0.65f; sp.feelMotion = 0.45f;
+      break;
+    case InstrumentPreset::ReeseDnB:
+      sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Saw; sp.wave2 = Wave::Saw;
+      sp.detune = 24.0f; sp.cutoff = 780.0f; sp.res = 3.5f; sp.attack = 0.02f; sp.decay = 0.5f; sp.sustain = 0.85f; sp.release = 0.18f;
+      sp.lfoTarget = LfoTarget::Cutoff; sp.lfoRate = 0.8f; sp.lfoDepth = 0.55f; sp.feelWarmth = 0.80f; sp.feelMotion = 0.75f;
+      break;
+    case InstrumentPreset::FmBell:
+      sp.mode = SynthMode::Fm; sp.fmRatio = 3.5f; sp.fmIndex = 4.5f; sp.fmModDecay = 0.45f; sp.fmFeedback = 0.1f;
+      sp.cutoff = 7200.0f; sp.res = 1.0f; sp.attack = 0.002f; sp.decay = 0.85f; sp.sustain = 0.0f; sp.release = 0.45f;
+      sp.lfoTarget = LfoTarget::Off; sp.feelWarmth = 0.25f; sp.feelMotion = 0.25f;
+      break;
+    case InstrumentPreset::FmEPiano:
+      sp.mode = SynthMode::Fm; sp.fmRatio = 2.0f; sp.fmIndex = 2.2f; sp.fmModDecay = 0.22f; sp.fmFeedback = 0.08f;
+      sp.cutoff = 4200.0f; sp.res = 1.2f; sp.attack = 0.004f; sp.decay = 0.65f; sp.sustain = 0.25f; sp.release = 0.25f;
+      sp.lfoTarget = LfoTarget::Amp; sp.lfoRate = 4.5f; sp.lfoDepth = 0.22f; sp.feelWarmth = 0.60f; sp.feelMotion = 0.40f;
+      break;
+    case InstrumentPreset::SuperPad:
+      sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Saw; sp.wave2 = Wave::Triangle;
+      sp.detune = 18.0f; sp.cutoff = 1900.0f; sp.res = 1.8f; sp.attack = 0.22f; sp.decay = 0.6f; sp.sustain = 0.75f; sp.release = 0.55f;
+      sp.lfoTarget = LfoTarget::Cutoff; sp.lfoRate = 0.5f; sp.lfoDepth = 0.35f; sp.feelWarmth = 0.65f; sp.feelMotion = 0.70f;
+      break;
+    case InstrumentPreset::PluckLead:
+      sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Square; sp.wave2 = Wave::Saw;
+      sp.detune = 9.0f; sp.cutoff = 3100.0f; sp.res = 2.8f; sp.attack = 0.003f; sp.decay = 0.18f; sp.sustain = 0.0f; sp.release = 0.09f;
+      sp.lfoTarget = LfoTarget::Off; sp.feelWarmth = 0.40f; sp.feelMotion = 0.30f;
+      break;
+    default: break;
+  }
   commit();
 }
 void Session::loadJungleKit() {
@@ -385,39 +423,15 @@ bool Session::poll() {
 }
 
 bool Session::save(const char* path) {
-  const std::string tmp = std::string(path) + ".tmp";
-  FILE* f = std::fopen(tmp.c_str(), "wb");
-  if (!f) return false;
-  const uint32_t head[2] = {kFileVersion, uint32_t(sizeof(Project))};
-  bool ok = std::fwrite(kMagic, 1, 8, f) == 8 && std::fwrite(head, sizeof(uint32_t), 2, f) == 2 &&
-            std::fwrite(&proj_, sizeof(Project), 1, f) == 1;
-  ok = (std::fclose(f) == 0) && ok;
-  if (ok) ok = std::rename(tmp.c_str(), path) == 0;
-  if (!ok) std::remove(tmp.c_str());
-  if (ok) dirty_ = false;
-  return ok;
+  if (!writeProjectFile(path, proj_)) return false;
+  dirty_ = false;
+  return true;
 }
 
 bool Session::load(const char* path) {
-  FILE* f = std::fopen(path, "rb");
-  if (!f) return false;
-  char magic[8]; uint32_t head[2] = {0, 0};
   Project p;
-  bool ok = std::fread(magic, 1, 8, f) == 8 && std::memcmp(magic, kMagic, 8) == 0 &&
-            std::fread(head, sizeof(uint32_t), 2, f) == 2;
   bool converted = false;
-  if (ok && head[0] == kFileVersion && head[1] == sizeof(Project)) {
-    ok = std::fread(&p, sizeof(Project), 1, f) == 1;
-  } else if (ok && head[0] == 1 && head[1] == sizeof(v1::Project)) {
-    v1::Project old;
-    ok = std::fread(&old, sizeof(old), 1, f) == 1;
-    if (ok) { p = v1::upgrade(old); converted = true; }
-  } else {
-    ok = false;
-  }
-  std::fclose(f);
-  if (!ok) return false;
-  sanitize(p);
+  if (!readProjectFile(path, p, &converted)) return false;
   proj_ = p; undo_.clear(); redo_.clear();
   syncKit();
   engine_.setProject(proj_);

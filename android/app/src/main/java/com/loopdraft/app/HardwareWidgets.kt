@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -216,72 +217,91 @@ fun SevenSegmentBpm(bpm: Int, modifier: Modifier = Modifier) {
 
 /**
  * Skirted rotary knob. Drag sideways anywhere on its tile: right is more, left is less.
- * (Sideways, so that swiping up and down still scrolls the page.) One drag is one undo step.
+ * (Sideways, so that swiping up and down still scrolls the page.) The faint arrows on both sides
+ * show the direction and light up while a finger is on the knob.
  * The ring turns cyan when the LFO is assigned to this control.
  */
 @Composable
-fun RotaryKnob(
-    s: AppState,
+fun Knob(
     label: String,
-    id: Int,
-    index: Int,
+    value: Float,
     min: Float,
     max: Float,
     modifier: Modifier = Modifier,
     capColor: Color = Color(0xFF323640),
     modulated: Boolean = false,
-    fmt: (Float) -> String
+    fmt: (Float) -> String,
+    onStart: () -> Unit,
+    onChange: (Float) -> Unit,
+    onEnd: () -> Unit
 ) {
     // One state object for the whole life of this knob, shared by the drag handler and the drawing.
-    val value = remember(id, index) { mutableFloatStateOf(Native.getParam(id, index)) }
+    val cur = remember { mutableFloatStateOf(value) }
     var dragging by remember { mutableStateOf(false) }
-    LaunchedEffect(s.rev, id, index) { if (!dragging) value.floatValue = Native.getParam(id, index) }
-    val v = value.floatValue
+    LaunchedEffect(value) { if (!dragging) cur.floatValue = value }
+    val start by rememberUpdatedState(onStart)
+    val change by rememberUpdatedState(onChange)
+    val end by rememberUpdatedState(onEnd)
+    val v = cur.floatValue
     val norm = ((v - min) / (max - min)).coerceIn(0f, 1f)
+    val ring = if (modulated) HwCyan else HwOrange
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(HwRecess)
             .border(1.dp, if (dragging) HwSilk else if (modulated) HwCyan.copy(alpha = 0.7f) else HwLine, RoundedCornerShape(8.dp))
-            .pointerInput(id, index, min, max) {
+            .pointerInput(min, max) {
                 val fullTravel = 220.dp.toPx()            // finger travel for the whole range, the same on every screen
                 detectHorizontalDragGestures(
                     onDragStart = {
                         dragging = true
-                        Native.beginEdit()
+                        start()
                     },
                     onDragEnd = {
                         dragging = false
-                        s.rev++
+                        end()
                     },
                     onDragCancel = {
                         dragging = false
-                        s.rev++
+                        end()
                     },
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        val nv = (value.floatValue + dragAmount / fullTravel * (max - min)).coerceIn(min, max)
-                        value.floatValue = nv
-                        Native.setParam(id, index, nv)
+                    onHorizontalDrag = { ch, dragAmount ->
+                        ch.consume()
+                        val nv = (cur.floatValue + dragAmount / fullTravel * (max - min)).coerceIn(min, max)
+                        cur.floatValue = nv
+                        change(nv)
                     }
                 )
             }
-            .padding(vertical = 6.dp, horizontal = 4.dp),
+            .padding(vertical = 6.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         SilkLabel(label.uppercase(), color = if (modulated) HwCyan else HwMuted, size = 9)
-        Canvas(modifier = Modifier.size(50.dp)) {
-            val r = size.minDimension / 2f - 4.dp.toPx()
+        Canvas(modifier = Modifier.fillMaxWidth().height(50.dp)) {
+            val r = size.height / 2f - 4.dp.toPx()
             val c = Offset(size.width / 2f, size.height / 2f)
+            // drag hints: small arrows left and right, barely visible until the knob is touched
+            val room = size.width / 2f - r
+            if (room > 9.dp.toPx()) {
+                val hint = if (dragging) ring else HwSilk.copy(alpha = 0.2f)
+                val ax = r + room * 0.55f
+                val ah = 4.5.dp.toPx()
+                val aw = 3.5.dp.toPx()
+                val sw = 1.6.dp.toPx()
+                drawLine(hint, Offset(c.x - ax + aw, c.y - ah), Offset(c.x - ax, c.y), strokeWidth = sw, cap = StrokeCap.Round)
+                drawLine(hint, Offset(c.x - ax, c.y), Offset(c.x - ax + aw, c.y + ah), strokeWidth = sw, cap = StrokeCap.Round)
+                drawLine(hint, Offset(c.x + ax - aw, c.y - ah), Offset(c.x + ax, c.y), strokeWidth = sw, cap = StrokeCap.Round)
+                drawLine(hint, Offset(c.x + ax, c.y), Offset(c.x + ax - aw, c.y + ah), strokeWidth = sw, cap = StrokeCap.Round)
+            }
             drawArc(
                 color = HwLine, startAngle = 135f, sweepAngle = 270f, useCenter = false,
                 topLeft = Offset(c.x - r, c.y - r), size = Size(r * 2, r * 2),
                 style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
             )
             drawArc(
-                color = if (modulated) HwCyan else HwOrange, startAngle = 135f, sweepAngle = 270f * norm, useCenter = false,
+                color = ring, startAngle = 135f, sweepAngle = 270f * norm, useCenter = false,
                 topLeft = Offset(c.x - r, c.y - r), size = Size(r * 2, r * 2),
                 style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
             )
@@ -301,6 +321,29 @@ fun RotaryKnob(
         }
         SilkLabel(fmt(v), color = HwSilk, size = 10, mono = true)
     }
+}
+
+/** A knob bound to one engine parameter. One drag is one undo step. */
+@Composable
+fun RotaryKnob(
+    s: AppState,
+    label: String,
+    id: Int,
+    index: Int,
+    min: Float,
+    max: Float,
+    modifier: Modifier = Modifier,
+    capColor: Color = Color(0xFF323640),
+    modulated: Boolean = false,
+    fmt: (Float) -> String
+) {
+    val value = remember(s.rev, id, index) { Native.getParam(id, index) }
+    Knob(
+        label, value, min, max, modifier, capColor, modulated, fmt,
+        onStart = { Native.beginEdit() },
+        onChange = { Native.setParam(id, index, it) },
+        onEnd = { s.rev++ }
+    )
 }
 
 /** The two-colour logo from the design sheets. */

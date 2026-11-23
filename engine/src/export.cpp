@@ -110,7 +110,8 @@ std::vector<uint8_t> buildMidi(const Project& p, bool songMode, int scene) {
             drums.push_back({t + h * gap + (gap < 36 ? gap - 6 : 30), 0, p.pads[pad].gmNote, 0});
           }
         }
-    for (int y = 0; y < kNumSynths; ++y) {
+    const int numSyn = std::clamp(p.activeSynths, 1, kNumSynths);
+    for (int y = 0; y < numSyn; ++y) {
       const SynthPattern& pat = sc.synth[y];
       for (int k = 0; k < std::min(pat.count, kMaxNotes); ++k) {
         const Note& nt = pat.notes[k];
@@ -130,12 +131,13 @@ std::vector<uint8_t> buildMidi(const Project& p, bool songMode, int scene) {
   const std::vector<uint8_t> tempo = {0, 0xFF, 0x51, 3, uint8_t(us >> 16), uint8_t(us >> 8), uint8_t(us),
                                       0, 0xFF, 0x58, 4, 4, 2, 24, 8, 0, 0xFF, 0x2F, 0};
   std::vector<uint8_t> out;
-  const int ntrk = 2 + kNumSynths;
+  const int numSyn = std::clamp(p.activeSynths, 1, kNumSynths);
+  const int ntrk = 2 + numSyn;
   chunk(out, "MThd", {0, 1, uint8_t(ntrk >> 8), uint8_t(ntrk), uint8_t(TPQ >> 8), uint8_t(TPQ & 255)});
   chunk(out, "MTrk", tempo);
   chunk(out, "MTrk", track(drums, 9, "Drums"));
   static const char* names[] = {"Bass", "Lead", "Synth 3", "Synth 4"};
-  for (int y = 0; y < kNumSynths; ++y) chunk(out, "MTrk", track(syn[y], y, names[y & 3]));
+  for (int y = 0; y < numSyn; ++y) chunk(out, "MTrk", track(syn[y], y, names[y & 3]));
   return out;
 }
 

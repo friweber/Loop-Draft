@@ -23,8 +23,8 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "cannot write to %s\n", dir.c_str());
     return 1;
   }
-  static const char* names[] = {"drums", "bass", "lead"};
-  for (int t = 0; t < ld::kNumTracks; ++t) {
+  static const char* names[] = {"drums", "bass", "lead", "synth3", "synth4"};
+  for (int t = 0; t < 1 + p.activeSynths; ++t) {
     o.soloTrack = t;
     const ld::RenderResult stem = ld::renderOffline(p, o);
     ld::writeWav16((dir + "/loopdraft_stem_" + names[t] + ".wav").c_str(), stem.l.data(), stem.r.data(), stem.l.size(), stem.sampleRate);

@@ -151,4 +151,105 @@ struct Rng {
   float next() { s ^= s << 13; s ^= s >> 17; s ^= s << 5; return float(s) / 4294967296.0f * 2.0f - 1.0f; }
 };
 
+// Lo-fi bitcrusher + sample-rate reducer (Vital-style Distortion/Crush).
+struct Bitcrusher {
+  float holdL = 0, holdR = 0, phase = 0;
+  void reset() { holdL = holdR = phase = 0; }
+  void tick(float& l, float& r, float amount, float rate) {
+    const float steps = 2.0f + (1.0f - amount) * 30.0f;
+    const float inc = 0.05f + (1.0f - rate) * 0.95f;
+    phase += inc;
+    if (phase >= 1.0f) {
+      phase -= 1.0f;
+      holdL = std::round(l * steps) / steps;
+      holdR = std::round(r * steps) / steps;
+    }
+    l = l * (1.0f - amount) + holdL * amount;
+    r = r * (1.0f - amount) + holdR * amount;
+  }
+};
+
+// Stereo modulated Chorus (short 35 ms ring buffer, zero alloc after init).
+struct Chorus {
+  std::vector<float> bufL, bufR;
+  int size = 1, w = 0;
+  float ph = 0.0f;
+  double sr = 48000.0;
+  void init(double sampleRate) {
+    sr = sampleRate;
+    size = int(sr * 0.04) + 16;
+    bufL.assign(size, 0.0f); bufR.assign(size, 0.0f);
+    w = 0; ph = 0.0f;
+  }
+  void tick(float& l, float& r, float amount, float rate) {
+    bufL[w] = l; bufR[w] = r;
+    const float hz = 0.15f + rate * 3.5f;
+    ph += hz / float(sr);
+    if (ph >= 1.0f) ph -= 1.0f;
+    const float modL = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * ph);
+    const float modR = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * (ph + 0.25f));
+    const auto readTap = [&](const std::vector<float>& b, float dMs) {
+      float dSamp = dMs * 0.001f * float(sr);
+      if (dSamp > size - 2) dSamp = float(size - 2);
+      float rd = float(w) - dSamp;
+      if (rd < 0.0f) rd += float(size);
+      int i0 = int(rd) % size;
+      int i1 = (i0 + 1) % size;
+      float f = rd - std::floor(rd);
+      return b[i0] + f * (b[i1] - b[i0]);
+    };
+    const float wL = readTap(bufL, 6.0f + modL * 14.0f);
+    const float wR = readTap(bufR, 6.0f + modR * 14.0f);
+    if (++w >= size) w = 0;
+    const float mix = amount * 0.65f;
+    l = l * (1.0f - mix) + wL * mix;
+    r = r * (1.0f - mix) + wR * mix;
+  }
+};
+
+// 4-stage stereo all-pass Phaser.
+struct Phaser {
+  float aL[4] = {}, aR[4] = {}, ph = 0.0f;
+  double sr = 48000.0;
+  void init(double sampleRate) { sr = sampleRate; ph = 0.0f; for (int i = 0; i < 4; ++i) aL[i] = aR[i] = 0.0f; }
+  void tick(float& l, float& r, float amount, float rate) {
+    const float hz = 0.1f + rate * 4.0f;
+    ph += hz / float(sr); if (ph >= 1.0f) ph -= 1.0f;
+    const float lfo = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * ph);
+    const float f = 220.0f + lfo * 2400.0f;
+    const float a = float((1.0 - std::tan(kPi * f / sr)) / (1.0 + std::tan(kPi * f / sr)));
+    float yL = l, yR = r;
+    for (int i = 0; i < 4; ++i) {
+      float tL = a * yL + aL[i]; aL[i] = yL - a * tL; yL = tL;
+      float tR = a * yR + aR[i]; aR[i] = yR - a * tR; yR = tR;
+    }
+    const float mix = amount * 0.6f;
+    l = l * (1.0f - mix) + yL * mix;
+    r = r * (1.0f - mix) + yR * mix;
+  }
+};
+
+// Punchy OTT-style track compressor.
+struct TrackComp {
+  float env = 0.0f, att = 0.01f, rel = 0.001f;
+  void init(double sr) {
+    env = 0.0f;
+    att = float(1.0 - std::exp(-1.0 / (sr * 0.005)));
+    rel = float(1.0 - std::exp(-1.0 / (sr * 0.060)));
+  }
+  void tick(float& l, float& r, float amount) {
+    const float pk = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+    env += (pk > env ? att : rel) * (pk - env);
+    const float thr = 0.45f - amount * 0.30f;
+    float gain = 1.0f;
+    if (env > thr && env > 1e-5f) {
+      const float ratio = 1.0f + amount * 6.0f;
+      const float over = env / thr;
+      gain = std::pow(over, (1.0f / ratio) - 1.0f);
+    }
+    const float makeup = 1.0f + amount * 0.75f;
+    l *= gain * makeup; r *= gain * makeup;
+  }
+};
+
 }  // namespace ld
