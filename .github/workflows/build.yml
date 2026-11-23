@@ -3,7 +3,7 @@ name: Build
 on:
   push:
     branches: [main, android-app]
-    paths: ['engine/**', 'android/**', '.github/workflows/build.yml']
+    paths: ['engine/**', 'android/**', 'ios/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
 permissions:
@@ -54,6 +54,39 @@ jobs:
           name: LoopDraft-apk
           path: LoopDraft.apk
 
+  ios:
+    name: iOS / iPadOS IPA (SideStore)
+    runs-on: macos-latest
+    needs: engine-tests
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec ios/project.yml
+      - name: Build unsigned iOS app (iPhone + iPad)
+        run: |
+          xcodebuild \
+            -project ios/LoopDraft.xcodeproj \
+            -scheme LoopDraft \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath ios/build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Package IPA for SideStore / Sideloadly
+        run: |
+          mkdir -p ios/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/LoopDraft.app ios/Payload/
+          (cd ios && zip -qr ../LoopDraft-iOS-SideStore.ipa Payload)
+          ls -lh LoopDraft-iOS-SideStore.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoopDraft-ipa
+          path: LoopDraft-iOS-SideStore.ipa
+
   smoke:
     name: Run the app on an emulator
     runs-on: ubuntu-latest
@@ -91,12 +124,15 @@ jobs:
   publish:
     name: Publish latest build
     runs-on: ubuntu-latest
-    needs: smoke
+    needs: [smoke, ios]
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: LoopDraft-apk
+      - uses: actions/download-artifact@v4
+        with:
+          name: LoopDraft-ipa
       - name: Publish as "Latest build"
         env:
           GH_TOKEN: ${{ github.token }}
@@ -104,6 +140,6 @@ jobs:
         run: |
           gh release delete latest --yes --cleanup-tag || true
           sleep 3
-          gh release create latest LoopDraft.apk --latest --target "$GITHUB_SHA" \
+          gh release create latest LoopDraft.apk LoopDraft-iOS-SideStore.ipa --latest --target "$GITHUB_SHA" \
             --title "Latest build (#${{ github.run_number }})" \
-            --notes "Built automatically from main. Download LoopDraft.apk on the phone and open it to install. It installs over the previous build and keeps the saved project."
+            --notes "Built automatically from main. Android: install LoopDraft.apk. iPhone/iPad: install LoopDraft-iOS-SideStore.ipa via SideStore or Sideloadly."

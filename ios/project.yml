@@ -1,0 +1,42 @@
+name: LoopDraft
+options:
+  bundleIdPrefix: com.loopdraft
+  deploymentTarget:
+    iOS: "16.0"
+  xcodeVersion: "15.0"
+settings:
+  base:
+    CLANG_CXX_LANGUAGE_STANDARD: c++17
+    CLANG_CXX_LIBRARY: libc++
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    ENABLE_BITCODE: NO
+    GCC_OPTIMIZATION_LEVEL: "2"
+targets:
+  LoopDraft:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: LoopDraft
+      - path: ../engine/src
+        excludes:
+          - "**/*.h"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.loopdraft.app
+        INFOPLIST_FILE: LoopDraft/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: LoopDraft/Bridge/LoopDraft-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - "$(PROJECT_DIR)/../engine/include"
+          - "$(PROJECT_DIR)/../engine/third_party"
+          - "$(PROJECT_DIR)/LoopDraft/Bridge"
+        OTHER_CPLUSPLUSFLAGS:
+          - "-O2"
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""
+    frameworks:
+      - sdk: AVFoundation.framework
+      - sdk: AudioToolbox.framework
+      - sdk: Accelerate.framework
