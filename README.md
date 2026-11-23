@@ -7,9 +7,10 @@ A mobile groovebox for getting a loop going quickly and finishing it later: sket
 Version 1 is a native Android app (Kotlin and Compose for the screen, C++ with Oboe for sound), so it responds as fast as the phone allows. The HTML prototype stays as the design reference.
 
 1. Engine in portable C++, tested on a desktop. **Done:** see `engine/`.
-2. Android app with Oboe output and the four screens (Drums, Synth, Mix, Song), autosave and undo. **Done:** see `android/`.
-3. Still to do: loading your own WAV samples, export of MIDI and stems from the app, several projects, note lengths in the piano roll, playing on with the screen off.
-4. Polish and tests on real devices.
+2. Android app with Oboe output and the four screens (Drums, Synth, FX, Song), autosave and undo. **Done:** see `android/`.
+3. v0.3: hardware look after the design sheets in `docs/ui-reference/`, FM synth mode, per-synth input octave, song automation, jungle break slicer with rolls, export of MIDI, WAV and stems through the share sheet. **Done.**
+4. Still to do: loading your own WAV samples, the FX from the design sheet that the engine does not have yet (tone, mid EQ, delay time, reverb size), several projects, note lengths in the piano roll, playing on with the screen off.
+5. Polish and tests on real devices.
 
 ## Install on your phone
 

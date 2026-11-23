@@ -20,11 +20,19 @@ The UI thread owns the `Project` (plain data). Every edit sends a snapshot with 
 
 ```sh
 cmake -S . -B build -G Ninja && cmake --build build
-./build/ld_tests                  # 19 tests
+./build/ld_tests                  # 26 tests
 ./build/ld_render some/folder     # demo song: master WAV, stems, MIDI
 ```
 
 Sanitizer builds: `-DLD_SANITIZE=ON` (address + undefined behaviour) and `-DLD_TSAN=ON` (threads).
+
+## Added in v0.3
+
+- **FM mode** per synth: two operators with ratio, index, modulator decay and feedback.
+- **Song automation:** two lanes per song slot sweep a filter cutoff, the drum drive or the lead delay send from a start to an end value.
+- **Jungle kit:** the pads play eight slices of a built-in, synthesized break; slices can be moved and reversed.
+- **Rolls:** a drum step can play 2, 3 or 4 hits.
+- **Save files:** version 4. Files written by build 5 (version 1) are converted on load.
 
 ## Session
 
