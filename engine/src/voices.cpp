@@ -24,8 +24,16 @@ void Sampler::trigger(int pad, const PadParams& p, const Sample* s, int vel) {
   if (!t) { t = &v_[0]; for (auto& v : v_) if (v.age < t->age) t = &v; }   // steal the oldest
   const float g = p.vol * velGain(vel);
   const float a = (p.pan < -1 ? -1 : (p.pan > 1 ? 1 : p.pan)) * 0.25f * float(kPi) + 0.25f * float(kPi);
-  t->s = s; t->pos = 0;
-  t->inc = std::pow(2.0, double(p.pitch) / 12.0) * s->rate / sr_;
+  const double lastF = double(s->frames() - 1);
+  float s0 = p.sliceStart < 0.0f ? 0.0f : (p.sliceStart > 0.99f ? 0.99f : p.sliceStart);
+  float s1 = p.sliceEnd <= s0 + 0.01f ? (s0 + 0.01f > 1.0f ? 1.0f : s0 + 0.01f) : (p.sliceEnd > 1.0f ? 1.0f : p.sliceEnd);
+  const double startPos = double(s0) * lastF;
+  const double endPos = double(s1) * lastF;
+  const double speed = std::pow(2.0, double(p.pitch) / 12.0) * s->rate / sr_;
+  t->s = s;
+  t->reverse = p.reverse;
+  if (p.reverse) { t->pos = endPos; t->endPos = startPos; t->inc = -speed; }
+  else           { t->pos = startPos; t->endPos = endPos; t->inc = speed; }
   t->gl = g * 1.41421356f * std::cos(a); t->gr = g * 1.41421356f * std::sin(a);
   t->env = 1.0f;
   const double dec = p.decay < 0.01f ? 0.01 : double(p.decay);
@@ -44,11 +52,14 @@ void Sampler::process(float* l, float* r, int n) {
     const float* sr = v.s->r.empty() ? sl : v.s->r.data();
     const size_t last = v.s->frames() - 1;
     for (int i = 0; i < n; ++i) {
+      if (v.reverse ? (v.pos <= v.endPos || v.pos < 0.0) : (v.pos >= v.endPos || v.pos >= double(last))) {
+        v.active = false; break;
+      }
       const size_t idx = size_t(v.pos);
-      if (idx >= last) { v.active = false; break; }
+      const size_t idx1 = idx < last ? idx + 1 : last;
       const float f = float(v.pos - double(idx));
-      const float xl = sl[idx] + f * (sl[idx + 1] - sl[idx]);
-      const float xr = sr[idx] + f * (sr[idx + 1] - sr[idx]);
+      const float xl = sl[idx] + f * (sl[idx1] - sl[idx]);
+      const float xr = sr[idx] + f * (sr[idx1] - sr[idx]);
       l[i] += xl * v.gl * v.env; r[i] += xr * v.gr * v.env;
       v.env *= v.envMul; v.pos += v.inc;
       if (v.env < 1e-4f) { v.active = false; break; }
@@ -105,6 +116,7 @@ void Synth::process(float* out, int n, const SynthParams& p) {
   const float relMul = std::exp(std::log(1e-3f) / ((p.release < 0.005f ? 0.005f : p.release) * sr));
   const float sus = p.sustain < 0 ? 0 : (p.sustain > 1 ? 1 : p.sustain);
   const float detuneMul = std::pow(2.0f, p.detune / 1200.0f);
+  const float modDecMul = std::exp(std::log(1e-3f) / ((p.fmModDecay < 0.005f ? 0.005f : p.fmModDecay) * sr));
   const float lfoInc = 16.0f * p.lfoRate / sr;
   const bool lfoOn = p.lfoTarget != LfoTarget::Off && p.lfoDepth > 0.0f;
 
@@ -124,13 +136,22 @@ void Synth::process(float* out, int n, const SynthParams& p) {
         }
         v.cut = v.cut < 0.0f ? cutoff : v.cut + 0.6f * (cutoff - v.cut);
         v.flt.set(sr_, v.cut, p.res);
-        v.inc1 = v.freq * pitchMul / sr; v.inc2 = v.inc1 * detuneMul;
+        v.inc1 = v.freq * pitchMul / sr;
+        v.inc2 = (p.mode == SynthMode::Fm) ? (v.inc1 * p.fmRatio) : (v.inc1 * detuneMul);
         v.ampStep = (ampT - v.amp) / 16.0f;
       }
       v.amp += v.ampStep;
-      const float x = 0.5f * (osc(p.wave1, v.ph1, v.inc1) + osc(p.wave2, v.ph2, v.inc2));
-      v.ph1 += v.inc1; if (v.ph1 >= 1.0f) v.ph1 -= 1.0f;
-      v.ph2 += v.inc2; if (v.ph2 >= 1.0f) v.ph2 -= 1.0f;
+      float x;
+      if (p.mode == SynthMode::Fm) {
+        const float mod = std::sin(2.0f * float(kPi) * v.ph2 + p.fmFeedback * 2.5f * v.lastMod);
+        v.lastMod = mod;
+        x = std::sin(2.0f * float(kPi) * v.ph1 + p.fmIndex * v.modEnv * mod);
+        v.modEnv *= modDecMul;
+      } else {
+        x = 0.5f * (osc(p.wave1, v.ph1, v.inc1) + osc(p.wave2, v.ph2, v.inc2));
+      }
+      v.ph1 += v.inc1; if (v.ph1 >= 1.0f) v.ph1 -= std::floor(v.ph1);
+      v.ph2 += v.inc2; if (v.ph2 >= 1.0f) v.ph2 -= std::floor(v.ph2);
       const float y = v.flt.low(x);
 
       if (v.stage == Attack) { v.env += attInc; if (v.env >= 1.0f) { v.env = 1.0f; v.stage = Decay; } }
@@ -199,6 +220,52 @@ std::unique_ptr<Sample> makeBuiltinSample(int pad, double sr) {
   float pk = 1e-9f;
   for (float x : s->l) pk = std::fmax(pk, std::fabs(x));
   for (float& x : s->l) x *= 0.9f / pk;
+  return s;
+}
+
+std::unique_ptr<Sample> makeJungleBreakSample(double sr) {
+  // 1-bar Amen-inspired breakbeat at 168 BPM (approx 1.428 s) split cleanly into 8 slices
+  const double barSec = 60.0 / 168.0 * 4.0;
+  const size_t n = size_t(std::lround(barSec * sr));
+  auto s = std::make_unique<Sample>();
+  s->rate = sr;
+  s->l.assign(n, 0.0f);
+  const double stepSec = barSec / 16.0;
+  Rng rng(909808u);
+  auto addHit = [&](int step, int kind, float amp) {
+    const size_t start = size_t(std::lround(step * stepSec * sr));
+    const size_t len = size_t(0.18 * sr);
+    double ph = 0.0;
+    float lp1 = 0, lp2 = 0;
+    const auto op = [&](double hz) { return float(1.0 - std::exp(-2.0 * kPi * hz / sr)); };
+    for (size_t i = 0; i < len && start + i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (kind == 0) { // punchy break kick
+        ph += (48.0 + 130.0 * std::exp(-t / 0.035)) / sr;
+        x = float(std::sin(2 * kPi * ph) * std::exp(-t * 9.0));
+      } else if (kind == 1) { // crisp snappy jungle snare
+        const float nz = rng.next();
+        lp1 += op(1200) * (nz - lp1); lp2 += op(7500) * ((nz - lp1) - lp2);
+        ph += (195.0 + 45.0 * std::exp(-t / 0.02)) / sr;
+        x = float((lp2 * 1.1 + std::sin(2 * kPi * ph) * 0.45 * std::exp(-t * 20.0)) * std::exp(-t * 14.0));
+      } else { // bright ride / shuffle hat
+        const float nz = rng.next();
+        lp1 += op(6800) * (nz - lp1);
+        x = float((nz - lp1) * std::exp(-t * 18.0));
+      }
+      s->l[start + i] += x * amp;
+    }
+  };
+  // Classic 16-step Amen pattern
+  for (int st : {0, 2, 10, 11}) addHit(st, 0, st == 0 ? 1.0f : 0.85f);
+  for (int st : {4, 12})        addHit(st, 1, 0.95f);
+  for (int st : {7, 9, 15})     addHit(st, 1, 0.42f); // ghost snares
+  for (int st = 0; st < 16; st += 2) addHit(st, 2, 0.45f);
+  for (int st : {1, 3, 5, 13, 14})   addHit(st, 2, 0.25f);
+  float pk = 1e-9f;
+  for (float x : s->l) pk = std::fmax(pk, std::fabs(x));
+  for (float& x : s->l) x = std::tanh(x * 1.25f / pk) * 0.92f; // subtle vintage sampler crunch
   return s;
 }
 

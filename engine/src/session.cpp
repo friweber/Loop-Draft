@@ -10,7 +10,7 @@ namespace ld {
 namespace {
 constexpr size_t kMaxUndo = 64;
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 1;
+constexpr uint32_t kFileVersion = 3;
 template <typename T> T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float fin(float v, float fallback) { return v == v && v > -1e30f && v < 1e30f ? v : fallback; }
 bool sceneOk(int s) { return s >= 0 && s < kNumScenes; }
@@ -28,6 +28,8 @@ void sanitize(Project& p) {
     d.vol = clampT(fin(d.vol, 0.9f), 0.0f, 1.0f); d.pan = clampT(fin(d.pan, 0), -1.0f, 1.0f);
     d.pitch = clampT(fin(d.pitch, 0), -24.0f, 24.0f); d.decay = clampT(fin(d.decay, 0.3f), 0.02f, 2.0f);
     d.choke = uint8_t(clampT<int>(d.choke, 0, 4)); d.gmNote = uint8_t(clampT<int>(d.gmNote, 0, 127));
+    d.sliceStart = clampT(fin(d.sliceStart, 0.0f), 0.0f, 0.99f);
+    d.sliceEnd = clampT(fin(d.sliceEnd, 1.0f), d.sliceStart + 0.01f > 1.0f ? 1.0f : d.sliceStart + 0.01f, 1.0f);
   }
   for (auto& s : p.synths) {
     if (uint8_t(s.wave1) > uint8_t(Wave::Sine)) s.wave1 = Wave::Saw;
@@ -39,6 +41,11 @@ void sanitize(Project& p) {
     s.release = clampT(fin(s.release, 0.08f), 0.01f, 3.0f); s.level = clampT(fin(s.level, 0.8f), 0.0f, 1.0f);
     s.lfoRate = clampT(fin(s.lfoRate, 3), 0.05f, 20.0f); s.lfoDepth = clampT(fin(s.lfoDepth, 0), 0.0f, 1.0f);
     s.octaveShift = int8_t(clampT<int>(s.octaveShift, -2, 2));
+    if (uint8_t(s.mode) > uint8_t(SynthMode::Fm)) s.mode = SynthMode::Subtractive;
+    s.fmRatio = clampT(fin(s.fmRatio, 2.0f), 0.5f, 8.0f);
+    s.fmIndex = clampT(fin(s.fmIndex, 2.5f), 0.0f, 8.0f);
+    s.fmModDecay = clampT(fin(s.fmModDecay, 0.25f), 0.01f, 3.0f);
+    s.fmFeedback = clampT(fin(s.fmFeedback, 0.15f), 0.0f, 1.0f);
   }
   for (auto& f : p.fx) {
     f.level = clampT(fin(f.level, 0.8f), 0.0f, 1.0f); f.drive = clampT(fin(f.drive, 0), 0.0f, 1.0f);
@@ -47,19 +54,26 @@ void sanitize(Project& p) {
   }
   for (auto& sc : p.scenes) {
     sc.bars = clampT(sc.bars, 1, kMaxBars);
-    for (auto& row : sc.drums.steps) for (auto& v : row) if (v > 2) v = 1;
+    for (auto& row : sc.drums.steps) for (auto& v : row) if (v > 5) v = 1;
     for (auto& pat : sc.synth) {
       pat.count = clampT(pat.count, 0, kMaxNotes);
       for (int i = 0; i < pat.count; ++i) {
         Note& n = pat.notes[i];
         if (n.step >= kMaxSteps) n.step = kMaxSteps - 1;
-        n.degree = int8_t(clampT<int>(n.degree, -14, 28));
+        n.degree = int8_t(clampT<int>(n.degree, -21, 35));
         n.len = uint8_t(clampT<int>(n.len, 1, kMaxSteps)); n.vel = uint8_t(n.vel == 2 ? 2 : 1);
       }
     }
   }
   p.chainLen = clampT(p.chainLen, 1, kMaxChain);
-  for (int i = 0; i < kMaxChain; ++i) p.chain[i] = clampT(p.chain[i], 0, kNumScenes - 1);
+  for (int i = 0; i < kMaxChain; ++i) {
+    p.chain[i] = clampT(p.chain[i], 0, kNumScenes - 1);
+    for (int ln = 0; ln < 2; ++ln) {
+      auto& al = p.chainAuto[i].lanes[ln];
+      if (uint8_t(al.param) > uint8_t(AutoParam::LeadDelay)) al.param = AutoParam::Off;
+      al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
+    }
+  }
 }
 
 Session::Session(double sampleRate) : engine_(sampleRate), proj_(makeDemoProject()) {
@@ -113,6 +127,9 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_PAD_PITCH: return &pad().pitch;
     case P_PAD_DECAY: return &pad().decay;
     case P_PAD_CHOKE: kind = 2; return reinterpret_cast<float*>(&pad().choke);
+    case P_PAD_SLICE_START: return &pad().sliceStart;
+    case P_PAD_SLICE_END: return &pad().sliceEnd;
+    case P_PAD_REVERSE: kind = 4; return reinterpret_cast<float*>(&pad().reverse);
     case P_SYN_WAVE1: kind = 2; return reinterpret_cast<float*>(&syn().wave1);
     case P_SYN_WAVE2: kind = 2; return reinterpret_cast<float*>(&syn().wave2);
     case P_SYN_DETUNE: return &syn().detune;
@@ -128,6 +145,11 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_SYN_LFO_TARGET: kind = 2; return reinterpret_cast<float*>(&syn().lfoTarget);
     case P_SYN_OCTAVE: kind = 3; return reinterpret_cast<float*>(&syn().octaveShift);
     case P_SYN_CHORD: kind = 4; return reinterpret_cast<float*>(&syn().chord);
+    case P_SYN_MODE: kind = 2; return reinterpret_cast<float*>(&syn().mode);
+    case P_SYN_FM_RATIO: return &syn().fmRatio;
+    case P_SYN_FM_INDEX: return &syn().fmIndex;
+    case P_SYN_FM_DECAY: return &syn().fmModDecay;
+    case P_SYN_FM_FB: return &syn().fmFeedback;
     case P_FX_LEVEL: return &fx().level;
     case P_FX_DRIVE: return &fx().drive;
     case P_FX_EQ_LOW: return &fx().eqLow;
@@ -202,14 +224,59 @@ void Session::clearScene(int scene) {
   if (!sceneOk(scene)) return;
   beginEdit(); const int bars = proj_.scenes[scene].bars; proj_.scenes[scene] = Scene{}; proj_.scenes[scene].bars = bars; commit();
 }
+void Session::setDrumStep(int scene, int pad, int step, int value) {
+  if (!sceneOk(scene) || pad < 0 || pad >= kNumPads || step < 0 || step >= kMaxSteps) return;
+  beginEdit();
+  proj_.scenes[scene].drums.steps[pad][step] = uint8_t(clampT(value, 0, 5));
+  commit();
+}
+void Session::setChainAuto(int pos, int lane, int param, float startVal, float endVal) {
+  if (pos < 0 || pos >= proj_.chainLen || lane < 0 || lane > 1) return;
+  beginEdit();
+  auto& al = proj_.chainAuto[pos].lanes[lane];
+  al.param = AutoParam(clampT(param, 0, int(AutoParam::LeadDelay)));
+  al.startVal = startVal; al.endVal = endVal;
+  commit();
+}
+void Session::loadJungleKit() {
+  beginEdit();
+  auto masterBreak = makeJungleBreakSample(engine_.sampleRate());
+  for (int i = 0; i < kNumPads; ++i) {
+    engine_.setPadSample(i, std::make_unique<Sample>(*masterBreak));
+    proj_.pads[i].sliceStart = float(i) / float(kNumPads);
+    proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
+    proj_.pads[i].choke = 1;
+    proj_.pads[i].decay = 0.65f;
+    proj_.pads[i].pitch = 0.0f;
+    proj_.pads[i].reverse = false;
+  }
+  proj_.bpm = 168.0f;
+  commit();
+}
+void Session::loadStandardKit() {
+  beginEdit();
+  const Project def = makeDemoProject();
+  for (int i = 0; i < kNumPads; ++i) {
+    engine_.setPadSample(i, nullptr);
+    proj_.pads[i] = def.pads[i];
+  }
+  commit();
+}
 void Session::chainAdd(int scene) {
   if (!sceneOk(scene) || proj_.chainLen >= kMaxChain) return;
-  beginEdit(); proj_.chain[proj_.chainLen++] = scene; commit();
+  beginEdit();
+  proj_.chain[proj_.chainLen] = scene;
+  proj_.chainAuto[proj_.chainLen] = ChainAuto{};
+  ++proj_.chainLen;
+  commit();
 }
 void Session::chainRemove(int pos) {
   if (pos < 0 || pos >= proj_.chainLen || proj_.chainLen <= 1) return;
   beginEdit();
-  for (int i = pos; i + 1 < proj_.chainLen; ++i) proj_.chain[i] = proj_.chain[i + 1];
+  for (int i = pos; i + 1 < proj_.chainLen; ++i) {
+    proj_.chain[i] = proj_.chain[i + 1];
+    proj_.chainAuto[i] = proj_.chainAuto[i + 1];
+  }
   --proj_.chainLen;
   commit();
 }

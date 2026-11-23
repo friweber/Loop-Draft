@@ -21,6 +21,8 @@ constexpr int kSynthVoices = 8;
 enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
+enum class SynthMode : uint8_t { Subtractive, Fm };
+enum class AutoParam : uint8_t { Off, BassCutoff, LeadCutoff, DrumsDrive, LeadDelay };
 
 // Step and note velocity: 0 = off, 1 = normal, 2 = accent.
 struct PadParams {
@@ -30,6 +32,9 @@ struct PadParams {
   float decay = 0.35f;     // seconds to fade to silence
   uint8_t choke = 0;       // 0 = none, pads in the same group cut each other
   uint8_t gmNote = 36;     // General MIDI drum note for export
+  float sliceStart = 0.0f; // 0 .. 1 (Jungle breakbeat slicer start)
+  float sliceEnd = 1.0f;   // 0 .. 1 (Jungle breakbeat slicer end)
+  bool reverse = false;    // play sample/slice backwards
 };
 
 struct SynthParams {
@@ -48,6 +53,11 @@ struct SynthParams {
   LfoTarget lfoTarget = LfoTarget::Cutoff;
   int8_t octaveShift = 0;  // relative to Project::octave
   bool chord = false;      // play each note as a triad built from the scale
+  SynthMode mode = SynthMode::Subtractive;
+  float fmRatio = 2.0f;    // modulator/carrier ratio (0.5 .. 8.0)
+  float fmIndex = 2.5f;    // modulation depth (0 .. 8)
+  float fmModDecay = 0.25f;// modulator envelope decay (seconds)
+  float fmFeedback = 0.15f;// modulator self-feedback (0 .. 1)
 };
 
 struct TrackFx {
@@ -70,6 +80,16 @@ struct Note {
 struct DrumPattern  { uint8_t steps[kNumPads][kMaxSteps] = {}; };
 struct SynthPattern { Note notes[kMaxNotes] = {}; int32_t count = 0; };
 
+struct AutoLane {
+  AutoParam param = AutoParam::Off;
+  float startVal = 0.0f;
+  float endVal = 0.0f;
+};
+
+struct ChainAuto {
+  AutoLane lanes[2];
+};
+
 struct Scene {
   int32_t bars = 1;        // 1 .. kMaxBars, shared by all tracks of the scene
   DrumPattern drums;
@@ -89,6 +109,7 @@ struct Project {
   float master = 0.85f;
   Scene scenes[kNumScenes];
   int32_t chain[kMaxChain] = {0, 1, 2, 3};
+  ChainAuto chainAuto[kMaxChain];
   int32_t chainLen = 4;
 };
 

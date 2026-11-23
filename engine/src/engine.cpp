@@ -127,12 +127,15 @@ void Engine::processCommands() {
         stepBase_ = double(frame_); nextFire_ = frame_;
         lastFire_ = std::numeric_limits<int64_t>::min() / 2;
         for (auto& s : sup_) s.on = false;
+        for (auto& r : ratchets_) r.active = false;
+        slotStartFrame_ = frame_;
         if (songMode_) { chainPos_ = 0; scene_ = proj_->chain[0]; } else scene_ = c.a;
         break;
       case Cmd::Stop:
         playing_ = false; pending_ = -1;
         for (auto& s : synth_) s.allNotesOff();
         for (auto& s : sup_) s.on = false;
+        for (auto& r : ratchets_) r.active = false;
         aStep_.store(-1, std::memory_order_relaxed);
         break;
       case Cmd::QueueScene:
@@ -193,7 +196,15 @@ void Engine::fireStep() {
 
   for (int pad = 0; pad < kNumPads; ++pad) {
     const int v = sc.drums.steps[pad][step_];
-    if (v && !suppressed(0, pad)) sampler_.trigger(pad, p.pads[pad], padSample(pad), v);
+    if (v && !suppressed(0, pad)) {
+      const int trigVel = (v >= 2) ? 2 : 1;
+      sampler_.trigger(pad, p.pads[pad], padSample(pad), trigVel);
+      if (v >= 3) {
+        const int reps = (v == 3) ? 2 : (v == 4 ? 3 : 4);
+        const double iv = sl / double(reps);
+        ratchets_[pad] = Ratchet{true, pad, reps - 1, std::llround(double(frame_) + iv), iv};
+      }
+    }
   }
   for (int s = 0; s < kNumSynths; ++s) {
     const SynthPattern& pat = sc.synth[s];
@@ -218,27 +229,58 @@ void Engine::fireStep() {
   ++step_;
   if (step_ >= steps) {                         // end of the scene: loop, or move along the song chain
     step_ = 0;
-    if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; }
+    if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; slotStartFrame_ = std::llround(stepBase_); }
   }
   nextFire_ = std::llround(stepBase_ + double(swingOffset(p.swing, step_)) * sl);
 }
 
 void Engine::renderAudio(float* l, float* r, int n) {
+  const Project& p = *proj_;
+  SynthParams effSynth[kNumSynths];
+  TrackFx effFx[kNumTracks];
+  for (int s = 0; s < kNumSynths; ++s) effSynth[s] = p.synths[s];
+  for (int t = 0; t < kNumTracks; ++t) effFx[t] = p.fx[t];
+
+  // Apply Song-Menu Sequence Automation for the active chain slot
+  if (playing_ && songMode_ && chainPos_ >= 0 && chainPos_ < p.chainLen) {
+    const double totalSlotFrames = double(sceneSteps(p.scenes[scene_])) * stepLen();
+    double u = totalSlotFrames > 1.0 ? double(frame_ - slotStartFrame_) / totalSlotFrames : 0.0;
+    if (u < 0.0) u = 0.0; else if (u > 1.0) u = 1.0;
+    const ChainAuto& ca = p.chainAuto[chainPos_];
+    for (int ln = 0; ln < 2; ++ln) {
+      const AutoLane& al = ca.lanes[ln];
+      if (al.param == AutoParam::Off) continue;
+      const float lin = al.startVal + float(u) * (al.endVal - al.startVal);
+      if (al.param == AutoParam::BassCutoff || al.param == AutoParam::LeadCutoff) {
+        const float s0 = al.startVal < 60.0f ? 60.0f : (al.startVal > 12000.0f ? 12000.0f : al.startVal);
+        const float s1 = al.endVal < 60.0f ? 60.0f : (al.endVal > 12000.0f ? 12000.0f : al.endVal);
+        const float expVal = s0 * std::pow(s1 / s0, float(u));
+        effSynth[al.param == AutoParam::BassCutoff ? 0 : 1].cutoff = expVal;
+      } else if (al.param == AutoParam::DrumsDrive) {
+        effFx[0].drive = lin < 0.0f ? 0.0f : (lin > 1.0f ? 1.0f : lin);
+      } else if (al.param == AutoParam::LeadDelay) {
+        effFx[2].delaySend = lin < 0.0f ? 0.0f : (lin > 0.8f ? 0.8f : lin);
+      }
+    }
+  }
+  for (int t = 0; t < kNumTracks; ++t) {
+    if (tr_[t].cDrive != effFx[t].drive) { tr_[t].drive.set(effFx[t].drive); tr_[t].cDrive = effFx[t].drive; }
+  }
+
   float tb[kNumTracks][2][kBlock];
   float mono[kBlock];
   std::memset(tb, 0, sizeof(tb));
   sampler_.process(tb[0][0], tb[0][1], n);
   for (int s = 0; s < kNumSynths; ++s) {
     std::memset(mono, 0, sizeof(float) * size_t(n));
-    synth_[s].process(mono, n, proj_->synths[s]);
+    synth_[s].process(mono, n, effSynth[s]);
     std::memcpy(tb[1 + s][0], mono, sizeof(float) * size_t(n));
     std::memcpy(tb[1 + s][1], mono, sizeof(float) * size_t(n));
   }
-  const Project& p = *proj_;
   for (int i = 0; i < n; ++i) {
     float mL = 0, mR = 0, dL = 0, dR = 0, rL = 0, rR = 0;
     for (int t = 0; t < kNumTracks; ++t) {
-      const TrackFx& fx = p.fx[t];
+      const TrackFx& fx = effFx[t];
       TrackState& ts = tr_[t];
       const float lvl = ts.level.next(fx.mute ? 0.0f : fx.level);
       const float ds = ts.dSend.next(fx.delaySend), rs = ts.rSend.next(fx.revSend);
@@ -265,7 +307,21 @@ void Engine::render(float* outL, float* outR, int frames) {
     int n = frames - done;
     if (playing_) {
       while (nextFire_ <= frame_) fireStep();           // every step starts on its exact sample
-      const int64_t until = nextFire_ - frame_;
+      for (int pad = 0; pad < kNumPads; ++pad) {
+        Ratchet& rt = ratchets_[pad];
+        while (rt.active && rt.nextFrame <= frame_) {
+          sampler_.trigger(rt.pad, proj_->pads[rt.pad], padSample(rt.pad), 2);
+          if (--rt.remaining <= 0) rt.active = false;
+          else rt.nextFrame = std::llround(double(rt.nextFrame) + rt.interval);
+        }
+      }
+      int64_t until = nextFire_ - frame_;
+      for (int pad = 0; pad < kNumPads; ++pad) {
+        if (ratchets_[pad].active) {
+          const int64_t ru = ratchets_[pad].nextFrame - frame_;
+          if (ru < until) until = ru;
+        }
+      }
       if (until < n) n = int(until);
     }
     if (n > kBlock) n = kBlock;

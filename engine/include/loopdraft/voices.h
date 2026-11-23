@@ -18,6 +18,8 @@ struct Sample {
 
 // Built-in synthesized drum sounds, used until the user loads their own WAVs. pad = 0..7.
 std::unique_ptr<Sample> makeBuiltinSample(int pad, double sampleRate);
+// Built-in 1-bar Amen-style Jungle breakbeat for instant breakbeat slicing.
+std::unique_ptr<Sample> makeJungleBreakSample(double sampleRate);
 // Reads a WAV file (8/16/24/32-bit PCM or float). Returns nullptr if it cannot be read. Never call on the audio thread.
 std::unique_ptr<Sample> loadWav(const char* path);
 bool writeWav16(const char* path, const float* l, const float* r, size_t frames, double sampleRate);
@@ -31,11 +33,11 @@ class Sampler {
  private:
   struct Voice {
     const Sample* s = nullptr;
-    double pos = 0, inc = 1;
+    double pos = 0, inc = 1, endPos = 0;
     float gl = 0, gr = 0, env = 0, envMul = 1;
     int pad = -1, choke = 0;
     uint64_t age = 0;
-    bool active = false;
+    bool active = false, reverse = false;
   };
   Voice v_[kDrumVoices];
   double sr_ = 48000.0;
@@ -57,7 +59,7 @@ class Synth {
     Stage stage = Off;
     int tag = 0;
     float freq = 0, ph1 = 0, ph2 = 0, inc1 = 0, inc2 = 0;
-    float env = 0, gain = 0, lfoPh = 0, amp = 1, ampStep = 0, cut = 0;
+    float env = 0, gain = 0, lfoPh = 0, amp = 1, ampStep = 0, cut = 0, modEnv = 1.0f, lastMod = 0.0f;
     int64_t gate = 0;
     uint64_t age = 0, born = 0;
     Svf flt;

@@ -58,6 +58,11 @@ object Native {
     external fun chainAdd(scene: Int)
     external fun chainRemove(pos: Int)
     external fun resetToDemo()
+    external fun setDrumStep(scene: Int, pad: Int, step: Int, value: Int)
+    external fun loadJungleKit()
+    external fun loadStandardKit()
+    external fun setChainAuto(pos: Int, lane: Int, param: Int, startVal: Float, endVal: Float)
+    external fun chainAuto(pos: Int): FloatArray
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -74,6 +79,9 @@ object P {
     const val PAD_PITCH = 12
     const val PAD_DECAY = 13
     const val PAD_CHOKE = 14
+    const val PAD_SLICE_START = 15
+    const val PAD_SLICE_END = 16
+    const val PAD_REVERSE = 17
     const val SYN_WAVE1 = 20
     const val SYN_WAVE2 = 21
     const val SYN_DETUNE = 22
@@ -89,6 +97,11 @@ object P {
     const val SYN_LFO_TARGET = 32
     const val SYN_OCTAVE = 33
     const val SYN_CHORD = 34
+    const val SYN_MODE = 35
+    const val SYN_FM_RATIO = 36
+    const val SYN_FM_INDEX = 37
+    const val SYN_FM_DECAY = 38
+    const val SYN_FM_FB = 39
     const val FX_LEVEL = 40
     const val FX_DRIVE = 41
     const val FX_EQ_LOW = 42

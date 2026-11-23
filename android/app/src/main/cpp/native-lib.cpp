@@ -215,3 +215,25 @@ JNI(jintArray, chain)(JNIEnv* env, jobject) {
 JNI(void, chainAdd)(JNIEnv*, jobject, jint scene) { if (S()) S()->chainAdd(scene); }
 JNI(void, chainRemove)(JNIEnv*, jobject, jint pos) { if (S()) S()->chainRemove(pos); }
 JNI(void, resetToDemo)(JNIEnv*, jobject) { if (S()) S()->resetToDemo(); }
+
+JNI(void, setDrumStep)(JNIEnv*, jobject, jint scene, jint pad, jint step, jint value) {
+  if (S()) S()->setDrumStep(scene, pad, step, value);
+}
+JNI(void, loadJungleKit)(JNIEnv*, jobject) { if (S()) S()->loadJungleKit(); }
+JNI(void, loadStandardKit)(JNIEnv*, jobject) { if (S()) S()->loadStandardKit(); }
+JNI(void, setChainAuto)(JNIEnv*, jobject, jint pos, jint lane, jint param, jfloat startVal, jfloat endVal) {
+  if (S()) S()->setChainAuto(pos, lane, param, startVal, endVal);
+}
+JNI(jfloatArray, chainAuto)(JNIEnv* env, jobject, jint pos) {
+  jfloatArray arr = env->NewFloatArray(6);
+  if (!arr || !S()) return arr;
+  const ld::Project& p = S()->project();
+  float out[6] = {0, 0, 0, 0, 0, 0};
+  if (pos >= 0 && pos < p.chainLen) {
+    const ld::ChainAuto& ca = p.chainAuto[pos];
+    out[0] = float(ca.lanes[0].param); out[1] = ca.lanes[0].startVal; out[2] = ca.lanes[0].endVal;
+    out[3] = float(ca.lanes[1].param); out[4] = ca.lanes[1].startVal; out[5] = ca.lanes[1].endVal;
+  }
+  env->SetFloatArrayRegion(arr, 0, 6, out);
+  return arr;
+}

@@ -460,6 +460,88 @@ static void testPatternEditing() {
   Scene s; s.bars = 99; CHECK_EQ(sceneSteps(s), kMaxSteps); s.bars = 0; CHECK_EQ(sceneSteps(s), 16);
 }
 
+
+static void testFmAndOctaveIsolation() {
+  ld::Session ses(48000.0);
+  ses.setParam(ld::P_SYN_MODE, 1, 1.0f);
+  ses.setParam(ld::P_SYN_FM_RATIO, 1, 3.0f);
+  ses.setParam(ld::P_SYN_FM_INDEX, 1, 4.0f);
+  ses.setParam(ld::P_SYN_FM_DECAY, 1, 0.2f);
+  ses.setParam(ld::P_SYN_FM_FB, 1, 0.3f);
+  CHECK(ses.getParam(ld::P_SYN_MODE, 1) > 0.5f);
+  // Per-sequence octave isolation: adding a +1 octave note (degree +7) in scene 1 leaves scene 0 untouched
+  const int origCount0 = ses.project().scenes[0].synth[1].count;
+  CHECK(ses.toggleNote(1, 1, 0, 7, false));
+  CHECK(ses.project().scenes[0].synth[1].count == origCount0);
+  // Verify FM synth renders non-silent, bounded stereo audio
+  ses.engine().noteOn(1, 7, 2);
+  float l[512] = {}, r[512] = {};
+  ses.engine().render(l, r, 512);
+  float peak = 0.0f;
+  for (int i = 0; i < 512; ++i) peak = std::fmax(peak, std::fabs(l[i]));
+  CHECK(peak > 0.01f && peak <= 1.0f);
+  // Save & load roundtrip preserves FM settings
+  const char* pth = "/tmp/ld_fm_test.ldp";
+  CHECK(ses.save(pth));
+  ld::Session ses2(48000.0);
+  CHECK(ses2.load(pth));
+  CHECK(ses2.getParam(ld::P_SYN_MODE, 1) > 0.5f);
+  CHECK(std::fabs(ses2.getParam(ld::P_SYN_FM_RATIO, 1) - 3.0f) < 0.01f);
+}
+
+
+static void testSongAutomation() {
+  ld::Session ses(48000.0);
+  ses.setChainAuto(0, 0, int(ld::AutoParam::LeadCutoff), 180.0f, 6500.0f);
+  ses.setChainAuto(0, 1, int(ld::AutoParam::DrumsDrive), 0.0f, 0.9f);
+  CHECK(ses.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
+  // Render song mode with automation and verify it differs from unautomated render
+  ld::RenderOptions o; o.songMode = true; o.tailSeconds = 0.2;
+  const ld::RenderResult withAuto = ld::renderOffline(ses.project(), o);
+  ld::Project plain = ses.project();
+  plain.chainAuto[0] = ld::ChainAuto{};
+  const ld::RenderResult noAuto = ld::renderOffline(plain, o);
+  CHECK(finite(withAuto.l) && peakOf(withAuto.l) > 0.1f && peakOf(withAuto.l) <= 0.9441f);
+  CHECK(!same(withAuto.l, noAuto.l));
+  // Save & load v3 preserves automation lanes
+  const char* pth = "/tmp/ld_auto_test.ldp";
+  CHECK(ses.save(pth));
+  ld::Session ses2(48000.0);
+  CHECK(ses2.load(pth));
+  CHECK(ses2.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
+  CHECK(std::fabs(ses2.project().chainAuto[0].lanes[0].endVal - 6500.0f) < 0.1f);
+  std::remove(pth);
+}
+
+static void testJungleSlicerAndRatchets() {
+  // 1. Verify slice boundaries and reverse playback on Jungle kit
+  ld::Session ses(48000.0);
+  ses.loadJungleKit();
+  CHECK(std::fabs(ses.getParam(ld::P_BPM, 0) - 168.0f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_SLICE_START, 2) - 0.25f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_SLICE_END, 2) - 0.375f) < 0.01f);
+  ses.setParam(ld::P_PAD_REVERSE, 2, 1.0f);
+  CHECK(ses.getParam(ld::P_PAD_REVERSE, 2) > 0.5f);
+  ses.engine().triggerPad(2, 2);
+  float l[1024] = {}, r[1024] = {};
+  ses.engine().render(l, r, 1024);
+  float pk = 0.0f;
+  for (int i = 0; i < 1024; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  CHECK(pk > 0.01f && pk <= 1.0f);
+
+  // 2. Verify sample-accurate 4x ratchet roll (step value 5) lands 4 clicks inside one 16th step (6000 frames @ 120 BPM)
+  ld::Project p = emptyProject();
+  p.scenes[0].drums.steps[0][0] = 5; // 4x roll -> hits at 0, 1500, 3000, 4500
+  auto c = click(48000);
+  ld::RenderOptions o; o.samples[0] = c.get(); o.tailSeconds = 0.05;
+  const ld::RenderResult rr = ld::renderOffline(p, o);
+  const std::vector<long> got = clicks(rr.l);
+  CHECK_EQ(got.size(), size_t(4));
+  if (got.size() == 4) {
+    CHECK_EQ(got[0], 0); CHECK_EQ(got[1], 1500); CHECK_EQ(got[2], 3000); CHECK_EQ(got[3], 4500);
+  }
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -481,6 +563,9 @@ int main() {
     {"session: undo, parameters, save and load", testSessionUndoSaveLoad},
     {"session: live hits are written into the project", testSessionRecordsLiveHits},
     {"pattern editing helpers", testPatternEditing},
+    {"FM synth engine and per-sequence octave isolation", testFmAndOctaveIsolation},
+    {"song-menu sequence automation", testSongAutomation},
+    {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
   };
   int failedTests = 0;
   for (const auto& t : tests) {
