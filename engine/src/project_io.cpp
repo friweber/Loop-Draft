@@ -109,7 +109,7 @@ ld::Project upgrade(const v4::Project& o) {
     p.synths[i].mode = o.synths[i].mode; p.synths[i].fmRatio = o.synths[i].fmRatio; p.synths[i].fmIndex = o.synths[i].fmIndex;
     p.synths[i].fmModDecay = o.synths[i].fmModDecay; p.synths[i].fmFeedback = o.synths[i].fmFeedback;
   }
-  p.kit = o.kit;
+  p.drumEngine = o.kit == 1 ? DrumEngine::JungleSlicer : DrumEngine::Classic808;
   for (int i = 0; i < kMaxChain; ++i)            // the four fixed automation targets become free-choice lanes
     for (int k = 0; k < 2; ++k) {
       const v4::AutoLane& a = o.chainAuto[i].lanes[k];
@@ -139,7 +139,8 @@ ld::Project upgrade(const v4::Project& o) {
 template <class V> void fields(V& v, Project& p) {
   char k[64];
   v.f("bpm", p.bpm); v.f("swing", p.swing); v.f("root", p.root); v.f("scale", p.scale); v.f("octave", p.octave);
-  v.f("delayFeedback", p.delayFeedback); v.f("master", p.master); v.f("activeSynths", p.activeSynths); v.f("kit", p.kit);
+  v.f("delayFeedback", p.delayFeedback); v.f("master", p.master); v.f("activeSynths", p.activeSynths); v.f("drumEngine", p.drumEngine);
+  v.f("junglePitch", p.junglePitch); v.f("jungleTight", p.jungleTight); v.f("jungleCrunch", p.jungleCrunch); v.f("breakId", p.breakId);
   v.f("chainLen", p.chainLen); v.blob("chain", p.chain, sizeof(p.chain), sizeof(p.chain));
 #define LD_F(prefix, obj, name) std::snprintf(k, sizeof(k), "%s." #name, prefix); v.f(k, obj.name)
   char pre[40];

@@ -273,4 +273,122 @@ std::unique_ptr<Sample> makeJungleBreakSample(double sr) {
   return s;
 }
 
+std::unique_ptr<Sample> makeDrumKitSample(DrumEngine engine, int pad, double sr) {
+  if (engine == DrumEngine::Classic808) return makeBuiltinSample(pad, sr);
+  auto s = std::make_unique<Sample>();
+  s->rate = sr;
+  const int p = pad & 7;
+  Rng rng(2000u + uint32_t(engine) * 100u + uint32_t(p));
+  double ph = 0.0, ph2 = 0.0;
+  float lp1 = 0.0f, lp2 = 0.0f;
+  const auto op = [&](double hz) { return float(1.0 - std::exp(-2.0 * kPi * hz / sr)); };
+
+  if (engine == DrumEngine::Punch909) {
+    static const double lens[8] = {0.55, 0.35, 0.38, 0.18, 0.75, 0.16, 0.55, 0.35};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      switch (p) {
+        case 0: { // 909 Kick: punchy click + fast pitch drop
+          ph += (50.0 + 180.0 * std::exp(-t / 0.018)) / sr;
+          const float click = rng.next() * float(std::exp(-t * 320.0)) * 0.45f;
+          x = float(std::tanh((std::sin(2 * kPi * ph) * 1.35 + click) * std::exp(-t * 7.0)));
+          break;
+        }
+        case 1: { // 909 Snare: snappy body + bright noise
+          const float nz = rng.next();
+          lp1 += op(1400) * (nz - lp1); lp2 += op(9000) * ((nz - lp1) - lp2);
+          ph += (210.0 + 60.0 * std::exp(-t / 0.015)) / sr;
+          x = float(lp2 * 1.15 * std::exp(-t * 11.0) + std::sin(2 * kPi * ph) * 0.65 * std::exp(-t * 22.0));
+          break;
+        }
+        case 2: { // 909 Clap
+          const float nz = rng.next();
+          lp1 += op(900) * (nz - lp1); lp2 += op(4500) * ((nz - lp1) - lp2);
+          double e = 0.55 * std::exp(-t * 16.0);
+          for (double t0 : {0.0, 0.009, 0.018, 0.027}) if (t >= t0) e = std::fmax(e, std::exp(-(t - t0) * 140.0));
+          x = float(lp2 * e);
+          break;
+        }
+        case 3: case 4: { // 909 Metallic Hat
+          const float nz = rng.next();
+          lp1 += op(7500) * (nz - lp1);
+          ph += 3120.0 / sr; ph2 += 4780.0 / sr;
+          const float ring = float((std::sin(2 * kPi * ph) > 0 ? 1 : -1) * (std::sin(2 * kPi * ph2) > 0 ? 1 : -1));
+          x = float(((nz - lp1) * 0.8 + ring * 0.25) * std::exp(-t * (p == 3 ? 28.0 : 5.5)));
+          break;
+        }
+        case 5: { // 909 Rimshot
+          ph += 1150.0 / sr; ph2 += 490.0 / sr;
+          x = float((std::sin(2 * kPi * ph) * 0.7 + std::sin(2 * kPi * ph2) * 0.6) * std::exp(-t * 48.0));
+          break;
+        }
+        case 6: { // 909 Tom
+          ph += (95.0 + 140.0 * std::exp(-t / 0.04)) / sr;
+          x = float(std::sin(2 * kPi * ph) * std::exp(-t * 6.5));
+          break;
+        }
+        default: { // 909 Ride / Perc
+          const float nz = rng.next();
+          lp1 += op(5200) * (nz - lp1);
+          ph += 1840.0 / sr;
+          x = float(((nz - lp1) * 0.6 + std::sin(2 * kPi * ph) * 0.4) * std::exp(-t * 9.0));
+          break;
+        }
+      }
+      s->l[i] = x;
+    }
+  } else if (engine == DrumEngine::LoFiAcoustic) {
+    static const double lens[8] = {0.65, 0.42, 0.35, 0.22, 0.70, 0.20, 0.60, 0.35};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    float hold = 0.0f;
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (55.0 + 75.0 * std::exp(-t / 0.04)) / sr;
+        x = float(std::sin(2 * kPi * ph) * std::exp(-t * 6.5));
+      } else if (p == 1 || p == 2) {
+        const float nz = rng.next();
+        lp1 += op(600) * (nz - lp1); lp2 += op(2800) * ((nz - lp1) - lp2);
+        ph += 175.0 / sr;
+        x = float((lp2 * 0.9 + std::sin(2 * kPi * ph) * 0.45) * std::exp(-t * 11.0));
+      } else if (p == 3 || p == 4) {
+        const float nz = rng.next();
+        lp1 += op(3500) * (nz - lp1); lp2 += op(8000) * ((nz - lp1) - lp2);
+        x = float(lp2 * std::exp(-t * (p == 3 ? 22.0 : 6.0)));
+      } else {
+        ph += (160.0 + p * 70.0) / sr;
+        x = float(std::sin(2 * kPi * ph) * std::exp(-t * 14.0));
+      }
+      // Subtle vintage 12-bit lo-fi warmth & sample-hold grit
+      if ((i & 1u) == 0) hold = std::round(x * 32.0f) / 32.0f;
+      s->l[i] = std::tanh(hold * 1.4f);
+    }
+  } else { // FmIndustrial
+    static const double lens[8] = {0.60, 0.40, 0.35, 0.22, 0.65, 0.25, 0.55, 0.45};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    const double ratios[8] = {1.5, 2.71, 3.41, 5.13, 6.27, 4.19, 1.41, 2.83};
+    const double baseF[8]  = {58.0, 165.0, 290.0, 820.0, 640.0, 510.0, 110.0, 340.0};
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      const double f = baseF[p] * (1.0 + (p == 0 || p == 6 ? 2.2 * std::exp(-t / 0.025) : 0.2 * std::exp(-t / 0.03)));
+      ph += f / sr;
+      ph2 += (f * ratios[p]) / sr;
+      const double idx = (p == 0 ? 3.5 : 6.5) * std::exp(-t * 12.0);
+      const float fm = float(std::sin(2 * kPi * ph + idx * std::sin(2 * kPi * ph2)));
+      s->l[i] = float(std::tanh(fm * 1.3f) * std::exp(-t * (p == 3 ? 24.0 : 8.5)));
+    }
+  }
+
+  float pk = 1e-9f;
+  for (float x : s->l) pk = std::fmax(pk, std::fabs(x));
+  for (float& x : s->l) x *= 0.9f / pk;
+  return s;
+}
+
 }  // namespace ld

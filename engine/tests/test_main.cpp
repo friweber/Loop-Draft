@@ -479,7 +479,7 @@ static void testOldSaveFilesAreConverted() {
   CHECK_EQ(p.chainLen, 6); CHECK_EQ(p.chain[4], 2); CHECK_EQ(p.chain[5], 0);
   // things that did not exist yet start at their defaults
   CHECK(p.synths[0].mode == SynthMode::Subtractive); CHECK(p.pads[3].sliceEnd == 1.0f); CHECK(!p.pads[3].reverse);
-  CHECK_EQ(p.kit, 0); CHECK_EQ(p.chainAuto[0].tracks[2][0].paramId, -1); CHECK_EQ(p.activeSynths, 2);
+  CHECK_EQ(int(p.drumEngine), 0); CHECK_EQ(p.chainAuto[0].tracks[2][0].paramId, -1); CHECK_EQ(p.activeSynths, 2);
   CHECK(s.dirty());                                // so it is written back in the current format
   const std::string path = "/tmp/ld_test_converted.ldp";
   CHECK(s.save(path.c_str()));
@@ -494,7 +494,7 @@ static void testV03SaveFilesAreConverted() {
   CHECK(s.load(LD_FIXTURES "/project_v4.ldp"));
   const Project& p = s.project();
   CHECK(p.bpm == 151.0f); CHECK(p.swing == 0.125f); CHECK_EQ(p.root, 4); CHECK(p.scale == Scale::Pentatonic);
-  CHECK_EQ(p.kit, 1); CHECK_EQ(p.pads[2].choke, 1);
+  CHECK_EQ(int(p.drumEngine), 4); CHECK_EQ(p.pads[2].choke, 1);
   CHECK(std::fabs(p.pads[5].sliceStart - 0.3f) < 1e-6f); CHECK(std::fabs(p.pads[5].sliceEnd - 0.7f) < 1e-6f); CHECK(p.pads[5].reverse);
   CHECK(std::fabs(p.pads[3].sliceStart - 0.375f) < 1e-6f); CHECK(!p.pads[3].reverse);
   CHECK(p.synths[1].mode == SynthMode::Fm); CHECK(p.synths[1].fmRatio == 3.5f); CHECK(p.synths[1].fmIndex == 6.0f);
@@ -538,7 +538,7 @@ static void testProjectFileFormat() {
   Session b(44100);
   CHECK(b.load(f1.c_str())); CHECK(!b.dirty());
   const Project& p = b.project();
-  CHECK_EQ(p.activeSynths, 4); CHECK_EQ(p.kit, 1); CHECK(p.synths[2].instrument == InstrumentPreset::SuperPad);
+  CHECK_EQ(p.activeSynths, 4); CHECK_EQ(int(p.drumEngine), 4); CHECK(p.synths[2].instrument == InstrumentPreset::SuperPad);
   CHECK(p.fx[3].slots[1].type == FxType::Phaser && p.fx[3].slots[1].bypass && std::fabs(p.fx[3].slots[1].rate - 0.77f) < 1e-6f);
   CHECK_EQ(p.chainAuto[3].tracks[4][2].paramId, P_SYN_FM_INDEX); CHECK(p.chainAuto[3].tracks[4][2].endVal == 7.0f);
   CHECK_EQ(p.scenes[3].synth[3].count, 1); CHECK_EQ(p.scenes[3].synth[3].notes[0].degree, 35); CHECK_EQ(p.scenes[3].synth[3].notes[0].len, 8);
@@ -578,23 +578,23 @@ static void testKitFollowsTheProject() {
   const std::vector<float> stdSound = padHit(std0, 1);
   Session a(48000);
   a.loadJungleKit();
-  CHECK_EQ(a.project().kit, 1); CHECK(a.getParam(P_KIT, 0) == 1.0f);
+  CHECK_EQ(int(a.project().drumEngine), 4); CHECK(a.getParam(P_DRUM_ENGINE, 0) == 4.0f);
   const std::vector<float> jungle = padHit(a, 1);
   CHECK(peakOf(jungle) > 0.02f); CHECK(!same(jungle, stdSound));
   const std::string path = "/tmp/ld_test_kit.ldp";
   CHECK(a.save(path.c_str()));
   Session b(48000);                                // "restart the app"
-  CHECK(b.load(path.c_str())); CHECK_EQ(b.project().kit, 1);
+  CHECK(b.load(path.c_str())); CHECK_EQ(int(b.project().drumEngine), 4);
   CHECK(same(padHit(b, 1), jungle));               // same slices, not the standard drums cut into pieces
   std::remove(path.c_str());
-  a.setParam(P_KIT, 0, 0); CHECK_EQ(a.project().kit, 1);          // read-only through setParam
-  CHECK(a.undo()); CHECK_EQ(a.project().kit, 0); CHECK(a.project().bpm == 122.0f);
+  a.setParam(P_DRUM_ENGINE, 0, 0); CHECK_EQ(int(a.project().drumEngine), 4);          // read-only through setParam
+  CHECK(a.undo()); CHECK_EQ(int(a.project().drumEngine), 0); CHECK(a.project().bpm == 122.0f);
   std::vector<float> l; renderN(a.engine(), l, 48000 * 12);       // let delay and reverb of the old hit die away
   const std::vector<float> afterUndo = padHit(a, 1);
   float worst = 0; for (size_t i = 0; i < afterUndo.size(); ++i) worst = std::fmax(worst, std::fabs(afterUndo[i] - stdSound[i]));
   CHECK(worst < 1e-3f);                            // the standard snare again
-  CHECK(a.redo()); CHECK_EQ(a.project().kit, 1);
-  a.resetToDemo(); CHECK_EQ(a.project().kit, 0);
+  CHECK(a.redo()); CHECK_EQ(int(a.project().drumEngine), 4);
+  a.resetToDemo(); CHECK_EQ(int(a.project().drumEngine), 0);
 
   float w0[64], w1[64];
   Session d(48000);
@@ -797,6 +797,111 @@ static void testJungleSlicerAndRatchets() {
   }
 }
 
+
+static void testDrumEnginesAndJungleResample() {
+  ld::Session ses(48000.0);
+  // 1. Test all 4 synthesized drum engines produce distinct, bounded audio
+  for (int eng = 0; eng <= 3; ++eng) {
+    ses.setDrumEngine(eng);
+    CHECK_EQ(int(ses.project().drumEngine), eng);
+    ses.engine().triggerPad(0, 2);
+    float l[512] = {}, r[512] = {};
+    ses.engine().render(l, r, 512);
+    float pk = 0.0f;
+    for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+    CHECK(pk > 0.05f && pk <= 1.0f);
+  }
+  // 2. Resample user's own processed drum loop from scene 1 into the Jungle Slicer
+  ses.setDrumEngine(int(ld::DrumEngine::Punch909));
+  ses.setFxSlot(0, 0, int(ld::FxType::Bitcrush), 0.4f, 0.3f, false);
+  ses.resampleSceneToJungle(1);
+  CHECK(ses.project().drumEngine == ld::DrumEngine::JungleSlicer);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_SLICE_START, 4) - 0.5f) < 0.01f);
+  // 3. Apply Jungle global tuning (Repitch, Tightness, Crunch)
+  ses.applyJungleTuning(3.0f, 0.35f, 0.55f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_PITCH, 0) - 3.0f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_DECAY, 7) - 0.35f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_FX_DRIVE, 0) - 0.55f) < 0.01f);
+  ses.engine().triggerPad(4, 2);
+  float l[512] = {}, r[512] = {};
+  ses.engine().render(l, r, 512);
+  float pk = 0.0f;
+  for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  CHECK(pk > 0.01f && pk <= 1.0f);
+}
+
+
+static float padPeak(ld::Session& ses, int pad) {
+  float l[2048] = {}, r[2048] = {}, pk = 0.0f;
+  for (int i = 0; i < 96; ++i) ses.engine().render(l, r, 2048);   // let earlier hits and effect tails ring out
+  ses.engine().triggerPad(pad, 2);
+  ses.engine().render(l, r, 2048);
+  for (int i = 0; i < 2048; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  return pk;
+}
+
+// A user's own break is audio outside the project struct: it has to survive save/load, follow undo and reach the export.
+static void testOwnBreakPersistsAndUndoes() {
+  using namespace ld;
+  const std::string dir = "/tmp/ld_break_test";
+  if (std::system(("mkdir -p " + dir).c_str()) != 0) return;
+  const std::string wav = dir + "/in.wav", proj = dir + "/p.ldp";
+  // a "break" that is silent in its first half and loud in its second: slices 0-3 silent, 4-7 loud
+  std::vector<float> l(48000, 0.0f);
+  for (size_t i = 24000; i < l.size(); ++i) l[i] = 0.8f * float(std::sin(double(i) * 0.05));
+  CHECK(writeWav16(wav.c_str(), l.data(), l.data(), l.size(), 48000.0));
+
+  Session a(48000.0);
+  CHECK(!a.loadJungleBreakWav((dir + "/missing.wav").c_str()));
+  CHECK_EQ(int(a.project().drumEngine), 0);
+  CHECK(a.loadJungleBreakWav(wav.c_str()));
+  CHECK_EQ(int(a.project().drumEngine), 4); CHECK(a.project().breakId != 0); CHECK(a.activeBreak() != nullptr);
+  CHECK(padPeak(a, 1) < 0.01f); CHECK(padPeak(a, 5) > 0.2f);
+  float w[16];
+  CHECK_EQ(a.padWaveform(0, w, 16), 16); CHECK(w[2] < 0.01f); CHECK(w[12] > 0.5f);
+
+  // offline render (export) plays the same audio
+  a.clearScene(0); a.setDrumStep(0, 5, 0, 2);
+  RenderOptions o; o.scene = 0; o.soloTrack = 0; o.tailSeconds = 0;
+  const auto brk = a.activeBreak();
+  for (int i = 0; i < kNumPads; ++i) o.samples[i] = brk.get();
+  const RenderResult rr = renderOffline(a.project(), o);
+  float pk = 0; for (float x : rr.l) pk = std::fmax(pk, std::fabs(x));
+  CHECK(pk > 0.1f);
+
+  // save and load in a fresh session
+  CHECK(a.save(proj.c_str()));
+  Session b(48000.0);
+  CHECK(b.load(proj.c_str()));
+  CHECK(b.activeBreak() != nullptr); CHECK_EQ(b.project().breakId, a.project().breakId);
+  CHECK(padPeak(b, 1) < 0.01f); CHECK(padPeak(b, 5) > 0.2f);
+
+  // undo goes back to the 808, redo brings the break back; the built-in break is a separate step
+  CHECK(a.undo()); CHECK(a.undo()); CHECK(a.undo());
+  CHECK_EQ(int(a.project().drumEngine), 0); CHECK(a.activeBreak() == nullptr); CHECK(padPeak(a, 1) > 0.05f);
+  CHECK(a.redo()); CHECK(a.activeBreak() != nullptr); CHECK(padPeak(a, 1) < 0.01f);
+  a.setDrumEngine(4); CHECK(a.activeBreak() == nullptr); CHECK_EQ(a.project().breakId, 0u); CHECK(padPeak(a, 1) > 0.02f);
+  CHECK(a.undo()); CHECK(padPeak(a, 1) < 0.01f);
+
+  // if the audio file is lost the project still loads, with the built-in break
+  std::remove((proj + ".break.wav").c_str());
+  Session c(48000.0);
+  CHECK(c.load(proj.c_str())); CHECK_EQ(c.project().breakId, 0u); CHECK_EQ(int(c.project().drumEngine), 4);
+  CHECK(padPeak(c, 1) > 0.02f);
+
+  // bouncing: an empty scene is refused, a real one becomes the break and its effects are not applied twice
+  Session d(48000.0);
+  d.clearScene(2); CHECK(!d.resampleSceneToJungle(2)); CHECK_EQ(int(d.project().drumEngine), 0);
+  d.setFxSlot(0, 0, int(FxType::Bitcrush), 0.4f, 0.3f, false);
+  CHECK(d.resampleSceneToJungle(0)); CHECK(d.activeBreak() != nullptr);
+  CHECK(d.project().fx[0].slots[0].type == FxType::Off); CHECK(d.project().fx[0].drive == 0.0f);
+  // tuning through setParam reaches all pads; switching between hit kits keeps pad edits
+  d.setParam(P_JUNGLE_PITCH, 0, -5.0f); CHECK(d.project().pads[6].pitch == -5.0f);
+  Session e(48000.0);
+  e.setParam(P_PAD_VOL, 3, 0.33f); e.setDrumEngine(1); CHECK(std::fabs(e.project().pads[3].vol - 0.33f) < 1e-6f);
+  e.setParam(P_JUNGLE_PITCH, 0, 4.0f); CHECK(e.project().pads[0].pitch != 4.0f);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -828,6 +933,8 @@ int main() {
     {"song-menu sequence automation", testSongAutomation},
     {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
     {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
+    {"drum engines, jungle tuning and resample-to-break", testDrumEnginesAndJungleResample},
+    {"own break: save, load, undo, export", testOwnBreakPersistsAndUndoes},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

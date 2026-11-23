@@ -30,7 +30,9 @@ Sanitizer builds: `-DLD_SANITIZE=ON` (address + undefined behaviour) and `-DLD_T
 
 - **FM mode** per synth: two operators with ratio, index, modulator decay and feedback.
 - **Song automation:** two lanes per song slot sweep a filter cutoff, the drum drive or the lead delay send from a start to an end value.
-- **Jungle kit:** the pads play eight slices of a built-in, synthesized break; slices can be moved and reversed.
+- **Drum engines:** 808, 909, lo-fi acoustic, FM industrial, and the break slicer.
+- **Break slicer:** the pads play eight slices of a break: the built-in synthesized one, a WAV of your own, or a scene's drums bounced with their effects (at most 24 s). An own break is saved as `<project>.break.wav` next to the project and follows undo.
+- **Project files:** version 5 is a list of named records, so new fields do not break old files. Files of app builds 5 and 7 are converted on load.
 - **Rolls:** a drum step can play 2, 3 or 4 hits.
 - **Save files:** version 4. Files written by build 5 (version 1) are converted on load.
 

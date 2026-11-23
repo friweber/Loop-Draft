@@ -261,6 +261,7 @@ JNI(jfloatArray, padWave)(JNIEnv* env, jobject, jint pad, jint n) {
 namespace {
 std::mutex g_exportLock;
 std::unique_ptr<ld::Project> g_exportProject;
+std::shared_ptr<const ld::Sample> g_exportBreak;   // the user's own break, if the project plays one
 bool exportCopy(ld::Project& out) {
   std::lock_guard<std::mutex> g(g_exportLock);
   if (!g_exportProject) return false;
@@ -279,6 +280,7 @@ JNI(void, snapshotForExport)(JNIEnv*, jobject) {
   if (!S()) return;
   std::lock_guard<std::mutex> g(g_exportLock);
   g_exportProject = std::make_unique<ld::Project>(S()->project());
+  g_exportBreak = S()->activeBreak();
 }
 JNI(jboolean, exportMidi)(JNIEnv* env, jobject, jstring path, jboolean song, jint scene) {
   auto p = std::make_unique<ld::Project>();
@@ -295,6 +297,9 @@ JNI(jboolean, exportWav)(JNIEnv* env, jobject, jstring path, jboolean song, jint
   if (!exportCopy(*p)) return JNI_FALSE;
   ld::RenderOptions o;
   o.songMode = song == JNI_TRUE; o.scene = scene; o.soloTrack = stem;
+  std::shared_ptr<const ld::Sample> brk;
+  { std::lock_guard<std::mutex> g(g_exportLock); brk = g_exportBreak; }
+  if (brk) for (int i = 0; i < ld::kNumPads; ++i) o.samples[i] = brk.get();
   const ld::RenderResult r = ld::renderOffline(*p, o);
   return ld::writeWav16(jstr(env, path).c_str(), r.l.data(), r.r.data(), r.l.size(), r.sampleRate) ? JNI_TRUE : JNI_FALSE;
 }
@@ -321,4 +326,24 @@ JNI(void, applyInstrument)(JNIEnv*, jobject, jint synth, jint preset) {
 }
 JNI(void, setActiveSynths)(JNIEnv*, jobject, jint count) {
   if (S()) S()->setActiveSynths(count);
+}
+
+JNI(void, setDrumEngine)(JNIEnv*, jobject, jint engine) {
+  if (S()) S()->setDrumEngine(engine);
+}
+JNI(void, applyJungleTuning)(JNIEnv*, jobject, jfloat pitch, jfloat tight, jfloat crunch) {
+  if (S()) S()->applyJungleTuning(pitch, tight, crunch);
+}
+JNI(jboolean, loadJungleBreakWav)(JNIEnv* env, jobject, jstring path) {
+  if (!S() || !path) return JNI_FALSE;
+  const char* c = env->GetStringUTFChars(path, nullptr);
+  const bool ok = c && S()->loadJungleBreakWav(c);
+  if (c) env->ReleaseStringUTFChars(path, c);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+JNI(jboolean, resampleSceneToJungle)(JNIEnv*, jobject, jint scene) {
+  return S() && S()->resampleSceneToJungle(scene) ? JNI_TRUE : JNI_FALSE;
+}
+JNI(jboolean, hasOwnBreak)(JNIEnv*, jobject) {
+  return S() && S()->activeBreak() ? JNI_TRUE : JNI_FALSE;
 }

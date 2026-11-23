@@ -24,7 +24,8 @@ enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
 enum class SynthMode : uint8_t { Subtractive, Fm };
-enum class FxType    : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class FxType     : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class DrumEngine : uint8_t { Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer };
 enum class InstrumentPreset : uint8_t {
   Custom, AnalogBass, Acid303, ReeseDnB, FmBell, FmEPiano, SuperPad, PluckLead
 };
@@ -32,8 +33,9 @@ enum class InstrumentPreset : uint8_t {
 // Parameter ids for getParam / setParam. `index` is the pad, synth or track number where it applies.
 enum Param : int {
   P_BPM = 0, P_SWING, P_MASTER, P_DELAY_FB, P_ROOT, P_SCALE, P_OCTAVE,
-  P_KIT,            // 7, read-only: use load*Kit()
-  P_ACTIVE_SYNTHS,  // 8, read-only: use setActiveSynths()
+  P_ACTIVE_SYNTHS = 8,   // read-only: use setActiveSynths()
+  P_DRUM_ENGINE = 53,    // read-only: use setDrumEngine()
+  P_JUNGLE_PITCH = 54, P_JUNGLE_TIGHT = 55, P_JUNGLE_CRUNCH = 56,
   P_PAD_VOL = 10, P_PAD_PAN, P_PAD_PITCH, P_PAD_DECAY, P_PAD_CHOKE, P_PAD_SLICE_START, P_PAD_SLICE_END, P_PAD_REVERSE,
   P_SYN_WAVE1 = 20, P_SYN_WAVE2, P_SYN_DETUNE, P_SYN_CUTOFF, P_SYN_RES, P_SYN_ATTACK, P_SYN_DECAY, P_SYN_SUSTAIN,
   P_SYN_RELEASE, P_SYN_LEVEL, P_SYN_LFO_RATE, P_SYN_LFO_DEPTH, P_SYN_LFO_TARGET, P_SYN_OCTAVE, P_SYN_CHORD,
@@ -132,6 +134,10 @@ struct Project {
   Scale scale = Scale::Minor;
   int32_t octave = 3;
   int32_t activeSynths = 2;  // 2 by default (Bass + Lead); user can expand up to 4
+  DrumEngine drumEngine = DrumEngine::Classic808;   // which sounds the 8 pads play
+  float junglePitch = 0.0f;  // global repitch (-12 .. +12 st) for Jungle Slicer
+  float jungleTight = 0.65f; // global slice decay (0.08 .. 1.5 s) for Jungle Slicer
+  float jungleCrunch = 0.25f;// vintage Akai/E-mu crunch (0 .. 1) for Jungle Slicer
   PadParams pads[kNumPads];
   SynthParams synths[kNumSynths];
   TrackFx fx[kNumTracks];
@@ -141,7 +147,7 @@ struct Project {
   int32_t chain[kMaxChain] = {0, 1, 2, 3};
   ChainAuto chainAuto[kMaxChain];
   int32_t chainLen = 4;
-  uint8_t kit = 0;         // which built-in drum kit the pads play: 0 = standard, 1 = jungle break slices
+  uint32_t breakId = 0;    // Jungle Slicer: 0 = built-in break, otherwise the user's own break (a WAV or a bounced loop)
 };
 
 Project makeDemoProject();

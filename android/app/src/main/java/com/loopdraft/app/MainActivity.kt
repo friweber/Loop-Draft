@@ -11,6 +11,7 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import java.io.File
 
@@ -19,6 +20,33 @@ class MainActivity : ComponentActivity() {
     private var selfTest = false
     private var jungleShot = false
     private var fourShot = false
+
+    // "LOAD WAV" in the break slicer: the system file picker, then a private copy the engine can open by path.
+    private val pickBreak = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) loadBreak(uri) }
+
+    private fun loadBreak(uri: Uri) {
+        val tmp = File(cacheDir, "break_in.wav")
+        val ok = try {
+            var total = 0L
+            contentResolver.openInputStream(uri)?.use { input ->
+                tmp.outputStream().use { out ->
+                    val buf = ByteArray(1 shl 16)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > 40L * 1024 * 1024) throw java.io.IOException("too large")
+                        out.write(buf, 0, n)
+                    }
+                }
+            } != null && Native.loadJungleBreakWav(tmp.absolutePath)
+        } catch (e: Exception) {
+            false
+        }
+        tmp.delete()
+        state.drumMsg = if (ok) "" else "Could not use this file. It has to be a WAV of at most 24 seconds."
+        state.rev++
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,6 +62,7 @@ class MainActivity : ComponentActivity() {
         jungleShot = intent?.getBooleanExtra("jungle", false) == true
         fourShot = intent?.getBooleanExtra("four", false) == true
         state.onExport = { kind -> export(kind) }
+        state.onLoadBreak = { try { pickBreak.launch("audio/*") } catch (e: Exception) { state.drumMsg = "No file picker on this device." } }
 
         setContent { App(state) }
     }

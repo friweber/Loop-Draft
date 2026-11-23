@@ -2,6 +2,8 @@
 // Owns the Project, keeps undo history, saves and loads, and forwards every change to the Engine.
 // All methods are for one thread (the UI thread). The audio thread only ever touches engine().render*.
 #pragma once
+#include <memory>
+#include <string>
 #include <vector>
 
 #include "loopdraft/engine.h"
@@ -16,6 +18,8 @@ void sanitize(Project& p);
 // formats of app builds 5 and 7; `converted` reports that an older file was upgraded.
 bool writeProjectFile(const char* path, const Project& p);
 bool readProjectFile(const char* path, Project& out, bool* converted = nullptr);
+
+constexpr double kMaxBreakSeconds = 24.0;
 
 class Session {
  public:
@@ -41,8 +45,14 @@ class Session {
   void setFxSlot(int track, int slot, int type, float amount, float rate, bool bypass, bool undoStep = true);
   void applyInstrument(int synth, int preset);
   void setActiveSynths(int count);
-  void loadJungleKit();            // pads become 8 slices of the built-in break; tempo goes to 168
-  void loadStandardKit();
+  void loadJungleKit();            // = setDrumEngine(JungleSlicer)
+  void loadStandardKit();          // = setDrumEngine(Classic808)
+  void setDrumEngine(int engine);  // 0..4, see DrumEngine. Jungle Slicer: pads become 8 slices of a break
+  void applyJungleTuning(float pitch, float tight, float crunch, bool undoStep = true);
+  // The Jungle Slicer can slice your own break instead of the built-in one. At most kMaxBreakSeconds long.
+  bool loadJungleBreakWav(const char* path);
+  bool resampleSceneToJungle(int scene);   // renders the scene's drums (with their effects) and slices that
+  std::shared_ptr<const Sample> activeBreak() const;   // the user's break if the project plays one, else null
   void writeBreakPattern(int scene);   // fills the scene's drums with the 8 slices in their original order
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1);   // true if the note now exists
   void setSceneBars(int scene, int bars);
@@ -65,10 +75,17 @@ class Session {
 
  private:
   void commit();
-  void syncKit();                  // makes the engine's pad samples match project().kit
-  int appliedKit_ = 0;
-  std::unique_ptr<Sample> wave_[kNumPads];   // UI-side copies of the kit sounds, only for drawing
-  int waveKit_ = -1;
+  void syncKit();                  // makes the engine's pad samples match the project's drum engine and break
+  void useBreak(std::shared_ptr<const Sample> s, uint32_t id = 0);
+  std::shared_ptr<const Sample> findBreak(uint32_t id) const;
+  struct Break { uint32_t id; std::shared_ptr<const Sample> sample; };
+  std::vector<Break> breaks_;      // the last few user breaks, so undo can bring one back
+  uint32_t nextBreakId_ = 1, savedBreakId_ = 0;
+  int appliedEngine_ = 0;
+  uint32_t appliedBreak_ = 0;
+  std::shared_ptr<const Sample> wave_[kNumPads];   // UI-side copies of the kit sounds, only for drawing
+  int waveEngine_ = -1;
+  uint32_t waveBreak_ = 0;
   Engine engine_;
   Project proj_;
   std::vector<Project> undo_, redo_;

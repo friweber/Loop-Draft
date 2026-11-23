@@ -23,6 +23,10 @@ void sanitize(Project& p) {
   if (uint8_t(p.scale) > uint8_t(Scale::Pentatonic)) p.scale = Scale::Minor;
   p.octave = clampT(p.octave, 1, 5);
   p.activeSynths = clampT(p.activeSynths, 2, kNumSynths);
+  if (uint8_t(p.drumEngine) > uint8_t(DrumEngine::JungleSlicer)) p.drumEngine = DrumEngine::Classic808;
+  p.junglePitch = clampT(fin(p.junglePitch, 0.0f), -12.0f, 12.0f);
+  p.jungleTight = clampT(fin(p.jungleTight, 0.65f), 0.08f, 1.5f);
+  p.jungleCrunch = clampT(fin(p.jungleCrunch, 0.25f), 0.0f, 1.0f);
   p.delayFeedback = clampT(fin(p.delayFeedback, 0.38f), 0.0f, 0.85f);
   p.master = clampT(fin(p.master, 0.85f), 0.0f, 1.0f);
   for (auto& d : p.pads) {
@@ -74,7 +78,6 @@ void sanitize(Project& p) {
       }
     }
   }
-  if (p.kit > 1) p.kit = 0;
   p.chainLen = clampT(p.chainLen, 1, kMaxChain);
   for (int i = 0; i < kMaxChain; ++i) {
     p.chain[i] = clampT(p.chain[i], 0, kNumScenes - 1);
@@ -99,16 +102,22 @@ void Session::commit() {
   dirty_ = true;
 }
 
-// The kit is part of the project, so undo, redo, reset and loading all bring the right sounds back.
+// The drum sounds follow the project, so undo, redo, reset and loading all bring the right ones back.
 void Session::syncKit() {
-  if (appliedKit_ == proj_.kit) return;
-  if (proj_.kit == 1) {
-    const std::unique_ptr<Sample> brk = makeJungleBreakSample(engine_.sampleRate());
+  const DrumEngine de = proj_.drumEngine;
+  const uint32_t bid = de == DrumEngine::JungleSlicer && findBreak(proj_.breakId) ? proj_.breakId : 0;
+  if (appliedEngine_ == int(de) && appliedBreak_ == bid) return;
+  const double sr = engine_.sampleRate();
+  if (de == DrumEngine::JungleSlicer) {
+    std::shared_ptr<const Sample> brk = findBreak(bid);
+    if (!brk) brk = makeJungleBreakSample(sr);
     for (int i = 0; i < kNumPads; ++i) engine_.setPadSample(i, std::make_unique<Sample>(*brk));
   } else {
-    for (int i = 0; i < kNumPads; ++i) engine_.setPadSample(i, nullptr);
+    for (int i = 0; i < kNumPads; ++i)
+      engine_.setPadSample(i, de == DrumEngine::Classic808 ? nullptr : makeDrumKitSample(de, i, sr));
   }
-  appliedKit_ = proj_.kit;
+  appliedEngine_ = int(de);
+  appliedBreak_ = bid;
 }
 
 void Session::beginEdit() {
@@ -147,8 +156,11 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_ROOT: kind = 1; return reinterpret_cast<float*>(&p.root);
     case P_SCALE: kind = 2; return reinterpret_cast<float*>(&p.scale);
     case P_OCTAVE: kind = 1; return reinterpret_cast<float*>(&p.octave);
-    case P_KIT: kind = 2; return reinterpret_cast<float*>(&p.kit);
     case P_ACTIVE_SYNTHS: kind = 1; return reinterpret_cast<float*>(&p.activeSynths);
+    case P_DRUM_ENGINE: kind = 2; return reinterpret_cast<float*>(&p.drumEngine);
+    case P_JUNGLE_PITCH: return &p.junglePitch;
+    case P_JUNGLE_TIGHT: return &p.jungleTight;
+    case P_JUNGLE_CRUNCH: return &p.jungleCrunch;
     case P_PAD_VOL: return &pad().vol;
     case P_PAD_PAN: return &pad().pan;
     case P_PAD_PITCH: return &pad().pitch;
@@ -205,7 +217,12 @@ float Session::getParam(int id, int index) const {
 }
 
 void Session::setParam(int id, int index, float value) {
-  if (id == P_KIT) return;                       // changing the kit also changes the pads: use loadJungleKit / loadStandardKit
+  if (id == P_DRUM_ENGINE || id == P_ACTIVE_SYNTHS) return;   // these change more than one field: use their own calls
+  if (id == P_JUNGLE_PITCH || id == P_JUNGLE_TIGHT || id == P_JUNGLE_CRUNCH) {
+    applyJungleTuning(id == P_JUNGLE_PITCH ? value : proj_.junglePitch, id == P_JUNGLE_TIGHT ? value : proj_.jungleTight,
+                      id == P_JUNGLE_CRUNCH ? value : proj_.jungleCrunch, false);
+    return;
+  }
   bool isInt; int kind;
   void* f = field(proj_, id, index, isInt, kind);
   const int iv = int(value < 0 ? value - 0.5f : value + 0.5f);
@@ -330,26 +347,115 @@ void Session::applyInstrument(int synth, int preset) {
   }
   commit();
 }
-void Session::loadJungleKit() {
-  beginEdit();
-  proj_.kit = 1;
+namespace {
+void sliceAcrossPads(Project& p) {
   for (int i = 0; i < kNumPads; ++i) {
-    proj_.pads[i].sliceStart = float(i) / float(kNumPads);
-    proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
-    proj_.pads[i].choke = 1;
-    proj_.pads[i].decay = 0.65f;
-    proj_.pads[i].pitch = 0.0f;
-    proj_.pads[i].reverse = false;
+    PadParams& d = p.pads[i];
+    d.sliceStart = float(i) / float(kNumPads);
+    d.sliceEnd = float(i + 1) / float(kNumPads);
+    d.choke = 1;
+    d.decay = p.jungleTight;
+    d.pitch = p.junglePitch;
+    d.reverse = false;
   }
-  proj_.bpm = 168.0f;
+}
+}  // namespace
+
+void Session::loadJungleKit() { setDrumEngine(int(DrumEngine::JungleSlicer)); }
+void Session::loadStandardKit() { setDrumEngine(int(DrumEngine::Classic808)); }
+
+// Only project fields change here. commit() -> syncKit() then loads the matching sounds, and does the
+// same after undo, redo and loading a file.
+void Session::setDrumEngine(int engine) {
+  beginEdit();
+  const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::JungleSlicer)));
+  const bool wasJungle = proj_.drumEngine == DrumEngine::JungleSlicer;
+  proj_.drumEngine = de;
+  proj_.breakId = 0;                               // choosing the engine again goes back to the built-in break
+  if (de == DrumEngine::JungleSlicer) {
+    sliceAcrossPads(proj_);
+    proj_.fx[0].drive = proj_.jungleCrunch;
+    if (!wasJungle) proj_.bpm = 168.0f;
+  } else if (wasJungle) {                          // leaving the slicer: pads are single hits again
+    const Project def = makeDemoProject();
+    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
+  }
   commit();
 }
-void Session::loadStandardKit() {
-  beginEdit();
-  const Project def = makeDemoProject();
-  proj_.kit = 0;
-  for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
+void Session::applyJungleTuning(float pitch, float tight, float crunch, bool undoStep) {
+  if (undoStep) beginEdit();
+  proj_.junglePitch = clampT(fin(pitch, 0.0f), -12.0f, 12.0f);
+  proj_.jungleTight = clampT(fin(tight, 0.65f), 0.08f, 1.5f);
+  proj_.jungleCrunch = clampT(fin(crunch, 0.25f), 0.0f, 1.0f);
+  if (proj_.drumEngine == DrumEngine::JungleSlicer) {
+    for (int i = 0; i < kNumPads; ++i) {
+      proj_.pads[i].pitch = proj_.junglePitch;
+      proj_.pads[i].decay = proj_.jungleTight;
+    }
+    proj_.fx[0].drive = proj_.jungleCrunch;
+  }
   commit();
+}
+std::shared_ptr<const Sample> Session::findBreak(uint32_t id) const {
+  if (id == 0) return nullptr;
+  for (const Break& b : breaks_) if (b.id == id) return b.sample;
+  return nullptr;
+}
+std::shared_ptr<const Sample> Session::activeBreak() const {
+  return proj_.drumEngine == DrumEngine::JungleSlicer ? findBreak(proj_.breakId) : nullptr;
+}
+void Session::useBreak(std::shared_ptr<const Sample> s, uint32_t id) {
+  if (id == 0) id = nextBreakId_;
+  if (id >= nextBreakId_) nextBreakId_ = id + 1;
+  for (size_t i = 0; i < breaks_.size(); ++i) if (breaks_[i].id == id) { breaks_.erase(breaks_.begin() + long(i)); break; }
+  breaks_.push_back(Break{id, std::move(s)});
+  if (breaks_.size() > 3) breaks_.erase(breaks_.begin());
+  proj_.drumEngine = DrumEngine::JungleSlicer;
+  proj_.breakId = id;
+}
+bool Session::loadJungleBreakWav(const char* path) {
+  std::shared_ptr<const Sample> loaded = loadWav(path);
+  if (!loaded || loaded->frames() < 16 || loaded->rate < 1000.0) return false;
+  if (double(loaded->frames()) / loaded->rate > kMaxBreakSeconds) return false;
+  beginEdit();
+  useBreak(std::move(loaded));
+  sliceAcrossPads(proj_);
+  commit();
+  return true;
+}
+bool Session::resampleSceneToJungle(int scene) {
+  if (!sceneOk(scene)) return false;
+  // Render this scene's drums, through their effects, exactly as they sound now.
+  RenderOptions opt;
+  opt.sampleRate = engine_.sampleRate();
+  opt.songMode = false;
+  opt.scene = scene;
+  opt.soloTrack = 0;
+  opt.tailSeconds = 0.0;
+  const std::shared_ptr<const Sample> cur = activeBreak();
+  if (cur) for (int i = 0; i < kNumPads; ++i) opt.samples[i] = cur.get();
+  const double seconds = double(sceneSteps(proj_.scenes[scene])) * 15.0 / double(proj_.bpm < 20 ? 20 : proj_.bpm);
+  if (seconds > kMaxBreakSeconds) return false;
+  RenderResult rr = renderOffline(proj_, opt);
+  float pk = 0.0f;
+  for (size_t i = 0; i < rr.l.size(); ++i) pk = std::fmax(pk, std::fmax(std::fabs(rr.l[i]), std::fabs(rr.r[i])));
+  if (rr.l.size() < 16 || pk < 1e-4f) return false;          // an empty pattern has nothing to slice
+  const float norm = 0.92f / pk;
+  for (size_t i = 0; i < rr.l.size(); ++i) { rr.l[i] *= norm; rr.r[i] *= norm; }
+  auto bounced = std::make_shared<Sample>();
+  bounced->rate = rr.sampleRate;
+  bounced->l = std::move(rr.l);
+  bounced->r = std::move(rr.r);
+
+  beginEdit();
+  useBreak(std::move(bounced));
+  sliceAcrossPads(proj_);
+  // The effects are now part of the recording, so they must not be applied a second time.
+  proj_.fx[0].drive = 0.0f;
+  proj_.jungleCrunch = 0.0f;
+  for (auto& sl : proj_.fx[0].slots) sl.type = FxType::Off;
+  commit();
+  return true;
 }
 void Session::writeBreakPattern(int scene) {
   if (!sceneOk(scene)) return;
@@ -382,10 +488,19 @@ void Session::resetToDemo() { beginEdit(); proj_ = makeDemoProject(); commit(); 
 
 int Session::padWaveform(int pad, float* out, int n) {
   if (pad < 0 || pad >= kNumPads || !out || n <= 0) return 0;
-  if (waveKit_ != proj_.kit) {
-    for (int i = 0; i < kNumPads; ++i)
-      wave_[i] = proj_.kit == 1 ? makeJungleBreakSample(engine_.sampleRate()) : makeBuiltinSample(i, engine_.sampleRate());
-    waveKit_ = proj_.kit;
+  const DrumEngine de = proj_.drumEngine;
+  const std::shared_ptr<const Sample> brk = activeBreak();
+  const uint32_t bid = brk ? proj_.breakId : 0;
+  if (waveEngine_ != int(de) || waveBreak_ != bid) {
+    const double sr = engine_.sampleRate();
+    if (de == DrumEngine::JungleSlicer) {
+      const std::shared_ptr<const Sample> one = brk ? brk : std::shared_ptr<const Sample>(makeJungleBreakSample(sr));
+      for (auto& w : wave_) w = one;
+    } else {
+      for (int i = 0; i < kNumPads; ++i) wave_[i] = makeDrumKitSample(de, i, sr);
+    }
+    waveEngine_ = int(de);
+    waveBreak_ = bid;
   }
   const Sample& s = *wave_[pad];
   const size_t frames = s.frames();
@@ -422,7 +537,17 @@ bool Session::poll() {
   return changed;
 }
 
+// A user break is audio, not settings, so it lives in its own file next to the project.
+static std::string breakPath(const char* path) { return std::string(path) + ".break.wav"; }
+
 bool Session::save(const char* path) {
+  if (const std::shared_ptr<const Sample> brk = activeBreak()) {
+    if (savedBreakId_ != proj_.breakId) {
+      const float* r = brk->r.size() == brk->l.size() ? brk->r.data() : brk->l.data();
+      if (!writeWav16(breakPath(path).c_str(), brk->l.data(), r, brk->frames(), brk->rate)) return false;
+      savedBreakId_ = proj_.breakId;
+    }
+  }
   if (!writeProjectFile(path, proj_)) return false;
   dirty_ = false;
   return true;
@@ -433,6 +558,21 @@ bool Session::load(const char* path) {
   bool converted = false;
   if (!readProjectFile(path, p, &converted)) return false;
   proj_ = p; undo_.clear(); redo_.clear();
+  breaks_.clear();
+  savedBreakId_ = 0;
+  if (proj_.breakId != 0) {
+    std::shared_ptr<const Sample> brk = loadWav(breakPath(path).c_str());
+    if (brk && brk->frames() >= 16) {
+      const DrumEngine de = proj_.drumEngine;
+      useBreak(std::move(brk), proj_.breakId);
+      proj_.drumEngine = de;
+      savedBreakId_ = proj_.breakId;
+    } else {
+      proj_.breakId = 0;                           // the audio is gone: fall back to the built-in break
+    }
+  }
+  appliedEngine_ = -1;                             // the same id may now mean different audio
+  waveEngine_ = -1;
   syncKit();
   engine_.setProject(proj_);
   dirty_ = converted;                            // a converted project gets written back in the current format

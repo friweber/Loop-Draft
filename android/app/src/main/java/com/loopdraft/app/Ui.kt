@@ -54,6 +54,7 @@ val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
 val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
 val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
 val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
+val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -90,6 +91,8 @@ class AppState {
     var exportMsg by mutableStateOf("")
     /** Set by the activity: 0 = MIDI, 1 = WAV mix, 2 = WAV stems. */
     var onExport: (Int) -> Unit = {}
+    var drumMsg by mutableStateOf("")
+    var onLoadBreak: () -> Unit = {}
     private var frames = 0
 
     /** Runs once per screen frame. */
@@ -419,30 +422,54 @@ fun DrumsTab(s: AppState) {
     val grid = remember(s.rev, s.scene) { Native.drumGrid(s.scene) }
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
     val bar = s.drumBar.coerceIn(0, bars - 1)
-    // The kit is part of the project in the engine, so it survives restarts and follows undo.
-    val jungle = remember(s.rev) { Native.getParam(P.KIT, 0) > 0.5f }
+    // The drum engine is part of the project in the engine, so it survives restarts and follows undo.
+    val drumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, 4) }
+    val jungle = drumEng == 4
+    val ownBreak = remember(s.rev) { Native.hasOwnBreak() }
     val revOn = remember(s.rev, s.selPad) { Native.getParam(P.PAD_REVERSE, s.selPad) > 0.5f }
     val peaks = remember(s.rev, s.selPad) { Native.padWave(s.selPad, 96) }
     val slice0 = remember(s.rev, s.selPad) { Native.getParam(P.PAD_SLICE_START, s.selPad) }
     val slice1 = remember(s.rev, s.selPad) { Native.getParam(P.PAD_SLICE_END, s.selPad) }
     val accent = if (jungle) HwCyan else HwOrange
     val padLabel: (Int) -> String = { i -> if (jungle) "Slice ${i + 1}" else PAD_NAMES[i] }
+    fun bounce() {
+        s.drumMsg = if (Native.resampleSceneToJungle(s.scene)) "" else "Nothing to bounce: the scene needs drum steps and must be shorter than 24 s."
+        s.rev++
+    }
 
     val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
     Panes(s, left = {
     ModulePanel(
-        title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "Drums: ${padLabel(s.selPad)}",
-        accent = accent,
-        trailing = {
-            HwButton("STD", on = !jungle, ledColor = HwOrange, height = 26.dp, pad = 6.dp) {
-                if (jungle) { Native.loadStandardKit(); s.rev++ }
-            }
-            HwButton("JUNGLE", on = jungle, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
-                if (!jungle) { Native.loadJungleKit(); s.rev++ }
+        title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "${DRUM_ENGINE_NAMES[drumEng]}: ${padLabel(s.selPad)}",
+        accent = accent
+    ) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("KIT", size = 9, modifier = Modifier.width(26.dp))
+            DRUM_ENGINE_NAMES.forEachIndexed { idx, nm ->
+                HwButton(nm, on = drumEng == idx, ledColor = if (idx == 4) HwCyan else HwOrange, height = 28.dp, pad = 6.dp) {
+                    if (drumEng != idx) { Native.setDrumEngine(idx); s.drumMsg = ""; s.rev++ }
+                }
             }
         }
-    ) {
         WaveformDisplay(peaks, slice0, slice1, accent, Modifier.fillMaxWidth())
+        if (jungle) {
+            // The slicer plays the built-in break, a WAV of your own, or this scene's drums bounced with their effects.
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                HwButton("BUILT-IN", Modifier.weight(1f), on = !ownBreak, ledColor = HwCyan, height = 30.dp, pad = 2.dp) {
+                    if (ownBreak) { Native.setDrumEngine(4); s.drumMsg = ""; s.rev++ }
+                }
+                HwButton("LOAD WAV", Modifier.weight(1f), ledColor = HwCyan, height = 30.dp, pad = 2.dp) { s.onLoadBreak() }
+                HwButton("BOUNCE ${SCENE_NAMES[s.scene]}", Modifier.weight(1f), ledColor = HwYellow, height = 30.dp, pad = 2.dp) { bounce() }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "Repitch", P.JUNGLE_PITCH, 0, -12f, 12f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { signed(it, "st") }
+                RotaryKnob(s, "Tight", P.JUNGLE_TIGHT, 0, 0.08f, 1.5f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { secs(it) }
+                RotaryKnob(s, "Crunch", P.JUNGLE_CRUNCH, 0, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+            }
+        } else {
+            HwButton("BOUNCE THIS LOOP INTO THE BREAK SLICER", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 30.dp) { bounce() }
+        }
+        if (s.drumMsg.isNotEmpty()) SilkLabel(s.drumMsg, color = HwYellow, size = 10, bold = false)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "Vol", P.PAD_VOL, s.selPad, 0f, 1f, Modifier.weight(1f)) { pct(it) }
             RotaryKnob(s, "Pitch", P.PAD_PITCH, s.selPad, -12f, 12f, Modifier.weight(1f)) { signed(it, "st") }
