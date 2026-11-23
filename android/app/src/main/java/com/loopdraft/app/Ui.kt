@@ -53,6 +53,7 @@ val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
 val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
 val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
 val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
+val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -340,19 +341,57 @@ fun DrumsTab(s: AppState) {
     val bar = s.drumBar.coerceIn(0, bars - 1)
 
     val revOn = remember(s.rev, s.selPad) { Native.getParam(P.PAD_REVERSE, s.selPad) > 0.5f }
+    val curDrumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, 4) }
+    val isJungle = curDrumEng == 4
+    s.jungleMode = isJungle
+    val jPitch = remember(s.rev) { Native.getParam(P.JUNGLE_PITCH, 0) }
+    val jTight = remember(s.rev) { Native.getParam(P.JUNGLE_TIGHT, 0) }
+    val jCrunch = remember(s.rev) { Native.getParam(P.JUNGLE_CRUNCH, 0) }
 
     ModulePanel(
-        title = if (s.jungleMode) "Jungle Break Slicer — Slice ${s.selPad + 1}" else "Drum Machine — ${PAD_NAMES[s.selPad]}",
-        accent = if (s.jungleMode) HwCyan else HwOrange,
-        trailing = {
-            HwButton("STD", on = !s.jungleMode, ledColor = HwOrange, height = 26.dp, pad = 6.dp) {
-                if (s.jungleMode) { s.jungleMode = false; Native.loadStandardKit(); s.rev++ }
-            }
-            HwButton("JUNGLE", on = s.jungleMode, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
-                if (!s.jungleMode) { s.jungleMode = true; Native.loadJungleKit(); s.rev++ }
+        title = if (isJungle) "Jungle Break Slicer — Slice ${s.selPad + 1}" else "${DRUM_ENGINE_NAMES[curDrumEng]} — ${PAD_NAMES[s.selPad]}",
+        accent = if (isJungle) HwCyan else HwOrange
+    ) {
+        // Drum Engine Selector (5 built-in engines; Jungle defaults to Amen Break)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("KIT", size = 9, modifier = Modifier.width(26.dp))
+            DRUM_ENGINE_NAMES.forEachIndexed { idx, nm ->
+                HwButton(nm, on = curDrumEng == idx, ledColor = if (idx == 4) HwCyan else HwOrange, height = 26.dp, pad = 6.dp) {
+                    Native.setDrumEngine(idx); s.rev++
+                }
             }
         }
-    ) {
+        // Jungle-specific tuning + Resample own processed drum loop into the Break Slicer!
+        if (isJungle) {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                HwButton("AMEN DEFAULT", Modifier.weight(1f), ledColor = HwCyan, height = 28.dp, pad = 4.dp) {
+                    Native.setDrumEngine(4); s.rev++
+                }
+                HwButton("BOUNCE SCENE ${SCENE_NAMES[s.scene]} → BREAK", Modifier.weight(1.4f), ledColor = HwYellow, height = 28.dp, pad = 4.dp) {
+                    Native.resampleSceneToJungle(s.scene); s.rev++
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel("REPITCH ${signed(jPitch, "st")}", color = HwSilk, size = 9, mono = true)
+                HwButton("-", height = 24.dp, pad = 5.dp) { Native.applyJungleTuning(jPitch - 1f, jTight, jCrunch); s.rev++ }
+                HwButton("+", height = 24.dp, pad = 5.dp) { Native.applyJungleTuning(jPitch + 1f, jTight, jCrunch); s.rev++ }
+                SilkLabel("TIGHT ${secs(jTight)}", color = HwSilk, size = 9, mono = true)
+                HwButton("-", height = 24.dp, pad = 5.dp) { Native.applyJungleTuning(jPitch, (jTight - 0.1f).coerceAtLeast(0.08f), jCrunch); s.rev++ }
+                HwButton("+", height = 24.dp, pad = 5.dp) { Native.applyJungleTuning(jPitch, (jTight + 0.1f).coerceAtMost(1.5f), jCrunch); s.rev++ }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel("CRUNCH ${pct(jCrunch)}", color = HwSilk, size = 9, mono = true, modifier = Modifier.weight(1f))
+                HwButton("CLEAN", on = jCrunch < 0.15f, ledColor = HwGreen, height = 24.dp, pad = 6.dp) { Native.applyJungleTuning(jPitch, jTight, 0.05f); s.rev++ }
+                HwButton("AKAI", on = jCrunch in 0.15f..0.45f, ledColor = HwYellow, height = 24.dp, pad = 6.dp) { Native.applyJungleTuning(jPitch, jTight, 0.30f); s.rev++ }
+                HwButton("RAW", on = jCrunch > 0.45f, ledColor = HwRed, height = 24.dp, pad = 6.dp) { Native.applyJungleTuning(jPitch, jTight, 0.75f); s.rev++ }
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                HwButton("BOUNCE THIS LOOP → JUNGLE SLICER", Modifier.weight(1f), ledColor = HwCyan, height = 28.dp) {
+                    Native.resampleSceneToJungle(s.scene); s.rev++
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "Vol", P.PAD_VOL, s.selPad, 0f, 1f, Modifier.weight(1f)) { pct(it) }
             RotaryKnob(s, "Pitch", P.PAD_PITCH, s.selPad, -12f, 12f, Modifier.weight(1f)) { signed(it, "st") }

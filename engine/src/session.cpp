@@ -10,7 +10,7 @@ namespace ld {
 namespace {
 constexpr size_t kMaxUndo = 64;
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 4;
+constexpr uint32_t kFileVersion = 5;
 template <typename T> T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float fin(float v, float fallback) { return v == v && v > -1e30f && v < 1e30f ? v : fallback; }
 bool sceneOk(int s) { return s >= 0 && s < kNumScenes; }
@@ -23,6 +23,10 @@ void sanitize(Project& p) {
   if (uint8_t(p.scale) > uint8_t(Scale::Pentatonic)) p.scale = Scale::Minor;
   p.octave = clampT(p.octave, 1, 5);
   p.activeSynths = clampT(p.activeSynths, 2, kNumSynths);
+  if (uint8_t(p.drumEngine) > uint8_t(DrumEngine::JungleSlicer)) p.drumEngine = DrumEngine::Classic808;
+  p.junglePitch = clampT(fin(p.junglePitch, 0.0f), -12.0f, 12.0f);
+  p.jungleTight = clampT(fin(p.jungleTight, 0.65f), 0.08f, 1.5f);
+  p.jungleCrunch = clampT(fin(p.jungleCrunch, 0.25f), 0.0f, 1.0f);
   p.delayFeedback = clampT(fin(p.delayFeedback, 0.38f), 0.0f, 0.85f);
   p.master = clampT(fin(p.master, 0.85f), 0.0f, 1.0f);
   for (auto& d : p.pads) {
@@ -134,6 +138,10 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_SCALE: kind = 2; return reinterpret_cast<float*>(&p.scale);
     case P_OCTAVE: kind = 1; return reinterpret_cast<float*>(&p.octave);
     case P_ACTIVE_SYNTHS: kind = 1; return reinterpret_cast<float*>(&p.activeSynths);
+    case P_DRUM_ENGINE: kind = 2; return reinterpret_cast<float*>(&p.drumEngine);
+    case P_JUNGLE_PITCH: return &p.junglePitch;
+    case P_JUNGLE_TIGHT: return &p.jungleTight;
+    case P_JUNGLE_CRUNCH: return &p.jungleCrunch;
     case P_PAD_VOL: return &pad().vol;
     case P_PAD_PAN: return &pad().pan;
     case P_PAD_PITCH: return &pad().pitch;
@@ -315,26 +323,99 @@ void Session::applyInstrument(int synth, int preset) {
   commit();
 }
 void Session::loadJungleKit() {
+  setDrumEngine(int(DrumEngine::JungleSlicer));
+}
+void Session::loadStandardKit() {
+  setDrumEngine(int(DrumEngine::Classic808));
+}
+void Session::setDrumEngine(int engine) {
   beginEdit();
-  auto masterBreak = makeJungleBreakSample(engine_.sampleRate());
+  const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::JungleSlicer)));
+  proj_.drumEngine = de;
+  if (de == DrumEngine::JungleSlicer) {
+    auto masterBreak = makeJungleBreakSample(engine_.sampleRate());
+    for (int i = 0; i < kNumPads; ++i) {
+      engine_.setPadSample(i, std::make_unique<Sample>(*masterBreak));
+      proj_.pads[i].sliceStart = float(i) / float(kNumPads);
+      proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
+      proj_.pads[i].choke = 1;
+      proj_.pads[i].decay = proj_.jungleTight;
+      proj_.pads[i].pitch = proj_.junglePitch;
+      proj_.pads[i].reverse = false;
+    }
+    proj_.fx[0].drive = proj_.jungleCrunch;
+    proj_.bpm = 168.0f;
+  } else {
+    const Project def = makeDemoProject();
+    for (int i = 0; i < kNumPads; ++i) {
+      if (de == DrumEngine::Classic808) engine_.setPadSample(i, nullptr);
+      else engine_.setPadSample(i, makeDrumKitSample(de, i, engine_.sampleRate()));
+      proj_.pads[i] = def.pads[i];
+    }
+  }
+  commit();
+}
+void Session::applyJungleTuning(float pitch, float tight, float crunch) {
+  beginEdit();
+  proj_.junglePitch = clampT(pitch, -12.0f, 12.0f);
+  proj_.jungleTight = clampT(tight, 0.08f, 1.5f);
+  proj_.jungleCrunch = clampT(crunch, 0.0f, 1.0f);
   for (int i = 0; i < kNumPads; ++i) {
-    engine_.setPadSample(i, std::make_unique<Sample>(*masterBreak));
+    proj_.pads[i].pitch = proj_.junglePitch;
+    proj_.pads[i].decay = proj_.jungleTight;
+  }
+  proj_.fx[0].drive = proj_.jungleCrunch;
+  commit();
+}
+bool Session::loadJungleBreakWav(const char* path) {
+  auto loaded = loadWav(path);
+  if (!loaded || loaded->frames() < 16) return false;
+  beginEdit();
+  proj_.drumEngine = DrumEngine::JungleSlicer;
+  for (int i = 0; i < kNumPads; ++i) {
+    engine_.setPadSample(i, std::make_unique<Sample>(*loaded));
     proj_.pads[i].sliceStart = float(i) / float(kNumPads);
     proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
     proj_.pads[i].choke = 1;
-    proj_.pads[i].decay = 0.65f;
-    proj_.pads[i].pitch = 0.0f;
+    proj_.pads[i].decay = proj_.jungleTight;
+    proj_.pads[i].pitch = proj_.junglePitch;
     proj_.pads[i].reverse = false;
   }
-  proj_.bpm = 168.0f;
   commit();
+  return true;
 }
-void Session::loadStandardKit() {
+void Session::resampleSceneToJungle(int scene) {
+  if (!sceneOk(scene)) return;
   beginEdit();
-  const Project def = makeDemoProject();
+  // Render the user's own processed drum loop (track 0 + its FX chain!) into a stereo Sample
+  RenderOptions opt;
+  opt.sampleRate = engine_.sampleRate();
+  opt.songMode = false;
+  opt.scene = scene;
+  opt.soloTrack = 0;
+  opt.tailSeconds = 0.0;
+  const RenderResult rr = renderOffline(proj_, opt);
+  auto bounced = std::make_unique<Sample>();
+  bounced->rate = rr.sampleRate;
+  bounced->l = rr.l;
+  bounced->r = rr.r;
+  // Normalize bounced breakbeat
+  float pk = 1e-6f;
+  for (size_t i = 0; i < bounced->l.size(); ++i) {
+    pk = std::fmax(pk, std::fmax(std::fabs(bounced->l[i]), std::fabs(bounced->r[i])));
+  }
+  const float norm = 0.92f / pk;
+  for (size_t i = 0; i < bounced->l.size(); ++i) { bounced->l[i] *= norm; bounced->r[i] *= norm; }
+
+  proj_.drumEngine = DrumEngine::JungleSlicer;
   for (int i = 0; i < kNumPads; ++i) {
-    engine_.setPadSample(i, nullptr);
-    proj_.pads[i] = def.pads[i];
+    engine_.setPadSample(i, std::make_unique<Sample>(*bounced));
+    proj_.pads[i].sliceStart = float(i) / float(kNumPads);
+    proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
+    proj_.pads[i].choke = 1;
+    proj_.pads[i].decay = proj_.jungleTight;
+    proj_.pads[i].pitch = proj_.junglePitch;
+    proj_.pads[i].reverse = false;
   }
   commit();
 }

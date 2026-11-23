@@ -24,7 +24,8 @@ enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
 enum class SynthMode : uint8_t { Subtractive, Fm };
-enum class FxType    : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class FxType     : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class DrumEngine : uint8_t { Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer };
 enum class InstrumentPreset : uint8_t {
   Custom, AnalogBass, Acid303, ReeseDnB, FmBell, FmEPiano, SuperPad, PluckLead
 };
@@ -119,6 +120,10 @@ struct Project {
   Scale scale = Scale::Minor;
   int32_t octave = 3;
   int32_t activeSynths = 2;  // 2 by default (Bass + Lead); user can expand up to 4
+  DrumEngine drumEngine = DrumEngine::Classic808;
+  float junglePitch = 0.0f;  // global repitch (-12 .. +12 st) for Jungle Slicer
+  float jungleTight = 0.65f; // global slice decay (0.08 .. 1.5 s) for Jungle Slicer
+  float jungleCrunch = 0.25f;// vintage Akai/E-mu crunch (0 .. 1) for Jungle Slicer
   PadParams pads[kNumPads];
   SynthParams synths[kNumSynths];
   TrackFx fx[kNumTracks];

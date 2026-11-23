@@ -261,3 +261,20 @@ JNI(void, applyInstrument)(JNIEnv*, jobject, jint synth, jint preset) {
 JNI(void, setActiveSynths)(JNIEnv*, jobject, jint count) {
   if (S()) S()->setActiveSynths(count);
 }
+
+JNI(void, setDrumEngine)(JNIEnv*, jobject, jint engine) {
+  if (S()) S()->setDrumEngine(engine);
+}
+JNI(void, applyJungleTuning)(JNIEnv*, jobject, jfloat pitch, jfloat tight, jfloat crunch) {
+  if (S()) S()->applyJungleTuning(pitch, tight, crunch);
+}
+JNI(jboolean, loadJungleBreakWav)(JNIEnv* env, jobject, jstring path) {
+  if (!S() || !path) return JNI_FALSE;
+  const char* c = env->GetStringUTFChars(path, nullptr);
+  const bool ok = c && S()->loadJungleBreakWav(c);
+  if (c) env->ReleaseStringUTFChars(path, c);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+JNI(void, resampleSceneToJungle)(JNIEnv*, jobject, jint scene) {
+  if (S()) S()->resampleSceneToJungle(scene);
+}

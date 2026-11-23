@@ -568,6 +568,39 @@ static void testJungleSlicerAndRatchets() {
   }
 }
 
+
+static void testDrumEnginesAndJungleResample() {
+  ld::Session ses(48000.0);
+  // 1. Test all 4 synthesized drum engines produce distinct, bounded audio
+  for (int eng = 0; eng <= 3; ++eng) {
+    ses.setDrumEngine(eng);
+    CHECK_EQ(int(ses.project().drumEngine), eng);
+    ses.engine().triggerPad(0, 2);
+    float l[512] = {}, r[512] = {};
+    ses.engine().render(l, r, 512);
+    float pk = 0.0f;
+    for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+    CHECK(pk > 0.05f && pk <= 1.0f);
+  }
+  // 2. Resample user's own processed drum loop from scene 1 into the Jungle Slicer
+  ses.setDrumEngine(int(ld::DrumEngine::Punch909));
+  ses.setFxSlot(0, 0, int(ld::FxType::Bitcrush), 0.4f, 0.3f, false);
+  ses.resampleSceneToJungle(1);
+  CHECK(ses.project().drumEngine == ld::DrumEngine::JungleSlicer);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_SLICE_START, 4) - 0.5f) < 0.01f);
+  // 3. Apply Jungle global tuning (Repitch, Tightness, Crunch)
+  ses.applyJungleTuning(3.0f, 0.35f, 0.55f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_PITCH, 0) - 3.0f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_PAD_DECAY, 7) - 0.35f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_FX_DRIVE, 0) - 0.55f) < 0.01f);
+  ses.engine().triggerPad(4, 2);
+  float l[512] = {}, r[512] = {};
+  ses.engine().render(l, r, 512);
+  float pk = 0.0f;
+  for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  CHECK(pk > 0.01f && pk <= 1.0f);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -593,6 +626,7 @@ int main() {
     {"song-menu sequence automation", testSongAutomation},
     {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
     {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
+    {"drum engines, jungle tuning and resample-to-break", testDrumEnginesAndJungleResample},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

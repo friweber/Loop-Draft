@@ -67,6 +67,10 @@ object Native {
     external fun fxSlot(track: Int, slot: Int): FloatArray
     external fun applyInstrument(synth: Int, preset: Int)
     external fun setActiveSynths(count: Int)
+    external fun setDrumEngine(engine: Int)
+    external fun applyJungleTuning(pitch: Float, tight: Float, crunch: Float)
+    external fun loadJungleBreakWav(path: String): Boolean
+    external fun resampleSceneToJungle(scene: Int)
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -110,6 +114,10 @@ object P {
     const val SYN_INSTRUMENT = 50
     const val SYN_WARMTH = 51
     const val SYN_MOTION = 52
+    const val DRUM_ENGINE = 53
+    const val JUNGLE_PITCH = 54
+    const val JUNGLE_TIGHT = 55
+    const val JUNGLE_CRUNCH = 56
     const val FX_LEVEL = 40
     const val FX_DRIVE = 41
     const val FX_EQ_LOW = 42
