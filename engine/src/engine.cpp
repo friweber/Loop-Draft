@@ -22,6 +22,11 @@ Engine::Engine(double sampleRate) : sr_(sampleRate) {
     tr_[t].level.setTime(sr_, 15.0); tr_[t].dSend.setTime(sr_, 15.0); tr_[t].rSend.setTime(sr_, 15.0);
     tr_[t].level.reset(proj_->fx[t].mute ? 0.0f : proj_->fx[t].level);
     tr_[t].dSend.reset(proj_->fx[t].delaySend); tr_[t].rSend.reset(proj_->fx[t].revSend);
+    for (int sl = 0; sl < kFxSlots; ++sl) {
+      tr_[t].fxSlots[sl].chorus.init(sr_);
+      tr_[t].fxSlots[sl].phaser.init(sr_);
+      tr_[t].fxSlots[sl].comp.init(sr_);
+    }
   }
   applyProject();
 }
@@ -241,25 +246,53 @@ void Engine::renderAudio(float* l, float* r, int n) {
   for (int s = 0; s < kNumSynths; ++s) effSynth[s] = p.synths[s];
   for (int t = 0; t < kNumTracks; ++t) effFx[t] = p.fx[t];
 
-  // Apply Song-Menu Sequence Automation for the active chain slot
+  // Apply Free-Choice Song-Menu Sequence Automation (up to 3 lanes per track!)
   if (playing_ && songMode_ && chainPos_ >= 0 && chainPos_ < p.chainLen) {
     const double totalSlotFrames = double(sceneSteps(p.scenes[scene_])) * stepLen();
     double u = totalSlotFrames > 1.0 ? double(frame_ - slotStartFrame_) / totalSlotFrames : 0.0;
     if (u < 0.0) u = 0.0; else if (u > 1.0) u = 1.0;
     const ChainAuto& ca = p.chainAuto[chainPos_];
-    for (int ln = 0; ln < 2; ++ln) {
-      const AutoLane& al = ca.lanes[ln];
-      if (al.param == AutoParam::Off) continue;
-      const float lin = al.startVal + float(u) * (al.endVal - al.startVal);
-      if (al.param == AutoParam::BassCutoff || al.param == AutoParam::LeadCutoff) {
-        const float s0 = al.startVal < 60.0f ? 60.0f : (al.startVal > 12000.0f ? 12000.0f : al.startVal);
-        const float s1 = al.endVal < 60.0f ? 60.0f : (al.endVal > 12000.0f ? 12000.0f : al.endVal);
-        const float expVal = s0 * std::pow(s1 / s0, float(u));
-        effSynth[al.param == AutoParam::BassCutoff ? 0 : 1].cutoff = expVal;
-      } else if (al.param == AutoParam::DrumsDrive) {
-        effFx[0].drive = lin < 0.0f ? 0.0f : (lin > 1.0f ? 1.0f : lin);
-      } else if (al.param == AutoParam::LeadDelay) {
-        effFx[2].delaySend = lin < 0.0f ? 0.0f : (lin > 0.8f ? 0.8f : lin);
+    const auto clampF = [](float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); };
+    for (int t = 0; t < kNumTracks; ++t) {
+      for (int ln = 0; ln < kAutoPerTrack; ++ln) {
+        const AutoLane& al = ca.tracks[t][ln];
+        if (al.paramId < 0) continue;
+        const float lin = al.startVal + float(u) * (al.endVal - al.startVal);
+        // Track FX parameters (work on Drums AND any Synth track)
+        switch (al.paramId) {
+          case 40: effFx[t].level     = clampF(lin, 0.0f, 1.0f); break;
+          case 41: effFx[t].drive     = clampF(lin, 0.0f, 1.0f); break;
+          case 42: effFx[t].eqLow     = clampF(lin, -12.0f, 12.0f); break;
+          case 43: effFx[t].eqHigh    = clampF(lin, -12.0f, 12.0f); break;
+          case 44: effFx[t].delaySend = clampF(lin, 0.0f, 0.8f); break;
+          case 45: effFx[t].revSend   = clampF(lin, 0.0f, 0.8f); break;
+          default: break;
+        }
+        // Synth parameters (when t >= 1)
+        if (t >= 1 && t - 1 < kNumSynths) {
+          SynthParams& sp = effSynth[t - 1];
+          switch (al.paramId) {
+            case 22: sp.detune     = clampF(lin, -50.0f, 50.0f); break;
+            case 23: { // Cutoff: exponential sweep
+              const float s0 = clampF(al.startVal, 60.0f, 12000.0f);
+              const float s1 = clampF(al.endVal, 60.0f, 12000.0f);
+              sp.cutoff = s0 * std::pow(s1 / s0, float(u));
+              break;
+            }
+            case 24: sp.res        = clampF(lin, 0.5f, 15.0f); break;
+            case 26: sp.decay      = clampF(lin, 0.02f, 3.0f); break;
+            case 29: sp.level      = clampF(lin, 0.0f, 1.0f); break;
+            case 30: sp.lfoRate    = clampF(lin, 0.05f, 20.0f); break;
+            case 31: sp.lfoDepth   = clampF(lin, 0.0f, 1.0f); break;
+            case 36: sp.fmRatio    = clampF(lin, 0.5f, 8.0f); break;
+            case 37: sp.fmIndex    = clampF(lin, 0.0f, 8.0f); break;
+            case 38: sp.fmModDecay = clampF(lin, 0.01f, 3.0f); break;
+            case 39: sp.fmFeedback = clampF(lin, 0.0f, 1.0f); break;
+            case 51: sp.feelWarmth = clampF(lin, 0.0f, 1.0f); break;
+            case 52: sp.feelMotion = clampF(lin, 0.0f, 1.0f); break;
+            default: break;
+          }
+        }
       }
     }
   }
@@ -284,8 +317,41 @@ void Engine::renderAudio(float* l, float* r, int n) {
       TrackState& ts = tr_[t];
       const float lvl = ts.level.next(fx.mute ? 0.0f : fx.level);
       const float ds = ts.dSend.next(fx.delaySend), rs = ts.rSend.next(fx.revSend);
-      const float xl = ts.hi[0].tick(ts.lo[0].tick(ts.drive.tick(tb[t][0][i] * lvl)));
-      const float xr = ts.hi[1].tick(ts.lo[1].tick(ts.drive.tick(tb[t][1][i] * lvl)));
+      float xl = ts.hi[0].tick(ts.lo[0].tick(ts.drive.tick(tb[t][0][i] * lvl)));
+      float xr = ts.hi[1].tick(ts.lo[1].tick(ts.drive.tick(tb[t][1][i] * lvl)));
+      for (int sl = 0; sl < kFxSlots; ++sl) {
+        const FxSlot& fs = fx.slots[sl];
+        if (fs.bypass || fs.type == FxType::Off) continue;
+        FxSlotState& st = ts.fxSlots[sl];
+        switch (fs.type) {
+          case FxType::Overdrive:
+            if (i == 0) st.drive.set(fs.amount);
+            xl = st.drive.tick(xl); xr = st.drive.tick(xr);
+            break;
+          case FxType::Bitcrush:
+            st.crush.tick(xl, xr, fs.amount, fs.rate);
+            break;
+          case FxType::Chorus:
+            st.chorus.tick(xl, xr, fs.amount, fs.rate);
+            break;
+          case FxType::Phaser:
+            st.phaser.tick(xl, xr, fs.amount, fs.rate);
+            break;
+          case FxType::Filter: {
+            if (i == 0) {
+              const float cf = 100.0f * std::pow(100.0f, fs.amount);
+              const float q = 0.7f + fs.rate * 8.0f;
+              st.flt[0].set(sr_, cf, q); st.flt[1].set(sr_, cf, q);
+            }
+            xl = st.flt[0].low(xl); xr = st.flt[1].low(xr);
+            break;
+          }
+          case FxType::Compressor:
+            st.comp.tick(xl, xr, fs.amount);
+            break;
+          default: break;
+        }
+      }
       mL += xl; mR += xr; dL += xl * ds; dR += xr * ds; rL += xl * rs; rR += xr * rs;
     }
     float oL, oR;

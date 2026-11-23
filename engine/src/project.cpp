@@ -76,6 +76,10 @@ Project makeDemoProject() {
   p.fx[0] = TrackFx{0.62f, 0.08f, 2.0f, 1.0f, 0.05f, 0.10f, false};
   p.fx[1] = TrackFx{0.85f, 0.15f, 1.0f, 0.0f, 0.00f, 0.03f, false};
   p.fx[2] = TrackFx{0.80f, 0.15f, 0.0f, 1.0f, 0.30f, 0.25f, false};
+  p.fx[3] = TrackFx{0.75f, 0.05f, 0.0f, 0.5f, 0.20f, 0.30f, false};
+  p.fx[4] = TrackFx{0.75f, 0.10f, 0.0f, 0.5f, 0.25f, 0.20f, false};
+  p.synths[2].wave1 = Wave::Triangle; p.synths[2].wave2 = Wave::Sine; p.synths[2].attack = 0.12f; p.synths[2].sustain = 0.65f; p.synths[2].release = 0.35f; p.synths[2].cutoff = 1400.0f;
+  p.synths[3].mode = SynthMode::Fm; p.synths[3].fmRatio = 3.0f; p.synths[3].fmIndex = 3.2f; p.synths[3].decay = 0.28f;
 
   auto d = [&](int sc, int pad, std::initializer_list<int> steps) { for (int s : steps) p.scenes[sc].drums.steps[pad][s] = 1; };
   auto n = [&](int sc, int syn, std::initializer_list<int> steps, std::initializer_list<int> degs, int len) {

@@ -363,7 +363,7 @@ static void testWavRoundTripAndStems() {
   CHECK(loadWav("/tmp/ld_no_such_file.wav") == nullptr);
   std::remove(path.c_str());
   std::vector<float> prev;
-  for (int t = 0; t < kNumTracks; ++t) {         // one stem per track, each with sound, each different
+  for (int t = 0; t < 1 + p.activeSynths; ++t) { // one stem per active track, each with sound, each different
     o.soloTrack = t;
     const RenderResult stem = renderOffline(p, o);
     CHECK(peakOf(stem.l) > 0.02f); CHECK(!same(stem.l, master.l)); CHECK(!same(stem.l, prev));
@@ -492,10 +492,13 @@ static void testFmAndOctaveIsolation() {
 
 static void testSongAutomation() {
   ld::Session ses(48000.0);
-  ses.setChainAuto(0, 0, int(ld::AutoParam::LeadCutoff), 180.0f, 6500.0f);
-  ses.setChainAuto(0, 1, int(ld::AutoParam::DrumsDrive), 0.0f, 0.9f);
-  CHECK(ses.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
-  // Render song mode with automation and verify it differs from unautomated render
+  // Free-choice automation: up to 3 lanes per track!
+  ses.setChainAuto(0, 2, 0, ld::P_SYN_CUTOFF, 180.0f, 6500.0f);
+  ses.setChainAuto(0, 2, 1, ld::P_SYN_RES, 1.0f, 10.0f);
+  ses.setChainAuto(0, 2, 2, ld::P_FX_DELAY, 0.0f, 0.7f);
+  ses.setChainAuto(0, 0, 0, ld::P_FX_DRIVE, 0.0f, 0.9f);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[2][0].paramId, ld::P_SYN_CUTOFF);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[2][2].paramId, ld::P_FX_DELAY);
   ld::RenderOptions o; o.songMode = true; o.tailSeconds = 0.2;
   const ld::RenderResult withAuto = ld::renderOffline(ses.project(), o);
   ld::Project plain = ses.project();
@@ -503,14 +506,37 @@ static void testSongAutomation() {
   const ld::RenderResult noAuto = ld::renderOffline(plain, o);
   CHECK(finite(withAuto.l) && peakOf(withAuto.l) > 0.1f && peakOf(withAuto.l) <= 0.9441f);
   CHECK(!same(withAuto.l, noAuto.l));
-  // Save & load v3 preserves automation lanes
+  // Save & load v4 preserves free-choice automation
   const char* pth = "/tmp/ld_auto_test.ldp";
   CHECK(ses.save(pth));
   ld::Session ses2(48000.0);
   CHECK(ses2.load(pth));
-  CHECK(ses2.project().chainAuto[0].lanes[0].param == ld::AutoParam::LeadCutoff);
-  CHECK(std::fabs(ses2.project().chainAuto[0].lanes[0].endVal - 6500.0f) < 0.1f);
+  CHECK_EQ(ses2.project().chainAuto[0].tracks[2][0].paramId, ld::P_SYN_CUTOFF);
+  CHECK(std::fabs(ses2.project().chainAuto[0].tracks[2][0].endVal - 6500.0f) < 0.1f);
   std::remove(pth);
+}
+
+static void testFourTracksInstrumentsAndFxChain() {
+  ld::Session ses(48000.0);
+  ses.setActiveSynths(4);
+  CHECK_EQ(ses.project().activeSynths, 4);
+  // Apply Instrument presets + Feel shaping on tracks 3 & 4
+  ses.applyInstrument(2, int(ld::InstrumentPreset::ReeseDnB));
+  ses.applyInstrument(3, int(ld::InstrumentPreset::FmBell));
+  ses.setParam(ld::P_SYN_WARMTH, 2, 0.85f);
+  ses.setParam(ld::P_SYN_MOTION, 2, 0.80f);
+  CHECK(ses.project().synths[2].instrument == ld::InstrumentPreset::ReeseDnB);
+  CHECK(ses.project().synths[3].mode == ld::SynthMode::Fm);
+  // Build a 3-slot Vital-style FX chain on Lead track (track 2)
+  ses.setFxSlot(2, 0, int(ld::FxType::Chorus), 0.7f, 0.5f, false);
+  ses.setFxSlot(2, 1, int(ld::FxType::Phaser), 0.6f, 0.4f, false);
+  ses.setFxSlot(2, 2, int(ld::FxType::Compressor), 0.5f, 0.0f, false);
+  // Add notes on Synth 3 and Synth 4 and render
+  CHECK(ses.toggleNote(0, 2, 0, 0, false));
+  CHECK(ses.toggleNote(0, 3, 4, 4, false));
+  ld::RenderOptions o; o.songMode = false; o.scene = 0; o.tailSeconds = 0.2;
+  const ld::RenderResult r = ld::renderOffline(ses.project(), o);
+  CHECK(finite(r.l) && finite(r.r) && peakOf(r.l) > 0.1f && peakOf(r.l) <= 0.9441f);
 }
 
 static void testJungleSlicerAndRatchets() {
@@ -566,6 +592,7 @@ int main() {
     {"FM synth engine and per-sequence octave isolation", testFmAndOctaveIsolation},
     {"song-menu sequence automation", testSongAutomation},
     {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
+    {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

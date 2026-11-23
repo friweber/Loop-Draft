@@ -221,19 +221,43 @@ JNI(void, setDrumStep)(JNIEnv*, jobject, jint scene, jint pad, jint step, jint v
 }
 JNI(void, loadJungleKit)(JNIEnv*, jobject) { if (S()) S()->loadJungleKit(); }
 JNI(void, loadStandardKit)(JNIEnv*, jobject) { if (S()) S()->loadStandardKit(); }
-JNI(void, setChainAuto)(JNIEnv*, jobject, jint pos, jint lane, jint param, jfloat startVal, jfloat endVal) {
-  if (S()) S()->setChainAuto(pos, lane, param, startVal, endVal);
+JNI(void, setChainAuto)(JNIEnv*, jobject, jint pos, jint track, jint lane, jint paramId, jfloat startVal, jfloat endVal) {
+  if (S()) S()->setChainAuto(pos, track, lane, paramId, startVal, endVal);
 }
-JNI(jfloatArray, chainAuto)(JNIEnv* env, jobject, jint pos) {
-  jfloatArray arr = env->NewFloatArray(6);
+JNI(jfloatArray, chainAuto)(JNIEnv* env, jobject, jint pos, jint track) {
+  jfloatArray arr = env->NewFloatArray(9);
   if (!arr || !S()) return arr;
   const ld::Project& p = S()->project();
-  float out[6] = {0, 0, 0, 0, 0, 0};
-  if (pos >= 0 && pos < p.chainLen) {
-    const ld::ChainAuto& ca = p.chainAuto[pos];
-    out[0] = float(ca.lanes[0].param); out[1] = ca.lanes[0].startVal; out[2] = ca.lanes[0].endVal;
-    out[3] = float(ca.lanes[1].param); out[4] = ca.lanes[1].startVal; out[5] = ca.lanes[1].endVal;
+  float out[9] = {-1, 0, 0, -1, 0, 0, -1, 0, 0};
+  if (pos >= 0 && pos < p.chainLen && track >= 0 && track < ld::kNumTracks) {
+    for (int ln = 0; ln < ld::kAutoPerTrack; ++ln) {
+      const auto& al = p.chainAuto[pos].tracks[track][ln];
+      out[ln * 3 + 0] = float(al.paramId);
+      out[ln * 3 + 1] = al.startVal;
+      out[ln * 3 + 2] = al.endVal;
+    }
   }
-  env->SetFloatArrayRegion(arr, 0, 6, out);
+  env->SetFloatArrayRegion(arr, 0, 9, out);
   return arr;
+}
+JNI(void, setFxSlot)(JNIEnv*, jobject, jint track, jint slot, jint type, jfloat amount, jfloat rate, jboolean bypass) {
+  if (S()) S()->setFxSlot(track, slot, type, amount, rate, bypass == JNI_TRUE);
+}
+JNI(jfloatArray, fxSlot)(JNIEnv* env, jobject, jint track, jint slot) {
+  jfloatArray arr = env->NewFloatArray(4);
+  if (!arr || !S()) return arr;
+  const ld::Project& p = S()->project();
+  float out[4] = {0, 0.5f, 0.4f, 0};
+  if (track >= 0 && track < ld::kNumTracks && slot >= 0 && slot < ld::kFxSlots) {
+    const auto& fs = p.fx[track].slots[slot];
+    out[0] = float(fs.type); out[1] = fs.amount; out[2] = fs.rate; out[3] = fs.bypass ? 1.0f : 0.0f;
+  }
+  env->SetFloatArrayRegion(arr, 0, 4, out);
+  return arr;
+}
+JNI(void, applyInstrument)(JNIEnv*, jobject, jint synth, jint preset) {
+  if (S()) S()->applyInstrument(synth, preset);
+}
+JNI(void, setActiveSynths)(JNIEnv*, jobject, jint count) {
+  if (S()) S()->setActiveSynths(count);
 }

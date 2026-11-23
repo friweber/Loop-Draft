@@ -61,8 +61,12 @@ object Native {
     external fun setDrumStep(scene: Int, pad: Int, step: Int, value: Int)
     external fun loadJungleKit()
     external fun loadStandardKit()
-    external fun setChainAuto(pos: Int, lane: Int, param: Int, startVal: Float, endVal: Float)
-    external fun chainAuto(pos: Int): FloatArray
+    external fun setChainAuto(pos: Int, track: Int, lane: Int, paramId: Int, startVal: Float, endVal: Float)
+    external fun chainAuto(pos: Int, track: Int): FloatArray
+    external fun setFxSlot(track: Int, slot: Int, type: Int, amount: Float, rate: Float, bypass: Boolean)
+    external fun fxSlot(track: Int, slot: Int): FloatArray
+    external fun applyInstrument(synth: Int, preset: Int)
+    external fun setActiveSynths(count: Int)
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -74,6 +78,7 @@ object P {
     const val ROOT = 4
     const val SCALE = 5
     const val OCTAVE = 6
+    const val ACTIVE_SYNTHS = 7
     const val PAD_VOL = 10
     const val PAD_PAN = 11
     const val PAD_PITCH = 12
@@ -102,6 +107,9 @@ object P {
     const val SYN_FM_INDEX = 37
     const val SYN_FM_DECAY = 38
     const val SYN_FM_FB = 39
+    const val SYN_INSTRUMENT = 50
+    const val SYN_WARMTH = 51
+    const val SYN_MOTION = 52
     const val FX_LEVEL = 40
     const val FX_DRIVE = 41
     const val FX_EQ_LOW = 42

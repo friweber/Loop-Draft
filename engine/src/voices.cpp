@@ -115,10 +115,12 @@ void Synth::process(float* out, int n, const SynthParams& p) {
   const float decMul = std::exp(std::log(1e-3f) / ((p.decay < 0.005f ? 0.005f : p.decay) * sr));
   const float relMul = std::exp(std::log(1e-3f) / ((p.release < 0.005f ? 0.005f : p.release) * sr));
   const float sus = p.sustain < 0 ? 0 : (p.sustain > 1 ? 1 : p.sustain);
-  const float detuneMul = std::pow(2.0f, p.detune / 1200.0f);
+  const float effDetune = p.detune + (p.feelMotion - 0.3f) * 22.0f;
+  const float detuneMul = std::pow(2.0f, effDetune / 1200.0f);
   const float modDecMul = std::exp(std::log(1e-3f) / ((p.fmModDecay < 0.005f ? 0.005f : p.fmModDecay) * sr));
   const float lfoInc = 16.0f * p.lfoRate / sr;
-  const bool lfoOn = p.lfoTarget != LfoTarget::Off && p.lfoDepth > 0.0f;
+  const float effLfoDepth = (p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f) < 0.0f ? 0.0f : ((p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f) > 1.0f ? 1.0f : (p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f));
+  const bool lfoOn = p.lfoTarget != LfoTarget::Off && effLfoDepth > 0.0f;
 
   for (auto& v : v_) {
     if (v.stage == Off) continue;
@@ -126,13 +128,14 @@ void Synth::process(float* out, int n, const SynthParams& p) {
       // Control-rate work every 16 samples, counted from the note start. Tying it to the note's own age
       // (not to the audio block) keeps the output identical for any block size.
       if ((v.age & 15u) == 0) {
-        float cutoff = p.cutoff, pitchMul = 1.0f, ampT = 1.0f;
+        // feelWarmth gently darkens high-end harshness and adds subtle analog warmth
+        float cutoff = p.cutoff * std::pow(2.0f, (0.5f - p.feelWarmth) * 1.1f), pitchMul = 1.0f, ampT = 1.0f;
         if (lfoOn) {
           const float lfo = std::sin(2.0f * float(kPi) * v.lfoPh);
           v.lfoPh += lfoInc; if (v.lfoPh >= 1.0f) v.lfoPh -= std::floor(v.lfoPh);
-          if (p.lfoTarget == LfoTarget::Cutoff) cutoff *= std::pow(2.0f, lfo * p.lfoDepth * 1.5f);
-          else if (p.lfoTarget == LfoTarget::Pitch) pitchMul = std::pow(2.0f, lfo * p.lfoDepth * 100.0f / 1200.0f);
-          else ampT = 1.0f + 0.5f * p.lfoDepth * lfo;
+          if (p.lfoTarget == LfoTarget::Cutoff) cutoff *= std::pow(2.0f, lfo * effLfoDepth * 1.5f);
+          else if (p.lfoTarget == LfoTarget::Pitch) pitchMul = std::pow(2.0f, lfo * effLfoDepth * 100.0f / 1200.0f);
+          else ampT = 1.0f + 0.5f * effLfoDepth * lfo;
         }
         v.cut = v.cut < 0.0f ? cutoff : v.cut + 0.6f * (cutoff - v.cut);
         v.flt.set(sr_, v.cut, p.res);
@@ -152,7 +155,8 @@ void Synth::process(float* out, int n, const SynthParams& p) {
       }
       v.ph1 += v.inc1; if (v.ph1 >= 1.0f) v.ph1 -= std::floor(v.ph1);
       v.ph2 += v.inc2; if (v.ph2 >= 1.0f) v.ph2 -= std::floor(v.ph2);
-      const float y = v.flt.low(x);
+      float y = v.flt.low(x);
+      if (p.feelWarmth > 0.55f) { const float g = 1.0f + (p.feelWarmth - 0.55f) * 3.5f; y = std::tanh(y * g) / std::tanh(g); }
 
       if (v.stage == Attack) { v.env += attInc; if (v.env >= 1.0f) { v.env = 1.0f; v.stage = Decay; } }
       else if (v.stage == Decay) { v.env = sus + (v.env - sus) * decMul; if (sus <= 0.0f && v.env < 1e-4f) { v.stage = Off; break; } }

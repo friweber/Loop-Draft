@@ -50,7 +50,9 @@ val PAD_NAMES = listOf("Kick", "Snare", "Clap", "CH", "OH", "Rim", "Tom", "Perc"
 val PAD_SHORT = listOf("Kik", "Snr", "Clp", "CH", "OH", "Rim", "Tom", "Prc")
 val SCENE_NAMES = listOf("A", "B", "C", "D")
 val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
-val TRACK_NAMES = listOf("Drums", "Bass", "Lead")
+val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
+val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
+val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -77,7 +79,9 @@ class AppState {
     var audioOk by mutableStateOf(false)
     var info by mutableStateOf("")
     // Independent per-synth input octave (-2 .. +2). Shifts only played/edited notes without altering other scenes.
-    val inputOctave = mutableStateListOf(0, 0)
+    val inputOctave = mutableStateListOf(0, 0, 0, 0)
+    var selAutoTrack by mutableIntStateOf(2)
+    var selAutoLane by mutableIntStateOf(0)
     var jungleMode by mutableStateOf(false)
     var drumRollMode by mutableIntStateOf(0) // 0=normal, 3=2x, 4=3x, 5=4x ratchet roll
     var selChainPos by mutableIntStateOf(0)
@@ -106,7 +110,7 @@ class AppState {
         return if (sc == 3) 5 else 7 // Pentatonic = 5 notes/oct, others = 7
     }
 
-    fun degreeOffset(synthIdx: Int): Int = inputOctave[synthIdx.coerceIn(0, 1)] * scaleLen()
+    fun degreeOffset(synthIdx: Int): Int = inputOctave[synthIdx.coerceIn(0, 3)] * scaleLen()
 }
 
 @Composable
@@ -459,14 +463,39 @@ fun SynthTab(s: AppState) {
     val degOffset = remember(s.rev, s.synth, s.inputOctave[s.synth]) { s.degreeOffset(s.synth) }
     val octVal = s.inputOctave[s.synth]
 
+    val activeSynths = remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
+    if (s.synth >= activeSynths) s.synth = activeSynths - 1
+    val curInst = remember(s.rev, s.synth) { Native.getParam(P.SYN_INSTRUMENT, s.synth).roundToInt() }
+
     ModulePanel(
         title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${if (isFm) "FM" else "SUB"})",
         accent = HwCyan,
         trailing = {
-            HwButton("BASS", on = s.synth == 0, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.synth = 0 }
-            HwButton("LEAD", on = s.synth == 1, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.synth = 1 }
+            for (idx in 0 until activeSynths) {
+                HwButton(TRACK_NAMES[idx + 1].uppercase(), on = s.synth == idx, ledColor = HwCyan, height = 26.dp, pad = 5.dp) { s.synth = idx }
+            }
+            if (activeSynths < 4) {
+                HwButton("+TRK", ledColor = HwGreen, height = 26.dp, pad = 5.dp) {
+                    Native.setActiveSynths(activeSynths + 1)
+                    s.synth = activeSynths
+                    s.rev++
+                }
+            }
         }
     ) {
+        // Instrument Engine & Feel Shaping
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("INST", size = 9, modifier = Modifier.width(34.dp))
+            INSTRUMENT_NAMES.forEachIndexed { idx, nm ->
+                HwButton(nm, on = curInst == idx, ledColor = HwYellow, height = 26.dp, pad = 6.dp) {
+                    Native.applyInstrument(s.synth, idx); s.rev++
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            RotaryKnob(s, "Warmth", P.SYN_WARMTH, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { pct(it) }
+            RotaryKnob(s, "Motion", P.SYN_MOTION, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+        }
         OledScopeDisplay(
             isFm = isFm,
             wave = wave1,
@@ -573,15 +602,18 @@ fun SynthTab(s: AppState) {
 
 @Composable
 fun MixTab(s: AppState) {
-    val t = s.fxTrack
+    val activeTracks = 1 + remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
+    val t = s.fxTrack.coerceIn(0, activeTracks - 1)
     val mute = remember(s.rev, t) { Native.getParam(P.FX_MUTE, t) > 0.5f }
 
     ModulePanel(
-        title = "Insert FX & Sends: ${TRACK_NAMES[t]}",
+        title = "Channel Strip: ${TRACK_NAMES[t]}",
         accent = HwYellow,
         trailing = {
-            TRACK_NAMES.forEachIndexed { i, name ->
-                HwButton(name.uppercase(), on = s.fxTrack == i, ledColor = HwYellow, height = 26.dp, pad = 6.dp) { s.fxTrack = i }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (i in 0 until activeTracks) {
+                    HwButton(TRACK_NAMES[i].uppercase(), on = t == i, ledColor = HwYellow, height = 26.dp, pad = 5.dp) { s.fxTrack = i }
+                }
             }
         }
     ) {
@@ -596,6 +628,40 @@ fun MixTab(s: AppState) {
             RotaryKnob(s, "Rev Snd", P.FX_REVERB, t, 0f, 0.8f, Modifier.weight(1f)) { pct(it) }
             HwButton(if (mute) "MUTED" else "MUTE", Modifier.weight(1f), on = mute, ledColor = HwRed, showLed = true, height = 46.dp) {
                 Native.beginEdit(); Native.setParam(P.FX_MUTE, t, if (mute) 0f else 1f); s.rev++
+            }
+        }
+    }
+
+    // Vital-style 3-Slot Modular FX Chain per track
+    ModulePanel("Modular FX Chain: ${TRACK_NAMES[t]} (Slot 1 → 2 → 3)", accent = HwCyan) {
+        for (slot in 0 until 3) {
+            val fd = remember(s.rev, t, slot) { Native.fxSlot(t, slot) }
+            val fxType = fd.getOrElse(0) { 0f }.roundToInt()
+            val fxAmt = fd.getOrElse(1) { 0.5f }
+            val fxRate = fd.getOrElse(2) { 0.4f }
+            val fxBypass = fd.getOrElse(3) { 0f } > 0.5f
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                SilkLabel("FX${slot + 1}", color = HwCyan, size = 9, modifier = Modifier.width(26.dp))
+                Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    FX_SLOT_NAMES.forEachIndexed { idx, nm ->
+                        HwButton(nm, on = fxType == idx, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
+                            Native.setFxSlot(t, slot, idx, fxAmt, fxRate, false); s.rev++
+                        }
+                    }
+                }
+            }
+            if (fxType > 0) {
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SilkLabel("AMT ${pct(fxAmt)}", color = HwSilk, size = 9, mono = true)
+                    HwButton("-", height = 24.dp, pad = 6.dp) { Native.setFxSlot(t, slot, fxType, (fxAmt - 0.15f).coerceIn(0f, 1f), fxRate, fxBypass); s.rev++ }
+                    HwButton("+", height = 24.dp, pad = 6.dp) { Native.setFxSlot(t, slot, fxType, (fxAmt + 0.15f).coerceIn(0f, 1f), fxRate, fxBypass); s.rev++ }
+                    SilkLabel("RT ${pct(fxRate)}", color = HwSilk, size = 9, mono = true)
+                    HwButton("-", height = 24.dp, pad = 6.dp) { Native.setFxSlot(t, slot, fxType, fxAmt, (fxRate - 0.15f).coerceIn(0f, 1f), fxBypass); s.rev++ }
+                    HwButton("+", height = 24.dp, pad = 6.dp) { Native.setFxSlot(t, slot, fxType, fxAmt, (fxRate + 0.15f).coerceIn(0f, 1f), fxBypass); s.rev++ }
+                    HwButton(if (fxBypass) "BYP" else "ON", on = !fxBypass, ledColor = HwGreen, height = 24.dp, pad = 6.dp) {
+                        Native.setFxSlot(t, slot, fxType, fxAmt, fxRate, !fxBypass); s.rev++
+                    }
+                }
             }
         }
     }
@@ -617,12 +683,41 @@ fun SongTab(s: AppState) {
     val chain = remember(s.rev) { Native.chain() }
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
 
+    val activeTracks = 1 + remember(s.rev) { Native.getParam(P.ACTIVE_SYNTHS, 0).roundToInt().coerceIn(2, 4) }
     val selPos = s.selChainPos.coerceIn(0, (chain.size - 1).coerceAtLeast(0))
-    val autoData = remember(s.rev, selPos) { Native.chainAuto(selPos) }
-    val p0 = autoData.getOrElse(0) { 0f }.roundToInt()
-    val s0 = autoData.getOrElse(1) { 300f }
-    val e0 = autoData.getOrElse(2) { 4500f }
-    val autoNames = listOf("Off", "Bass Cut", "Lead Cut", "Drm Drv", "Lead Dly")
+    val autoTrk = s.selAutoTrack.coerceIn(0, activeTracks - 1)
+    val autoLn = s.selAutoLane.coerceIn(0, 2)
+    val autoData = remember(s.rev, selPos, autoTrk) { Native.chainAuto(selPos, autoTrk) }
+    val curPid = autoData.getOrElse(autoLn * 3) { -1f }.roundToInt()
+    val curStart = autoData.getOrElse(autoLn * 3 + 1) { 0f }
+    val curEnd = autoData.getOrElse(autoLn * 3 + 2) { 0f }
+
+    data class AutoChoice(val id: Int, val label: String, val lo: Float, val hi: Float)
+    val paramChoices = if (autoTrk == 0) {
+        listOf(
+            AutoChoice(-1, "Off", 0f, 0f),
+            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f),
+            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
+            AutoChoice(P.FX_EQ_LOW, "Low EQ", -10f, 10f),
+            AutoChoice(P.FX_EQ_HIGH, "High EQ", -10f, 10f),
+            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
+            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f)
+        )
+    } else {
+        listOf(
+            AutoChoice(-1, "Off", 0f, 0f),
+            AutoChoice(P.SYN_CUTOFF, "Cutoff", 140f, 7500f),
+            AutoChoice(P.SYN_RES, "Res", 0.8f, 12f),
+            AutoChoice(P.SYN_FM_INDEX, "FM Idx", 0.2f, 7.5f),
+            AutoChoice(P.SYN_WARMTH, "Warmth", 0f, 1f),
+            AutoChoice(P.SYN_MOTION, "Motion", 0f, 1f),
+            AutoChoice(P.SYN_LFO_DEPTH, "LFO Dep", 0f, 1f),
+            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
+            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
+            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f),
+            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f)
+        )
+    }
 
     ModulePanel(
         title = "Arrangement Chain",
@@ -639,12 +734,8 @@ fun SongTab(s: AppState) {
             chain.forEachIndexed { pos, sc ->
                 val playingHere = s.playing && s.songMode && s.chainPos == pos
                 val selectedHere = pos == selPos
-                val hasAuto = remember(s.rev, pos) {
-                    val a = Native.chainAuto(pos)
-                    a.getOrElse(0) { 0f } > 0.5f || a.getOrElse(3) { 0f } > 0.5f
-                }
                 HwButton(
-                    text = "${pos + 1}:${SCENE_NAMES[sc.coerceIn(0, 3)]}" + if (hasAuto) "*" else "",
+                    text = "${pos + 1}:${SCENE_NAMES[sc.coerceIn(0, 3)]}",
                     on = playingHere || selectedHere,
                     ledColor = if (playingHere) HwGreen else HwCyan,
                     height = 34.dp
@@ -664,45 +755,56 @@ fun SongTab(s: AppState) {
         }
     }
 
-    // Song-Menu Sequence Automation Editor for the selected chain slot
+    // Free-Choice Song-Menu Automation (up to 3 lanes per track!)
     ModulePanel(
-        title = "Slot #${selPos + 1} (${SCENE_NAMES[chain.getOrElse(selPos) { 0 }.coerceIn(0, 3)]}) Automation",
+        title = "Slot #${selPos + 1} Free Automation (3 / Track)",
         accent = HwOrange
     ) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            autoNames.forEachIndexed { idx, nm ->
-                HwButton(nm, on = p0 == idx, ledColor = HwOrange, height = 28.dp, pad = 7.dp) {
-                    val defStart = when (idx) { 1, 2 -> 250f; 3 -> 0.05f; 4 -> 0.05f; else -> 0f }
-                    val defEnd = when (idx) { 1, 2 -> 5500f; 3 -> 0.85f; 4 -> 0.65f; else -> 0f }
-                    Native.setChainAuto(selPos, 0, idx, defStart, defEnd)
-                    s.rev++
+            for (t in 0 until activeTracks) {
+                HwButton(TRACK_NAMES[t].uppercase(), on = autoTrk == t, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.selAutoTrack = t }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            for (ln in 0 until 3) {
+                val activeLn = autoData.getOrElse(ln * 3) { -1f } >= 0f
+                HwButton(
+                    text = "LANE ${ln + 1}" + if (activeLn) " ●" else "",
+                    modifier = Modifier.weight(1f),
+                    on = autoLn == ln,
+                    ledColor = HwOrange,
+                    height = 28.dp
+                ) { s.selAutoLane = ln }
+            }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            paramChoices.forEach { ch ->
+                HwButton(ch.label, on = curPid == ch.id, ledColor = HwYellow, height = 28.dp, pad = 7.dp) {
+                    Native.setChainAuto(selPos, autoTrk, autoLn, ch.id, ch.lo, ch.hi); s.rev++
                 }
             }
         }
-        if (p0 > 0) {
-            val isCut = (p0 == 1 || p0 == 2)
-            val lo = if (isCut) 120f else 0f
-            val hi = if (isCut) 7500f else if (p0 == 3) 1f else 0.75f
-            val fmtVal: (Float) -> String = { v -> if (isCut) "${v.roundToInt()} Hz" else pct(v) }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                SilkLabel("SWEEP: ${fmtVal(s0)} → ${fmtVal(e0)}", color = HwSilk, size = 10, mono = true, modifier = Modifier.weight(1f))
-            }
+        val activeChoice = paramChoices.firstOrNull { it.id == curPid }
+        if (activeChoice != null && curPid >= 0) {
+            SilkLabel("SWEEP: ${"%.2f".format(curStart)} → ${"%.2f".format(curEnd)}", color = HwSilk, size = 10, mono = true)
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 HwButton("RISE ↑", Modifier.weight(1f), ledColor = HwOrange, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, lo, hi); s.rev++
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.lo, activeChoice.hi); s.rev++
                 }
                 HwButton("DROP ↓", Modifier.weight(1f), ledColor = HwCyan, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, hi, lo); s.rev++
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.hi, activeChoice.lo); s.rev++
                 }
                 HwButton("MID ↑", Modifier.weight(1f), ledColor = HwYellow, height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, p0, lo + (hi - lo) * 0.2f, lo + (hi - lo) * 0.7f); s.rev++
+                    val m0 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.25f
+                    val m1 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.75f
+                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, m0, m1); s.rev++
                 }
-                HwButton("OFF", Modifier.weight(1f), height = 30.dp) {
-                    Native.setChainAuto(selPos, 0, 0, 0f, 0f); s.rev++
+                HwButton("CLEAR", Modifier.weight(1f), height = 30.dp) {
+                    Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.rev++
                 }
             }
         } else {
-            SilkLabel("Select a target above to sweep Cutoff, Drive, or Delay across this song block.", color = HwMuted, size = 9, bold = false)
+            SilkLabel("Pick any parameter above to automate on ${TRACK_NAMES[autoTrk]} (Lane ${autoLn + 1}).", color = HwMuted, size = 9, bold = false)
         }
     }
 
