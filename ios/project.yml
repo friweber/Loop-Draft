@@ -37,7 +37,7 @@ targets:
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""
-    frameworks:
+    dependencies:
+      - sdk: AVFAudio.framework
       - sdk: AVFoundation.framework
       - sdk: AudioToolbox.framework
-      - sdk: Accelerate.framework
