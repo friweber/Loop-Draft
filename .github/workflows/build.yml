@@ -127,7 +127,8 @@ jobs:
           set -o pipefail
           xcodebuild -project ios/LoopDraft.xcodeproj -scheme LoopDraft -configuration Release -sdk iphoneos \
             -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
-            2>&1 | tee xcodebuild.log | grep -E "error|warning: unre|BUILD|\*\*" | tail -80
+            > xcodebuild.log 2>&1 || { grep -E "error|Undefined|duplicate|ld: |symbol|referenced from" -A6 xcodebuild.log | tail -120; exit 1; }
+          tail -3 xcodebuild.log
       - name: Package
         run: |
           mkdir -p ios/Payload
