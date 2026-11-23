@@ -8,6 +8,7 @@
 // are frozen below so those files keep opening.
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -75,6 +76,35 @@ struct Project {
 };
 static_assert(sizeof(Project) == 18728, "version 4 layout changed");
 }  // namespace v4
+
+// The other development line also called its raw-struct format "version 5" (drum engines, before named records).
+// Its sub-structs are the same as today's; if one of them ever changes size, the assert below says so and
+// this needs frozen copies like v1 and v4 have.
+namespace v5raw {
+struct Project {
+  float bpm, swing; int32_t root; Scale scale; int32_t octave; int32_t activeSynths;
+  DrumEngine drumEngine; float junglePitch, jungleTight, jungleCrunch;
+  ld::PadParams pads[kNumPads]; ld::SynthParams synths[4]; ld::TrackFx fx[5];
+  float delayFeedback, master; ld::Scene scenes[kNumScenes]; int32_t chain[kMaxChain];
+  ld::ChainAuto chainAuto[kMaxChain]; int32_t chainLen;
+};
+static_assert(sizeof(Project) == 41520, "raw version 5 layout changed");
+}  // namespace v5raw
+
+ld::Project upgrade(const v5raw::Project& o) {
+  ld::Project p;
+  p.bpm = o.bpm; p.swing = o.swing; p.root = o.root; p.scale = o.scale; p.octave = o.octave; p.activeSynths = o.activeSynths;
+  p.drumEngine = o.drumEngine; p.junglePitch = o.junglePitch; p.jungleTight = o.jungleTight; p.jungleCrunch = o.jungleCrunch;
+  std::memcpy(static_cast<void*>(p.pads), o.pads, sizeof(p.pads));
+  std::memcpy(static_cast<void*>(p.synths), o.synths, sizeof(p.synths));
+  std::memcpy(static_cast<void*>(p.fx), o.fx, sizeof(p.fx));
+  p.delayFeedback = o.delayFeedback; p.master = o.master;
+  std::memcpy(static_cast<void*>(p.scenes), o.scenes, sizeof(p.scenes));
+  std::memcpy(p.chain, o.chain, sizeof(p.chain));
+  std::memcpy(static_cast<void*>(p.chainAuto), o.chainAuto, sizeof(p.chainAuto));
+  p.chainLen = o.chainLen;
+  return p;
+}
 
 // Works for both versions: version 4 only added fields to these structs.
 template <class Old> void copyShared(ld::Project& p, const Old& o) {
@@ -250,33 +280,64 @@ bool writeProjectFile(const char* path, const Project& project) {
   return ok;
 }
 
-bool readProjectFile(const char* path, Project& out, bool* converted) {
-  FILE* f = std::fopen(path, "rb");
-  if (!f) return false;
+static bool readProjectStream(FILE* f, Project& out, bool* converted) {
   char magic[8];
   uint32_t head[2] = {0, 0};
   bool ok = std::fread(magic, 1, 8, f) == 8 && std::memcmp(magic, kMagic, 8) == 0 && std::fread(head, sizeof(uint32_t), 2, f) == 2;
   bool conv = false;
-  Project p;
-  if (ok && head[0] == kFileVersion) {
-    ok = readRecords(f, p);
+  auto p = std::make_unique<Project>();
+  const auto rawStruct = [&](auto& old) {
+    std::vector<char> raw(sizeof(old));
+    if (std::fread(raw.data(), raw.size(), 1, f) != 1) return false;
+    std::memcpy(static_cast<void*>(&old), raw.data(), raw.size());
+    conv = true;
+    return true;
+  };
+  if (ok && head[0] == kFileVersion && head[1] == 0) {
+    ok = readRecords(f, *p);
+  } else if (ok && head[0] == 5 && head[1] == sizeof(legacy::v5raw::Project)) {
+    auto old = std::make_unique<legacy::v5raw::Project>();
+    ok = rawStruct(*old);
+    if (ok) *p = legacy::upgrade(*old);
   } else if (ok && head[0] == 1 && head[1] == sizeof(legacy::v1::Project)) {
-    std::vector<char> raw(sizeof(legacy::v1::Project));
-    ok = std::fread(raw.data(), raw.size(), 1, f) == 1;
-    if (ok) { legacy::v1::Project old; std::memcpy(static_cast<void*>(&old), raw.data(), raw.size()); p = legacy::upgrade(old); conv = true; }
+    auto old = std::make_unique<legacy::v1::Project>();
+    ok = rawStruct(*old);
+    if (ok) *p = legacy::upgrade(*old);
   } else if (ok && head[0] == 4 && head[1] == sizeof(legacy::v4::Project)) {
-    std::vector<char> raw(sizeof(legacy::v4::Project));
-    ok = std::fread(raw.data(), raw.size(), 1, f) == 1;
-    if (ok) { legacy::v4::Project old; std::memcpy(static_cast<void*>(&old), raw.data(), raw.size()); p = legacy::upgrade(old); conv = true; }
+    auto old = std::make_unique<legacy::v4::Project>();
+    ok = rawStruct(*old);
+    if (ok) *p = legacy::upgrade(*old);
   } else {
     ok = false;
   }
-  std::fclose(f);
   if (!ok) return false;
-  sanitize(p);
-  out = p;
+  sanitize(*p);
+  out = *p;
   if (converted) *converted = conv;
   return true;
+}
+
+bool readProjectFile(const char* path, Project& out, bool* converted) {
+  FILE* f = std::fopen(path, "rb");
+  if (!f) return false;
+  const bool ok = readProjectStream(f, out, converted);
+  std::fclose(f);
+  return ok;
+}
+
+// ------------------------------------------------------------------ the project a fresh install starts with
+namespace {
+const unsigned char kStartPreset[] = {
+#include "preset_warehouse303.inc"
+};
+}
+
+Project makeStartProject() {
+  Project p;
+  FILE* f = fmemopen(const_cast<unsigned char*>(kStartPreset), sizeof(kStartPreset), "rb");
+  const bool ok = f && readProjectStream(f, p, nullptr);
+  if (f) std::fclose(f);
+  return ok ? p : makeDemoProject();
 }
 
 }  // namespace ld

@@ -1001,6 +1001,10 @@ fun SongTab(s: AppState) {
             HwButton("CLEAR SCENE", Modifier.weight(1f), height = 32.dp) { Native.clearScene(s.scene); s.rev++ }
             HwButton("RESET DEMO", Modifier.weight(1f), height = 32.dp) { Native.resetToDemo(); s.rev++ }
         }
+        // Replaces the whole project with the built-in preset. UNDO brings the old project back.
+        HwButton("LOAD PRESET: WAREHOUSE 303", Modifier.fillMaxWidth(), ledColor = HwGreen, height = 32.dp) {
+            Native.loadStartPreset(); s.scene = 0; s.drumBar = 0; s.rollPage = 0; s.rev++
+        }
     }
 
     ModulePanel("Key & Scale", accent = HwYellow) {

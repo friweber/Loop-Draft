@@ -61,6 +61,7 @@ class Session {
   void chainAdd(int scene);
   void chainRemove(int pos);
   void resetToDemo();
+  void loadStartPreset();          // the built-in "Warehouse 303" project; one undo step
 
   // Outline of a pad's sound for drawing: n peak values 0..1 across the whole sample. Returns how many were written.
   int padWaveform(int pad, float* out, int n);

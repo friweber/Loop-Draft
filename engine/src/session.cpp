@@ -485,6 +485,7 @@ void Session::chainRemove(int pos) {
   commit();
 }
 void Session::resetToDemo() { beginEdit(); proj_ = makeDemoProject(); commit(); }
+void Session::loadStartPreset() { beginEdit(); proj_ = makeStartProject(); commit(); }
 
 int Session::padWaveform(int pad, float* out, int n) {
   if (pad < 0 || pad >= kNumPads || !out || n <= 0) return 0;

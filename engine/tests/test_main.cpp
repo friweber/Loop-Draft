@@ -902,6 +902,41 @@ static void testOwnBreakPersistsAndUndoes() {
   e.setParam(P_JUNGLE_PITCH, 0, 4.0f); CHECK(e.project().pads[0].pitch != 4.0f);
 }
 
+// The built-in start preset: the delivered file converts, the embedded copy is the same project, and it plays.
+static void testStartPreset() {
+  using namespace ld;
+  auto raw = std::make_unique<Project>();
+  bool conv = false;
+  CHECK(readProjectFile((std::string(LD_FIXTURES) + "/project_v5raw_warehouse303.ldp").c_str(), *raw, &conv));
+  CHECK(conv);
+  CHECK(raw->bpm == 136.0f); CHECK_EQ(raw->root, 2); CHECK(raw->scale == Scale::Minor); CHECK_EQ(raw->activeSynths, 4);
+  CHECK(raw->drumEngine == DrumEngine::Punch909); CHECK_EQ(raw->chainLen, 8);
+  const int want[8] = {0, 0, 1, 1, 2, 2, 3, 2};
+  for (int i = 0; i < 8; ++i) CHECK_EQ(raw->chain[i], want[i]);
+  CHECK(raw->fx[4].mute); CHECK(raw->synths[1].mode == SynthMode::Fm); CHECK(raw->synths[2].chord);
+  CHECK(raw->fx[1].slots[0].type == FxType::Overdrive);
+
+  auto emb = std::make_unique<Project>(makeStartProject());
+  CHECK(emb->bpm == raw->bpm); CHECK_EQ(emb->chainLen, raw->chainLen); CHECK_EQ(emb->activeSynths, raw->activeSynths);
+  CHECK(std::memcmp(emb->scenes, raw->scenes, sizeof(raw->scenes)) == 0);
+  CHECK(std::memcmp(emb->pads, raw->pads, sizeof(raw->pads)) == 0);
+  CHECK(emb->synths[0].cutoff == raw->synths[0].cutoff); CHECK(emb->fx[3].revSend == raw->fx[3].revSend);
+
+  RenderOptions o; o.songMode = true; o.tailSeconds = 1.0;
+  const RenderResult rr = renderOffline(*emb, o);
+  float pk = 0; double sum = 0; bool finite = true;
+  for (size_t i = 0; i < rr.l.size(); ++i) {
+    finite = finite && rr.l[i] == rr.l[i] && rr.r[i] == rr.r[i];
+    pk = std::fmax(pk, std::fmax(std::fabs(rr.l[i]), std::fabs(rr.r[i]))); sum += double(rr.l[i]) * rr.l[i];
+  }
+  CHECK(finite); CHECK(pk > 0.3f); CHECK(pk <= 1.0f); CHECK(std::sqrt(sum / double(rr.l.size())) > 0.03);
+
+  Session ses(48000.0);
+  ses.loadStartPreset();
+  CHECK(ses.project().bpm == 136.0f); CHECK(ses.project().drumEngine == DrumEngine::Punch909);
+  CHECK(ses.undo()); CHECK(ses.project().bpm == 122.0f); CHECK(ses.project().drumEngine == DrumEngine::Classic808);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -935,6 +970,7 @@ int main() {
     {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
     {"drum engines, jungle tuning and resample-to-break", testDrumEnginesAndJungleResample},
     {"own break: save, load, undo, export", testOwnBreakPersistsAndUndoes},
+    {"start preset Warehouse 303", testStartPreset},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

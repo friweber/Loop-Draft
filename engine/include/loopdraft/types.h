@@ -151,6 +151,8 @@ struct Project {
 };
 
 Project makeDemoProject();
+// The "Warehouse 303" preset built into the app: what a fresh install opens with.
+Project makeStartProject();
 
 bool addNote(SynthPattern& p, int step, int degree, int len = 1, int vel = 1);
 bool removeNote(SynthPattern& p, int step, int degree);

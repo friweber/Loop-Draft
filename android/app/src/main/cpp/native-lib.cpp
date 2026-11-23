@@ -101,7 +101,8 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
     if (!session_) {
       sampleRate_ = stream_->getSampleRate();
       session_ = std::make_unique<ld::Session>(double(sampleRate_));
-      if (session_->load(savePath_.c_str())) LOGI("project restored"); else LOGI("starting with the demo project");
+      if (session_->load(savePath_.c_str())) LOGI("project restored");
+      else { session_->loadStartPreset(); LOGI("starting with the Warehouse 303 preset"); }
     }
     const oboe::Result s = stream_->requestStart();
     if (s != oboe::Result::OK) { LOGE("cannot start audio: %s", oboe::convertToText(s)); stream_->close(); stream_.reset(); return false; }
@@ -216,6 +217,7 @@ JNI(jintArray, chain)(JNIEnv* env, jobject) {
 JNI(void, chainAdd)(JNIEnv*, jobject, jint scene) { if (S()) S()->chainAdd(scene); }
 JNI(void, chainRemove)(JNIEnv*, jobject, jint pos) { if (S()) S()->chainRemove(pos); }
 JNI(void, resetToDemo)(JNIEnv*, jobject) { if (S()) S()->resetToDemo(); }
+JNI(void, loadStartPreset)(JNIEnv*, jobject) { if (S()) S()->loadStartPreset(); }
 
 JNI(void, setDrumStep)(JNIEnv*, jobject, jint scene, jint pad, jint step, jint value) {
   if (S()) S()->setDrumStep(scene, pad, step, value);

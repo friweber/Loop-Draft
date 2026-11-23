@@ -1,0 +1,75 @@
+{
+  "loopdraft_version": "5.0.0",
+  "file_format_version": 5,
+  "preset_name": "Warehouse 303",
+  "bpm": 136,
+  "root_note": "D",
+  "scale": "Minor",
+  "active_synths": 4,
+  "drum_engine": "Punch909",
+  "arrangement_chain": [
+    "A",
+    "A",
+    "B",
+    "B",
+    "C",
+    "C",
+    "D",
+    "C"
+  ],
+  "tracks": [
+    {
+      "track_id": 0,
+      "name": "Drums (Punch909)",
+      "fx_chain": [
+        "Compressor(0.45)",
+        "Overdrive(0.15)"
+      ],
+      "reverb_send": 0.1
+    },
+    {
+      "track_id": 1,
+      "name": "Acid 303",
+      "mode": "Subtractive",
+      "cutoff_hz": 420,
+      "res": 10.8,
+      "fx_chain": [
+        "Overdrive(0.55)",
+        "Compressor(0.40)",
+        "Phaser(0.20)"
+      ],
+      "delay_send": 0.3
+    },
+    {
+      "track_id": 2,
+      "name": "Rumble Sub",
+      "mode": "Fm",
+      "octave_shift": -2,
+      "cutoff_hz": 220,
+      "fx_chain": [
+        "Filter(0.22)",
+        "Compressor(0.45)"
+      ]
+    },
+    {
+      "track_id": 3,
+      "name": "Rave Stabs",
+      "instrument": "SuperPad",
+      "chord": true,
+      "warmth": 0.65,
+      "motion": 0.4,
+      "fx_chain": [
+        "Chorus(0.55)",
+        "Bitcrush(0.10)"
+      ],
+      "delay_send": 0.25,
+      "reverb_send": 0.45
+    },
+    {
+      "track_id": 4,
+      "name": "Live Jam (Muted)",
+      "instrument": "PluckLead",
+      "muted": true
+    }
+  ]
+}

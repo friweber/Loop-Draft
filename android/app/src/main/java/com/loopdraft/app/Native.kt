@@ -58,6 +58,7 @@ object Native {
     external fun chainAdd(scene: Int)
     external fun chainRemove(pos: Int)
     external fun resetToDemo()
+    external fun loadStartPreset()      // the built-in Warehouse 303 project; undoable
     external fun setDrumStep(scene: Int, pad: Int, step: Int, value: Int)
     external fun loadJungleKit()
     external fun loadStandardKit()

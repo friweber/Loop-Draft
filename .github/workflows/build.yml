@@ -2,8 +2,8 @@ name: Build
 
 on:
   push:
-    branches: [main]
-    paths: ['engine/**', 'android/**', '.github/workflows/build.yml']
+    branches: [main, v0.5]
+    paths: ['engine/**', 'android/**', 'ios/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
 permissions:
@@ -107,3 +107,49 @@ jobs:
           gh release create latest LoopDraft.apk --latest --target "$GITHUB_SHA" \
             --title "Latest build (#${{ github.run_number }})" \
             --notes "Built automatically from main. Download LoopDraft.apk on the phone and open it to install. It installs over the previous build and keeps the saved project."
+
+  # The iOS app is a second shell around the same engine. It is built unsigned: installing it on an
+  # iPhone or iPad needs a tool that signs it with your own Apple ID (SideStore, Sideloadly, AltStore).
+  # This job never blocks the Android build.
+  ios:
+    name: iOS app (unsigned)
+    runs-on: macos-latest
+    needs: engine-tests
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate --spec ios/project.yml
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/LoopDraft.xcodeproj -scheme LoopDraft -configuration Release -sdk iphoneos \
+            -derivedDataPath ios/build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
+            2>&1 | tee xcodebuild.log | grep -E "error|warning: unre|BUILD|\*\*" | tail -80
+      - name: Package
+        run: |
+          mkdir -p ios/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/LoopDraft.app ios/Payload/
+          (cd ios && zip -qr ../LoopDraft-iOS-unsigned.ipa Payload)
+          ls -lh LoopDraft-iOS-unsigned.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoopDraft-ipa
+          path: LoopDraft-iOS-unsigned.ipa
+
+  publish-ios:
+    name: Add the iOS build to the release
+    runs-on: ubuntu-latest
+    needs: [publish, ios]
+    if: github.ref == 'refs/heads/main' && needs.ios.result == 'success'
+    continue-on-error: true
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: LoopDraft-ipa
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release upload latest LoopDraft-iOS-unsigned.ipa --clobber
