@@ -549,17 +549,19 @@ static void testProjectFileFormat() {
   CHECK(x.size() > 4000 && x == y);                // saving what was loaded gives the same file, byte for byte
 
   // a "newer" file: an unknown record, and a known field stored with a different size
-  std::vector<uint8_t> z = x;
+  std::vector<uint8_t> z(x.begin(), x.end() - 9);  // without the closing "end" record, which goes back on below
   const auto rec = [&](const std::string& key, const std::vector<uint8_t>& data) {
     z.push_back(uint8_t(key.size())); z.push_back(0); z.insert(z.end(), key.begin(), key.end());
     const uint32_t n = uint32_t(data.size()); for (int i = 0; i < 4; ++i) z.push_back(uint8_t(n >> (8 * i)));
     z.insert(z.end(), data.begin(), data.end());
   };
-  rec("future.thing", {1, 2, 3, 4, 5, 6, 7}); rec("bpm", {0, 0, 0, 0, 0, 0, 0, 0}); rec("pad0.vol", {0, 0, 0, 0});
+  rec("future.thing", {1, 2, 3, 4, 5, 6, 7}); rec("bpm", {0, 0, 0, 0, 0, 0, 0, 0}); rec("pad0.vol", {0, 0, 0, 0}); rec("end", {});
   { FILE* f = std::fopen(f2.c_str(), "wb"); std::fwrite(z.data(), 1, z.size(), f); std::fclose(f); }
   Session c(48000);
   CHECK(c.load(f2.c_str())); CHECK(c.project().bpm == 168.0f); CHECK(c.project().pads[0].vol == 0.0f); CHECK_EQ(c.project().activeSynths, 4);
-  // a file cut off in the middle is refused and changes nothing
+  // a file cut off is refused and changes nothing, also when the cut falls between two records
+  { FILE* f = std::fopen(f2.c_str(), "wb"); std::fwrite(x.data(), 1, x.size() - 9, f); std::fclose(f); }
+  CHECK(!c.load(f2.c_str()));
   { FILE* f = std::fopen(f2.c_str(), "wb"); std::fwrite(x.data(), 1, x.size() / 2, f); std::fclose(f); }
   CHECK(!c.load(f2.c_str())); CHECK_EQ(c.project().activeSynths, 4);
   std::remove(f1.c_str()); std::remove(f2.c_str());
@@ -937,6 +939,57 @@ static void testStartPreset() {
   CHECK(ses.undo()); CHECK(ses.project().bpm == 122.0f); CHECK(ses.project().drumEngine == DrumEngine::Classic808);
 }
 
+// Leaving the break slicer and coming back, in the same session or after a restart, loses nothing.
+static void testSlicerSurvivesLeaving() {
+  using namespace ld;
+  const std::string dir = "/tmp/ld_slicer_test";
+  if (std::system(("mkdir -p " + dir).c_str()) != 0) return;
+  const std::string proj = dir + "/p.ldp";
+  Session a(48000.0);
+  const DrumPattern hits = a.project().scenes[0].drums;
+  const float kickVol = 0.41f;
+  a.setParam(P_PAD_VOL, 0, kickVol);
+  CHECK(a.resampleSceneToJungle(0));
+  const uint32_t id = a.project().breakId;
+  CHECK(id != 0);
+  // the bounced scene plays the slices in order
+  for (int i = 0; i < kNumPads; ++i) CHECK_EQ(int(a.project().scenes[0].drums.steps[i][i * 2]), 2);
+  a.setDrumStep(0, 3, 9, 1); a.setParam(P_PAD_REVERSE, 5, 1.0f); a.setParam(P_PAD_SLICE_START, 2, 0.3f);
+  const DrumPattern loop = a.project().scenes[0].drums;
+
+  a.setDrumEngine(1);                              // out to the 909: the hit pattern and pad settings are back
+  CHECK(std::memcmp(&a.project().scenes[0].drums, &hits, sizeof(hits)) == 0);
+  CHECK(std::fabs(a.project().pads[0].vol - kickVol) < 1e-6f); CHECK(!a.project().pads[5].reverse);
+  CHECK(a.activeBreak() == nullptr); CHECK_EQ(a.project().breakId, id);
+  a.setDrumStep(0, 0, 1, 2);
+  const DrumPattern hits2 = a.project().scenes[0].drums;
+
+  a.setDrumEngine(4);                              // and back: own break, own loop, own slice edits
+  CHECK(a.activeBreak() != nullptr); CHECK_EQ(a.project().breakId, id);
+  CHECK(std::memcmp(&a.project().scenes[0].drums, &loop, sizeof(loop)) == 0);
+  CHECK(a.project().pads[5].reverse); CHECK(std::fabs(a.project().pads[2].sliceStart - 0.3f) < 1e-6f);
+
+  // restart while a hit kit is selected: the break and the loop must still be there afterwards
+  a.setDrumEngine(0);
+  CHECK(a.save(proj.c_str()));
+  Session b(48000.0);
+  CHECK(b.load(proj.c_str()));
+  CHECK_EQ(int(b.project().drumEngine), 0); CHECK(std::memcmp(&b.project().scenes[0].drums, &hits2, sizeof(hits2)) == 0);
+  b.setDrumEngine(4);
+  CHECK(b.activeBreak() != nullptr);
+  CHECK(std::memcmp(&b.project().scenes[0].drums, &loop, sizeof(loop)) == 0); CHECK(b.project().pads[5].reverse);
+  CHECK(padPeak(b, 0) > 0.05f);
+
+  // restart inside the slicer
+  CHECK(b.save(proj.c_str()));
+  Session c(48000.0);
+  CHECK(c.load(proj.c_str()));
+  CHECK_EQ(int(c.project().drumEngine), 4); CHECK(c.activeBreak() != nullptr);
+  CHECK(std::memcmp(&c.project().scenes[0].drums, &loop, sizeof(loop)) == 0);
+  c.setDrumEngine(2); CHECK(std::memcmp(&c.project().scenes[0].drums, &hits2, sizeof(hits2)) == 0);
+  CHECK(c.undo()); CHECK(c.activeBreak() != nullptr);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -971,6 +1024,7 @@ int main() {
     {"drum engines, jungle tuning and resample-to-break", testDrumEnginesAndJungleResample},
     {"own break: save, load, undo, export", testOwnBreakPersistsAndUndoes},
     {"start preset Warehouse 303", testStartPreset},
+    {"break slicer survives leaving and restarting", testSlicerSurvivesLeaving},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

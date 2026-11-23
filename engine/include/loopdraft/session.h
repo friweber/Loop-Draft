@@ -76,6 +76,7 @@ class Session {
 
  private:
   void commit();
+  void switchDrumMode(bool toJungle);   // swaps pads, drum patterns and drive with the stored set of the other mode
   void syncKit();                  // makes the engine's pad samples match the project's drum engine and break
   void useBreak(std::shared_ptr<const Sample> s, uint32_t id = 0);
   std::shared_ptr<const Sample> findBreak(uint32_t id) const;

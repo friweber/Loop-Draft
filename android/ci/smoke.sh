@@ -34,6 +34,11 @@ adb shell am start -W -S -n "$ACT" --ei tab 3 --ez four true; shot 10_land_song
 adb shell cmd window user-rotation lock 0
 sleep 2
 adb shell am start -W -S -n "$ACT" --ei tab 2 --ez four true; shot 11_fx_portrait
+# the bounced loop must survive leaving the slicer and restarting the app
+adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit bounce; sleep 9
+adb shell am start -W -S -n "$ACT" --ei tab 0;                 shot 12_bounced_after_restart
+adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit 909;    sleep 9
+adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit slicer; shot 13_back_in_slicer
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 
 adb logcat -d > "$OUT/logcat.txt"
@@ -47,5 +52,9 @@ grep -E "selftest .*sound=true" "$OUT/selftest.txt" >/dev/null || { echo "FAIL: 
 grep -q "selftest export midi=true wav=true share=true" "$OUT/selftest.txt" || { echo "FAIL: export of MIDI/WAV or the share link did not work"; fail=1; }
 grep -q "boot audio=true" "$OUT/selftest.txt" || { echo "FAIL: audio output did not open"; fail=1; }
 [ "$(grep -c "boot audio=true bpm=131" "$OUT/selftest.txt")" -ge 4 ] || { echo "FAIL: the saved project was not restored after restarting the app"; fail=1; }
+grep -q "starting with the Warehouse 303 preset" "$OUT/logcat.txt" || { echo "FAIL: a fresh install did not open with the preset"; fail=1; }
+grep -q "kit bounce ok=true" "$OUT/selftest.txt" || { echo "FAIL: bouncing the loop into the slicer did not work"; fail=1; }
+grep -q "kit engine=4 ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after restarting the app"; fail=1; }
+grep -q "kit back in slicer ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after leaving the slicer and restarting"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"

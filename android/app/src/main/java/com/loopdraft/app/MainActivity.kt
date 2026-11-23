@@ -75,6 +75,13 @@ class MainActivity : ComponentActivity() {
         Native.setRecording(state.rec)
         state.rev++
         Log.i("LoopDraft", "boot audio=${state.audioOk} bpm=${Native.getParam(P.BPM, 0).toInt()} ${state.info}")
+        Log.i("LoopDraft", "kit engine=${Native.getParam(P.DRUM_ENGINE, 0).toInt()} ownBreak=${Native.hasOwnBreak()}")
+        when (intent?.getStringExtra("kit")) {     // test options: bounce the loop into the slicer, leave the slicer, come back
+            "bounce" -> Log.i("LoopDraft", "kit bounce ok=${Native.resampleSceneToJungle(0)}")
+            "909" -> Native.setDrumEngine(1)
+            "slicer" -> { Native.setDrumEngine(4); Log.i("LoopDraft", "kit back in slicer ownBreak=${Native.hasOwnBreak()}") }
+        }
+        intent?.removeExtra("kit")
         if (jungleShot) { jungleShot = false; Native.loadJungleKit(); Native.writeBreakPattern(0); state.rev++ }
         if (fourShot) {                             // test option: four synth tracks with instruments and an FX chain
             fourShot = false

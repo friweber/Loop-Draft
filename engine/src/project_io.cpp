@@ -20,7 +20,7 @@ namespace ld {
 namespace {
 
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 5;
+constexpr uint32_t kFileVersion = 6;   // 5 was the same without the closing "end" record
 
 // ------------------------------------------------------------------ frozen layouts of versions 1 and 4
 
@@ -180,6 +180,20 @@ template <class V> void fields(V& v, Project& p) {
     LD_F(pre, d, vol); LD_F(pre, d, pan); LD_F(pre, d, pitch); LD_F(pre, d, decay); LD_F(pre, d, choke); LD_F(pre, d, gmNote);
     LD_F(pre, d, sliceStart); LD_F(pre, d, sliceEnd); LD_F(pre, d, reverse);
   }
+  v.f("altValid", p.altValid);
+  if (!v.writing || p.altValid) {                    // the stored set of the other drum mode
+    v.f("altDrumDrive", p.altDrumDrive);
+    for (int i = 0; i < kNumPads; ++i) {
+      std::snprintf(pre, sizeof(pre), "altpad%d", i);
+      PadParams& d = p.altPads[i];
+      LD_F(pre, d, vol); LD_F(pre, d, pan); LD_F(pre, d, pitch); LD_F(pre, d, decay); LD_F(pre, d, choke); LD_F(pre, d, gmNote);
+      LD_F(pre, d, sliceStart); LD_F(pre, d, sliceEnd); LD_F(pre, d, reverse);
+    }
+    for (int i = 0; i < kNumScenes; ++i) {
+      std::snprintf(k, sizeof(k), "alt.sc%d.drums", i);
+      v.blob(k, p.altDrums[i].steps, sizeof(p.altDrums[i].steps), sizeof(p.altDrums[i].steps));
+    }
+  }
   for (int i = 0; i < kNumSynths; ++i) {
     std::snprintf(pre, sizeof(pre), "syn%d", i);
     SynthParams& s = p.synths[i];
@@ -242,17 +256,19 @@ struct Reader {
   void blob(const char* key, void* data, uint32_t capacity, uint32_t) { slots[key] = Slot{data, capacity, false}; }
 };
 
-bool readRecords(FILE* f, Project& p) {
+// needEnd: the file must close with an "end" record, so one that was cut off is never taken for complete.
+bool readRecords(FILE* f, Project& p, bool needEnd) {
   Reader r;
   fields(r, p);
   std::vector<char> buf;
   for (;;) {
     uint16_t kl = 0;
-    if (std::fread(&kl, 2, 1, f) != 1) return std::feof(f) != 0;     // clean end of file
+    if (std::fread(&kl, 2, 1, f) != 1) return !needEnd && std::feof(f) != 0;
     char key[64];
     uint32_t n = 0;
     if (kl == 0 || kl >= sizeof(key) || std::fread(key, 1, kl, f) != kl || std::fread(&n, 4, 1, f) != 1 || n > (1u << 22)) return false;
     key[kl] = 0;
+    if (needEnd && n == 0 && std::strcmp(key, "end") == 0) return true;
     buf.resize(n);
     if (n && std::fread(buf.data(), 1, n, f) != n) return false;
     const auto it = r.slots.find(key);
@@ -274,6 +290,8 @@ bool writeProjectFile(const char* path, const Project& project) {
   const uint32_t head[2] = {kFileVersion, 0};
   w.ok = std::fwrite(kMagic, 1, 8, f) == 8 && std::fwrite(head, sizeof(uint32_t), 2, f) == 2;
   fields(w, p);
+  const unsigned char end[9] = {3, 0, 'e', 'n', 'd', 0, 0, 0, 0};
+  w.ok = w.ok && std::fwrite(end, 1, sizeof(end), f) == sizeof(end);
   bool ok = (std::fclose(f) == 0) && w.ok;
   if (ok) ok = std::rename(tmp.c_str(), path) == 0;                   // atomic: never leaves a half-written project
   if (!ok) std::remove(tmp.c_str());
@@ -293,8 +311,8 @@ static bool readProjectStream(FILE* f, Project& out, bool* converted) {
     conv = true;
     return true;
   };
-  if (ok && head[0] == kFileVersion && head[1] == 0) {
-    ok = readRecords(f, *p);
+  if (ok && (head[0] == kFileVersion || head[0] == 5) && head[1] == 0) {
+    ok = readRecords(f, *p, head[0] >= 6);
   } else if (ok && head[0] == 5 && head[1] == sizeof(legacy::v5raw::Project)) {
     auto old = std::make_unique<legacy::v5raw::Project>();
     ok = rawStruct(*old);

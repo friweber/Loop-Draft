@@ -36,6 +36,8 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
   bool start(const std::string& filesDir) {
     std::lock_guard<std::mutex> g(lock_);
     savePath_ = filesDir + "/autosave.ldp";
+    presetSeenPath_ = filesDir + "/preset_warehouse303.seen";
+    beforePresetPath_ = filesDir + "/project_before_preset.ldp";
     wantRunning_ = true;
     return stream_ ? true : open();
   }
@@ -101,14 +103,27 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
     if (!session_) {
       sampleRate_ = stream_->getSampleRate();
       session_ = std::make_unique<ld::Session>(double(sampleRate_));
-      if (session_->load(savePath_.c_str())) LOGI("project restored");
-      else { session_->loadStartPreset(); LOGI("starting with the Warehouse 303 preset"); }
+      const bool restored = session_->load(savePath_.c_str());
+      FILE* seen = std::fopen(presetSeenPath_.c_str(), "rb");
+      if (seen) {
+        std::fclose(seen);
+        if (restored) LOGI("project restored");
+        else { session_->loadStartPreset(); LOGI("starting with the Warehouse 303 preset"); }
+      } else {
+        // First start of a build that has the preset: open with it once. A project from an earlier
+        // build is kept as a file, and UNDO brings it back right away.
+        if (restored) session_->save(beforePresetPath_.c_str());
+        session_->loadStartPreset();
+        if (FILE* m = std::fopen(presetSeenPath_.c_str(), "wb")) std::fclose(m);
+        LOGI("starting with the Warehouse 303 preset (first start, earlier project kept=%d)", restored ? 1 : 0);
+      }
     }
     const oboe::Result s = stream_->requestStart();
     if (s != oboe::Result::OK) { LOGE("cannot start audio: %s", oboe::convertToText(s)); stream_->close(); stream_.reset(); return false; }
     return true;
   }
 
+  std::string presetSeenPath_, beforePresetPath_;
   std::mutex lock_;                       // guards opening and closing the stream, never taken on the audio thread
   std::shared_ptr<oboe::AudioStream> stream_;
   std::unique_ptr<ld::Session> session_;

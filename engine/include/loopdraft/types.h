@@ -148,6 +148,12 @@ struct Project {
   ChainAuto chainAuto[kMaxChain];
   int32_t chainLen = 4;
   uint32_t breakId = 0;    // Jungle Slicer: 0 = built-in break, otherwise the user's own break (a WAV or a bounced loop)
+  // The break slicer and the hit kits each keep their own pad settings and drum patterns, so going
+  // to another kit and back loses nothing. alt* holds the set that is not in use right now.
+  uint8_t altValid = 0;
+  float altDrumDrive = 0.0f;
+  PadParams altPads[kNumPads];
+  DrumPattern altDrums[kNumScenes];
 };
 
 Project makeDemoProject();

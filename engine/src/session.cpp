@@ -29,13 +29,17 @@ void sanitize(Project& p) {
   p.jungleCrunch = clampT(fin(p.jungleCrunch, 0.25f), 0.0f, 1.0f);
   p.delayFeedback = clampT(fin(p.delayFeedback, 0.38f), 0.0f, 0.85f);
   p.master = clampT(fin(p.master, 0.85f), 0.0f, 1.0f);
-  for (auto& d : p.pads) {
+  const auto fixPad = [](PadParams& d) {
     d.vol = clampT(fin(d.vol, 0.9f), 0.0f, 1.0f); d.pan = clampT(fin(d.pan, 0), -1.0f, 1.0f);
     d.pitch = clampT(fin(d.pitch, 0), -24.0f, 24.0f); d.decay = clampT(fin(d.decay, 0.3f), 0.02f, 2.0f);
     d.choke = uint8_t(clampT<int>(d.choke, 0, 4)); d.gmNote = uint8_t(clampT<int>(d.gmNote, 0, 127));
     d.sliceStart = clampT(fin(d.sliceStart, 0.0f), 0.0f, 0.99f);
     d.sliceEnd = clampT(fin(d.sliceEnd, 1.0f), d.sliceStart + 0.01f > 1.0f ? 1.0f : d.sliceStart + 0.01f, 1.0f);
-  }
+  };
+  for (auto& d : p.pads) fixPad(d);
+  for (auto& d : p.altPads) fixPad(d);
+  p.altValid = p.altValid ? 1 : 0;
+  p.altDrumDrive = clampT(fin(p.altDrumDrive, 0.0f), 0.0f, 1.0f);
   for (auto& s : p.synths) {
     if (uint8_t(s.wave1) > uint8_t(Wave::Sine)) s.wave1 = Wave::Saw;
     if (uint8_t(s.wave2) > uint8_t(Wave::Sine)) s.wave2 = Wave::Saw;
@@ -366,20 +370,43 @@ void Session::loadStandardKit() { setDrumEngine(int(DrumEngine::Classic808)); }
 
 // Only project fields change here. commit() -> syncKit() then loads the matching sounds, and does the
 // same after undo, redo and loading a file.
+void Session::switchDrumMode(bool toJungle) {
+  const bool isJungle = proj_.drumEngine == DrumEngine::JungleSlicer;
+  if (isJungle == toJungle) return;
+  PadParams pads[kNumPads];
+  DrumPattern drums[kNumScenes];
+  const float drive = proj_.fx[0].drive;
+  for (int i = 0; i < kNumPads; ++i) pads[i] = proj_.pads[i];
+  for (int i = 0; i < kNumScenes; ++i) drums[i] = proj_.scenes[i].drums;
+  if (proj_.altValid) {                            // been in that mode before: everything comes back as it was left
+    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = proj_.altPads[i];
+    for (int i = 0; i < kNumScenes; ++i) proj_.scenes[i].drums = proj_.altDrums[i];
+    proj_.fx[0].drive = proj_.altDrumDrive;
+  } else if (toJungle) {                           // first visit: slice the break, keep the pattern as a start
+    sliceAcrossPads(proj_);
+    proj_.fx[0].drive = proj_.jungleCrunch;
+    proj_.bpm = 168.0f;
+  } else {                                         // an old project that was saved inside the slicer
+    const Project def = makeDemoProject();
+    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
+  }
+  for (int i = 0; i < kNumPads; ++i) proj_.altPads[i] = pads[i];
+  for (int i = 0; i < kNumScenes; ++i) proj_.altDrums[i] = drums[i];
+  proj_.altDrumDrive = drive;
+  proj_.altValid = 1;
+  proj_.drumEngine = toJungle ? DrumEngine::JungleSlicer : DrumEngine::Classic808;
+}
 void Session::setDrumEngine(int engine) {
   beginEdit();
   const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::JungleSlicer)));
   const bool wasJungle = proj_.drumEngine == DrumEngine::JungleSlicer;
-  proj_.drumEngine = de;
-  proj_.breakId = 0;                               // choosing the engine again goes back to the built-in break
-  if (de == DrumEngine::JungleSlicer) {
+  const bool toJungle = de == DrumEngine::JungleSlicer;
+  if (wasJungle && toJungle) {                     // choosing the slicer again inside it: back to the built-in break
+    proj_.breakId = 0;
     sliceAcrossPads(proj_);
-    proj_.fx[0].drive = proj_.jungleCrunch;
-    if (!wasJungle) proj_.bpm = 168.0f;
-  } else if (wasJungle) {                          // leaving the slicer: pads are single hits again
-    const Project def = makeDemoProject();
-    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
   }
+  switchDrumMode(toJungle);                        // the own break (breakId) stays with the project
+  proj_.drumEngine = de;
   commit();
 }
 void Session::applyJungleTuning(float pitch, float tight, float crunch, bool undoStep) {
@@ -410,7 +437,6 @@ void Session::useBreak(std::shared_ptr<const Sample> s, uint32_t id) {
   for (size_t i = 0; i < breaks_.size(); ++i) if (breaks_[i].id == id) { breaks_.erase(breaks_.begin() + long(i)); break; }
   breaks_.push_back(Break{id, std::move(s)});
   if (breaks_.size() > 3) breaks_.erase(breaks_.begin());
-  proj_.drumEngine = DrumEngine::JungleSlicer;
   proj_.breakId = id;
 }
 bool Session::loadJungleBreakWav(const char* path) {
@@ -418,6 +444,7 @@ bool Session::loadJungleBreakWav(const char* path) {
   if (!loaded || loaded->frames() < 16 || loaded->rate < 1000.0) return false;
   if (double(loaded->frames()) / loaded->rate > kMaxBreakSeconds) return false;
   beginEdit();
+  switchDrumMode(true);
   useBreak(std::move(loaded));
   sliceAcrossPads(proj_);
   commit();
@@ -447,9 +474,20 @@ bool Session::resampleSceneToJungle(int scene) {
   bounced->l = std::move(rr.l);
   bounced->r = std::move(rr.r);
 
+  const double sliceSeconds = seconds / double(kNumPads);
   beginEdit();
+  switchDrumMode(true);
   useBreak(std::move(bounced));
   sliceAcrossPads(proj_);
+  // The slices in their order, long enough to play through: the scene sounds like the loop that was bounced.
+  Scene& bs = proj_.scenes[scene];
+  bs.drums = DrumPattern{};
+  for (int i = 0; i < kNumPads; ++i) {
+    bs.drums.steps[i][i * sceneSteps(bs) / kNumPads] = 2;
+    proj_.pads[i].pitch = 0.0f;
+    proj_.pads[i].decay = clampT(float(sliceSeconds * 1.05), proj_.jungleTight, 2.0f);
+  }
+  proj_.junglePitch = 0.0f;
   // The effects are now part of the recording, so they must not be applied a second time.
   proj_.fx[0].drive = 0.0f;
   proj_.jungleCrunch = 0.0f;
@@ -542,7 +580,7 @@ bool Session::poll() {
 static std::string breakPath(const char* path) { return std::string(path) + ".break.wav"; }
 
 bool Session::save(const char* path) {
-  if (const std::shared_ptr<const Sample> brk = activeBreak()) {
+  if (const std::shared_ptr<const Sample> brk = findBreak(proj_.breakId)) {   // also while a hit kit is selected
     if (savedBreakId_ != proj_.breakId) {
       const float* r = brk->r.size() == brk->l.size() ? brk->r.data() : brk->l.data();
       if (!writeWav16(breakPath(path).c_str(), brk->l.data(), r, brk->frames(), brk->rate)) return false;
@@ -564,9 +602,7 @@ bool Session::load(const char* path) {
   if (proj_.breakId != 0) {
     std::shared_ptr<const Sample> brk = loadWav(breakPath(path).c_str());
     if (brk && brk->frames() >= 16) {
-      const DrumEngine de = proj_.drumEngine;
       useBreak(std::move(brk), proj_.breakId);
-      proj_.drumEngine = de;
       savedBreakId_ = proj_.breakId;
     } else {
       proj_.breakId = 0;                           // the audio is gone: fall back to the built-in break
