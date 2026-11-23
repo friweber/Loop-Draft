@@ -18,8 +18,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)setSongMode:(BOOL)on;
 - (void)setRecording:(BOOL)on;
 - (void)triggerPad:(int)pad vel:(int)vel;
-- (void)noteOnSynth:(int)synth degree:(int)degree vel:(int)vel;
-- (void)noteOffSynth:(int)synth degree:(int)degree;
+- (void)noteOnSynth:(int)synth degree:(int)degree vel:(int)vel NS_SWIFT_NAME(noteOnSynth(_:degree:vel:));
+- (void)noteOffSynth:(int)synth degree:(int)degree NS_SWIFT_NAME(noteOffSynth(_:degree:));
 
 - (BOOL)isPlaying;
 - (int)currentStep;
