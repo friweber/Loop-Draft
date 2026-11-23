@@ -25,8 +25,11 @@ adb shell am start -W -S -n "$ACT" --ei tab 0 --ez jungle true; shot 6_jungle
 adb shell cmd window user-rotation lock 1
 sleep 2
 adb shell am start -W -S -n "$ACT" --ei tab 0;                shot 7_land_drums
+adb shell cmd window user-rotation lock 1; sleep 1
 adb shell am start -W -S -n "$ACT" --ei tab 1 --ez four true; shot 8_land_synth
+adb shell cmd window user-rotation lock 1; sleep 1
 adb shell am start -W -S -n "$ACT" --ei tab 2 --ez four true; shot 9_land_fx
+adb shell cmd window user-rotation lock 1; sleep 1
 adb shell am start -W -S -n "$ACT" --ei tab 3 --ez four true; shot 10_land_song
 adb shell cmd window user-rotation lock 0
 sleep 2

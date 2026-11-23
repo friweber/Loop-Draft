@@ -280,13 +280,14 @@ fun Knob(
     ) {
         SilkLabel(label.uppercase(), color = if (modulated) HwCyan else HwMuted, size = 9)
         Canvas(modifier = Modifier.fillMaxWidth().height(50.dp)) {
-            val r = size.height / 2f - 4.dp.toPx()
+            // in a narrow tile the knob shrinks a little so the arrows always fit beside it
+            val r = minOf(size.height / 2f - 4.dp.toPx(), size.width / 2f - 15.dp.toPx()).coerceAtLeast(10.dp.toPx())
             val c = Offset(size.width / 2f, size.height / 2f)
             // drag hints: small arrows left and right, barely visible until the knob is touched
             val room = size.width / 2f - r
-            if (room > 9.dp.toPx()) {
+            if (room > 12.dp.toPx()) {
                 val hint = if (dragging) ring else HwSilk.copy(alpha = 0.2f)
-                val ax = r + room * 0.55f
+                val ax = r + maxOf(room * 0.55f, 9.dp.toPx())
                 val ah = 4.5.dp.toPx()
                 val aw = 3.5.dp.toPx()
                 val sw = 1.6.dp.toPx()
