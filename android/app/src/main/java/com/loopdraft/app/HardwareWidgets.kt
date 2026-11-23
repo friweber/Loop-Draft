@@ -4,7 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -214,9 +215,9 @@ fun SevenSegmentBpm(bpm: Int, modifier: Modifier = Modifier) {
 }
 
 /**
- * Tactile analog skirted rotary knob.
- * Drag vertically up/down to adjust. One drag gesture = one undo step.
- * Shows a glowing cyan modulation ring when modulated by the LFO.
+ * Skirted rotary knob. Drag sideways anywhere on its tile: right is more, left is less.
+ * (Sideways, so that swiping up and down still scrolls the page.) One drag is one undo step.
+ * The ring turns cyan when the LFO is assigned to this control.
  */
 @Composable
 fun RotaryKnob(
@@ -231,85 +232,119 @@ fun RotaryKnob(
     modulated: Boolean = false,
     fmt: (Float) -> String
 ) {
-    var v by remember(s.rev, id, index) { mutableFloatStateOf(Native.getParam(id, index)) }
+    // One state object for the whole life of this knob, shared by the drag handler and the drawing.
+    val value = remember(id, index) { mutableFloatStateOf(Native.getParam(id, index)) }
     var dragging by remember { mutableStateOf(false) }
+    LaunchedEffect(s.rev, id, index) { if (!dragging) value.floatValue = Native.getParam(id, index) }
+    val v = value.floatValue
     val norm = ((v - min) / (max - min)).coerceIn(0f, 1f)
 
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(HwRecess)
-            .border(1.dp, if (modulated) HwCyan.copy(alpha = 0.7f) else HwLine, RoundedCornerShape(8.dp))
+            .border(1.dp, if (dragging) HwSilk else if (modulated) HwCyan.copy(alpha = 0.7f) else HwLine, RoundedCornerShape(8.dp))
+            .pointerInput(id, index, min, max) {
+                val fullTravel = 220.dp.toPx()            // finger travel for the whole range, the same on every screen
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        dragging = true
+                        Native.beginEdit()
+                    },
+                    onDragEnd = {
+                        dragging = false
+                        s.rev++
+                    },
+                    onDragCancel = {
+                        dragging = false
+                        s.rev++
+                    },
+                    onHorizontalDrag = { change, dragAmount ->
+                        change.consume()
+                        val nv = (value.floatValue + dragAmount / fullTravel * (max - min)).coerceIn(min, max)
+                        value.floatValue = nv
+                        Native.setParam(id, index, nv)
+                    }
+                )
+            }
             .padding(vertical = 6.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         SilkLabel(label.uppercase(), color = if (modulated) HwCyan else HwMuted, size = 9)
-        Canvas(
-            modifier = Modifier
-                .size(50.dp)
-                .pointerInput(id, index, min, max) {
-                    detectVerticalDragGestures(
-                        onDragStart = {
-                            dragging = true
-                            Native.beginEdit()
-                        },
-                        onDragEnd = {
-                            dragging = false
-                            s.rev++
-                        },
-                        onDragCancel = {
-                            dragging = false
-                            s.rev++
-                        },
-                        onVerticalDrag = { _, dragAmount ->
-                            val delta = -dragAmount / 180f * (max - min)
-                            v = (v + delta).coerceIn(min, max)
-                            Native.setParam(id, index, v)
-                        }
-                    )
-                }
-        ) {
+        Canvas(modifier = Modifier.size(50.dp)) {
             val r = size.minDimension / 2f - 4.dp.toPx()
             val c = Offset(size.width / 2f, size.height / 2f)
-
-            // Outer track arc (135 deg to 405 deg = 270 deg sweep)
             drawArc(
-                color = HwLine,
-                startAngle = 135f,
-                sweepAngle = 270f,
-                useCenter = false,
-                topLeft = Offset(c.x - r, c.y - r),
-                size = Size(r * 2, r * 2),
+                color = HwLine, startAngle = 135f, sweepAngle = 270f, useCenter = false,
+                topLeft = Offset(c.x - r, c.y - r), size = Size(r * 2, r * 2),
                 style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
             )
-            // Active value arc (glows cyan if LFO-modulated)
             drawArc(
-                color = if (modulated) HwCyan else HwOrange,
-                startAngle = 135f,
-                sweepAngle = 270f * norm,
-                useCenter = false,
-                topLeft = Offset(c.x - r, c.y - r),
-                size = Size(r * 2, r * 2),
+                color = if (modulated) HwCyan else HwOrange, startAngle = 135f, sweepAngle = 270f * norm, useCenter = false,
+                topLeft = Offset(c.x - r, c.y - r), size = Size(r * 2, r * 2),
                 style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
             )
-            // Skirted knob body
             val bodyR = r * 0.74f
             drawCircle(color = Color(0xFF111216), radius = bodyR + 2f, center = c)
             drawCircle(color = capColor, radius = bodyR, center = c)
-            drawCircle(
-                color = Color.White.copy(alpha = 0.14f),
-                radius = bodyR,
-                center = c,
-                style = Stroke(width = 1.dp.toPx())
-            )
-            // Crisp white pointer line
+            drawCircle(color = Color.White.copy(alpha = 0.14f), radius = bodyR, center = c, style = Stroke(width = 1.dp.toPx()))
             val angleRad = (135.0 + 270.0 * norm) * PI / 180.0
-            val pStart = Offset(c.x + (bodyR * 0.25f) * cos(angleRad).toFloat(), c.y + (bodyR * 0.25f) * sin(angleRad).toFloat())
-            val pEnd = Offset(c.x + (bodyR * 0.88f) * cos(angleRad).toFloat(), c.y + (bodyR * 0.88f) * sin(angleRad).toFloat())
-            drawLine(color = HwSilk, start = pStart, end = pEnd, strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round)
+            val ca = cos(angleRad).toFloat()
+            val sa = sin(angleRad).toFloat()
+            drawLine(
+                color = HwSilk,
+                start = Offset(c.x + bodyR * 0.25f * ca, c.y + bodyR * 0.25f * sa),
+                end = Offset(c.x + bodyR * 0.88f * ca, c.y + bodyR * 0.88f * sa),
+                strokeWidth = 2.5.dp.toPx(), cap = StrokeCap.Round
+            )
         }
         SilkLabel(fmt(v), color = HwSilk, size = 10, mono = true)
+    }
+}
+
+/** The two-colour logo from the design sheets. */
+@Composable
+fun Logo() {
+    Row {
+        SilkLabel("LOOP", color = HwSilk, size = 17)
+        SilkLabel("DRAFT", color = HwOrange, size = 17)
+    }
+}
+
+/** Sample display: the outline of the selected pad's sound, with the played slice lit up. */
+@Composable
+fun WaveformDisplay(peaks: FloatArray, start: Float, end: Float, accent: Color, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(6.dp)
+    Box(
+        modifier
+            .height(44.dp)
+            .clip(shape)
+            .background(Color(0xFF0B0C0F))
+            .border(1.dp, HwLine, shape)
+            .padding(horizontal = 4.dp, vertical = 3.dp)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val n = peaks.size
+            if (n == 0) return@Canvas
+            val w = size.width / n
+            val mid = size.height / 2f
+            for (i in 0 until n) {
+                val u = (i + 0.5f) / n
+                val inside = u >= start && u <= end
+                val h = (peaks[i] * mid).coerceAtLeast(1f)
+                val x = i * w + w / 2f
+                drawLine(
+                    color = if (inside) HwSilk else HwMuted.copy(alpha = 0.3f),
+                    start = Offset(x, mid - h), end = Offset(x, mid + h),
+                    strokeWidth = (w * 0.7f).coerceAtLeast(1f)
+                )
+            }
+            if (start > 0.001f || end < 0.999f) {
+                drawLine(accent, Offset(start * size.width, 0f), Offset(start * size.width, size.height), 2.dp.toPx())
+                drawLine(accent, Offset(end * size.width, 0f), Offset(end * size.width, size.height), 2.dp.toPx())
+            }
+        }
     }
 }
 
@@ -434,7 +469,7 @@ fun OledScopeDisplay(
                 val smooth = sin(2.0 * PI * t)
                 val shaped = smooth * (1f - cutoffNorm) + raw.toFloat() * cutoffNorm
                 val px = u * size.width
-                val py = midY - shaped * amp
+                val py = midY - (shaped * amp).toFloat()
                 if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
             }
             drawPath(path, color = HwGreen.copy(alpha = 0.28f), style = Stroke(width = 6f, cap = StrokeCap.Round))

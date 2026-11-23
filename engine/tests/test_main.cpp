@@ -451,6 +451,147 @@ static void testSessionRecordsLiveHits() {
   CHECK(s.undo()); CHECK_EQ(s.project().scenes[0].drums.steps[2][2], 0);     // one undo removes the recorded take
 }
 
+// A save file written by build 5 (file version 1) must still open, with every setting intact.
+static void testOldSaveFilesAreConverted() {
+  Session s(48000);
+  CHECK(s.load(LD_FIXTURES "/project_v1.ldp"));
+  const Project& p = s.project();
+  CHECK(p.bpm == 97.0f); CHECK(p.swing == 0.25f); CHECK_EQ(p.root, 9); CHECK(p.scale == Scale::Dorian);
+  CHECK(p.pads[6].pitch == -5.0f); CHECK_EQ(p.pads[2].choke, 2); CHECK_EQ(p.pads[4].gmNote, 46);
+  CHECK(p.synths[0].cutoff == 432.0f); CHECK(p.synths[1].chord); CHECK_EQ(p.synths[1].octaveShift, 1);
+  CHECK(p.synths[0].lfoTarget == LfoTarget::Pitch); CHECK(p.synths[0].wave2 == Wave::Square);
+  CHECK(std::fabs(p.fx[2].revSend - 0.61f) < 1e-6f); CHECK(p.fx[1].mute); CHECK(!p.fx[0].mute);
+  CHECK(std::fabs(p.master - 0.66f) < 1e-6f); CHECK(p.delayFeedback == 0.5f);
+  CHECK_EQ(p.scenes[2].bars, 5); CHECK_EQ(p.scenes[2].drums.steps[7][70], 2); CHECK_EQ(p.scenes[1].drums.steps[1][4], 1);
+  bool found = false;
+  for (int i = 0; i < p.scenes[3].synth[0].count; ++i) {
+    const Note& n = p.scenes[3].synth[0].notes[i];
+    if (n.step == 13 && n.degree == -3 && n.len == 4 && n.vel == 2) found = true;
+  }
+  CHECK(found);
+  CHECK_EQ(p.chainLen, 6); CHECK_EQ(p.chain[4], 2); CHECK_EQ(p.chain[5], 0);
+  // things that did not exist yet start at their defaults
+  CHECK(p.synths[0].mode == SynthMode::Subtractive); CHECK(p.pads[3].sliceEnd == 1.0f); CHECK(!p.pads[3].reverse);
+  CHECK_EQ(p.kit, 0); CHECK(p.chainAuto[0].lanes[0].param == AutoParam::Off);
+  CHECK(s.dirty());                                // so it is written back in the current format
+  const std::string path = "/tmp/ld_test_converted.ldp";
+  CHECK(s.save(path.c_str()));
+  Session t(48000);
+  CHECK(t.load(path.c_str())); CHECK(!t.dirty()); CHECK(t.project().bpm == 97.0f); CHECK_EQ(t.project().chainLen, 6);
+  std::remove(path.c_str());
+}
+
+static std::vector<float> padHit(Session& s, int pad) {
+  std::vector<float> l;
+  s.engine().triggerPad(pad, 2);
+  renderN(s.engine(), l, 9600);
+  return l;
+}
+
+// The jungle kit belongs to the project: it has to come back after a restart and go away on undo.
+static void testKitFollowsTheProject() {
+  Session std0(48000);
+  const std::vector<float> stdSound = padHit(std0, 1);
+  Session a(48000);
+  a.loadJungleKit();
+  CHECK_EQ(a.project().kit, 1); CHECK(a.getParam(P_KIT, 0) == 1.0f);
+  const std::vector<float> jungle = padHit(a, 1);
+  CHECK(peakOf(jungle) > 0.02f); CHECK(!same(jungle, stdSound));
+  const std::string path = "/tmp/ld_test_kit.ldp";
+  CHECK(a.save(path.c_str()));
+  Session b(48000);                                // "restart the app"
+  CHECK(b.load(path.c_str())); CHECK_EQ(b.project().kit, 1);
+  CHECK(same(padHit(b, 1), jungle));               // same slices, not the standard drums cut into pieces
+  std::remove(path.c_str());
+  a.setParam(P_KIT, 0, 0); CHECK_EQ(a.project().kit, 1);          // read-only through setParam
+  CHECK(a.undo()); CHECK_EQ(a.project().kit, 0); CHECK(a.project().bpm == 122.0f);
+  std::vector<float> l; renderN(a.engine(), l, 48000 * 12);       // let delay and reverb of the old hit die away
+  const std::vector<float> afterUndo = padHit(a, 1);
+  float worst = 0; for (size_t i = 0; i < afterUndo.size(); ++i) worst = std::fmax(worst, std::fabs(afterUndo[i] - stdSound[i]));
+  CHECK(worst < 1e-3f);                            // the standard snare again
+  CHECK(a.redo()); CHECK_EQ(a.project().kit, 1);
+  a.resetToDemo(); CHECK_EQ(a.project().kit, 0);
+
+  float w0[64], w1[64];
+  Session d(48000);
+  CHECK_EQ(d.padWaveform(0, w0, 64), 64); CHECK(w0[0] > 0.3f && w0[63] < 0.1f);   // a kick: loud start, quiet end
+  d.loadJungleKit();
+  CHECK_EQ(d.padWaveform(0, w1, 64), 64); CHECK(w1[16] > 0.3f);                    // the break has a snare a quarter in
+  CHECK_EQ(d.padWaveform(9, w1, 64), 0);
+
+  Session c(48000);
+  c.loadJungleKit(); c.setSceneBars(1, 2); c.writeBreakPattern(1);
+  int on = 0; for (int pad = 0; pad < kNumPads; ++pad) for (int st = 0; st < 32; ++st) if (c.project().scenes[1].drums.steps[pad][st]) ++on;
+  CHECK_EQ(on, 16); CHECK_EQ(c.project().scenes[1].drums.steps[3][6], 1); CHECK_EQ(c.project().scenes[1].drums.steps[4][16 + 8], 2);
+  RenderOptions o; o.scene = 1;
+  CHECK(peakOf(renderOffline(c.project(), o).l) > 0.1f);          // the export plays the jungle kit too
+}
+
+static std::vector<float> renderAutomated(const Project& p, const std::function<int(int)>& blockAt, long total) {
+  Engine e(48000);
+  e.setProject(p); e.setSongMode(true); e.play(0);
+  std::vector<float> out, a(1024), b(1024);
+  long pos = 0; int k = 0;
+  while (pos < total) {
+    int n = blockAt(k++); if (n > 1024) n = 1024; if (n > total - pos) n = int(total - pos);
+    e.render(a.data(), b.data(), n);
+    out.insert(out.end(), a.begin(), a.begin() + n);
+    pos += n;
+  }
+  return out;
+}
+
+static void testAutomationTiming() {
+  Project p = makeDemoProject();
+  p.bpm = 120;                                     // one bar = 96000 frames
+  p.chain[0] = 1; p.chain[1] = 1; p.chainLen = 2;
+  p.chainAuto[0].lanes[0] = AutoLane{AutoParam::LeadCutoff, 300.0f, 6000.0f};
+  p.chainAuto[0].lanes[1] = AutoLane{AutoParam::DrumsDrive, 0.0f, 0.9f};
+  p.chainAuto[1].lanes[0] = AutoLane{AutoParam::LeadDelay, 0.6f, 0.0f};
+  const long total = 96000 * 2 + 5000;
+  const std::vector<float> a = renderAutomated(p, [](int) { return 64; }, total);
+  const std::vector<float> b = renderAutomated(p, [](int) { return 441; }, total);
+  uint32_t seed = 3;
+  const std::vector<float> c = renderAutomated(p, [&](int) { seed = seed * 1664525u + 1013904223u; return 1 + int((seed >> 16) % 900); }, total);
+  CHECK(same(a, b)); CHECK(same(a, c));            // sweeps do not depend on the audio block size
+  Project plain = p; plain.chainAuto[0] = ChainAuto{}; plain.chainAuto[1] = ChainAuto{};
+  CHECK(!same(a, renderAutomated(plain, [](int) { return 64; }, total)));
+
+  // A slot's automation must hold until the slot really ends. Slot 1 holds the lead filter at 200 Hz, slot 2 has none.
+  Project q = makeDemoProject(); q.bpm = 120; q.chain[0] = 1; q.chain[1] = 1; q.chainLen = 2;
+  q.chainAuto[0].lanes[0] = AutoLane{AutoParam::LeadCutoff, 200.0f, 200.0f};
+  Project fixed = q; fixed.chainAuto[0] = ChainAuto{}; fixed.synths[1].cutoff = 200.0f; fixed.synths[1].lfoDepth = q.synths[1].lfoDepth;
+  const std::vector<float> withAuto = renderAutomated(q, [](int) { return 256; }, 96000 + 20000);
+  const std::vector<float> staticCut = renderAutomated(fixed, [](int) { return 256; }, 96000 + 20000);
+  bool sameInSlot = true; for (long i = 0; i < 96000; ++i) if (withAuto[size_t(i)] != staticCut[size_t(i)]) { sameInSlot = false; break; }
+  CHECK(sameInSlot);                               // identical right up to the last sample of slot 1
+  bool differsAfter = false; for (long i = 96000; i < 96000 + 20000; ++i) if (withAuto[size_t(i)] != staticCut[size_t(i)]) { differsAfter = true; break; }
+  CHECK(differsAfter);                             // then slot 2 goes back to the project's own cutoff
+}
+
+static void testRollsInMidiAndOverLongRuns() {
+  Project p = emptyProject();
+  p.scenes[0].drums.steps[0][0] = 5; p.scenes[0].drums.steps[0][8] = 4; p.scenes[0].drums.steps[1][4] = 3;
+  const MidiFile m = parseMidi(buildMidi(p, false, 0));
+  std::vector<int> kick, snare;
+  for (auto& e : m.tracks[1]) if ((e[1] & 0xF0) == 0x90) { (e[2] == 36 ? kick : snare).push_back(e[0]); CHECK_EQ(e[3], 127); }
+  CHECK(m.ok);
+  CHECK(kick == std::vector<int>({0, 30, 60, 90, 960, 1000, 1040})); CHECK(snare == std::vector<int>({480, 540}));
+  // 3x rolls at 122 BPM (no whole number of frames per hit): every hit stays within one frame of its ideal position
+  p.bpm = 122; p.scenes[0] = Scene{};
+  for (int st = 0; st < 16; ++st) p.scenes[0].drums.steps[0][st] = 4;
+  Engine e(48000);
+  e.setPadSample(0, click(48000)); e.setProject(p); e.play(0);
+  std::vector<float> l;
+  const double sl = 48000.0 * 60.0 / 122.0 / 4.0;
+  renderN(e, l, long(sl * 16 * 4) + 5, 500);
+  const std::vector<long> got = clicks(l);
+  CHECK_EQ(got.size(), size_t(16 * 4 * 3 + 1));
+  long worst = 0;
+  for (size_t k = 0; k < got.size(); ++k) worst = std::max(worst, std::labs(got[k] - std::lround(double(k) * sl / 3.0)));
+  CHECK(worst <= 1);
+}
+
 static void testPatternEditing() {
   SynthPattern pat;
   CHECK(addNote(pat, 4, 2, 3, 2)); CHECK(addNote(pat, 4, 2, 1, 1)); CHECK_EQ(pat.count, 1); CHECK_EQ(pat.notes[0].len, 1);
@@ -562,6 +703,10 @@ int main() {
     {"UI thread and audio thread run together", testTwoThreads},
     {"session: undo, parameters, save and load", testSessionUndoSaveLoad},
     {"session: live hits are written into the project", testSessionRecordsLiveHits},
+    {"save files from build 5 are converted", testOldSaveFilesAreConverted},
+    {"drum kit follows the project (restart, undo, export)", testKitFollowsTheProject},
+    {"song automation: block-size independent, exact slot ends", testAutomationTiming},
+    {"rolls: in MIDI export, no drift", testRollsInMidiAndOverLongRuns},
     {"pattern editing helpers", testPatternEditing},
     {"FM synth engine and per-sequence octave isolation", testFmAndOctaveIsolation},
     {"song-menu sequence automation", testSongAutomation},

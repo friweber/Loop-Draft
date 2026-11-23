@@ -72,7 +72,7 @@ class Engine {
   struct Trash { bool isProject; void* ptr; };
   struct TrackState { Smooth level, dSend, rSend; Drive drive; Shelf lo[2], hi[2]; float cLow = 1e9f, cHigh = 1e9f, cDrive = -1; };
   struct Suppress { bool on = false; int scene = 0, track = 0, row = 0, step = 0; };
-  struct Ratchet { bool active = false; int pad = 0; int remaining = 0; int64_t nextFrame = 0; double interval = 0.0; };
+  struct Ratchet { bool active = false; int pad = 0, hits = 0, done = 0; int64_t nextFrame = 0; double base = 0.0, interval = 0.0; };
 
   void send(const Cmd& c);
   void processCommands();
@@ -103,7 +103,10 @@ class Engine {
 
   bool playing_ = false, songMode_ = false, recording_ = false;
   int scene_ = 0, step_ = 0, pending_ = -1, chainPos_ = 0;
-  int64_t frame_ = 0, nextFire_ = 0, lastFire_ = 0, slotStartFrame_ = 0;
+  int64_t frame_ = 0, nextFire_ = 0, lastFire_ = 0;
+  // The song slot that is audible right now (the sequencer state above already points at the next step).
+  int autoPos_ = 0, autoScene_ = 0;
+  int64_t autoStart_ = 0;
   int lastStep_ = 0, lastScene_ = 0;
   double stepBase_ = 0;
   Suppress sup_[8];

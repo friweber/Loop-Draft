@@ -1,6 +1,7 @@
 #include "loopdraft/session.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -10,7 +11,44 @@ namespace ld {
 namespace {
 constexpr size_t kMaxUndo = 64;
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 3;
+constexpr uint32_t kFileVersion = 4;
+
+// ---- save files written by build 5 of the app (file version 1) ----
+// The layout must stay exactly as it was then. TrackFx, Scene and Note have not changed since.
+namespace v1 {
+struct PadParams { float vol, pan, pitch, decay; uint8_t choke, gmNote; };
+struct SynthParams {
+  Wave wave1, wave2;
+  float detune, cutoff, res, attack, decay, sustain, release, level, lfoRate, lfoDepth;
+  LfoTarget lfoTarget; int8_t octaveShift; bool chord;
+};
+struct Project {
+  float bpm, swing; int32_t root; Scale scale; int32_t octave;
+  PadParams pads[kNumPads]; SynthParams synths[kNumSynths]; TrackFx fx[kNumTracks];
+  float delayFeedback, master; Scene scenes[kNumScenes]; int32_t chain[kMaxChain]; int32_t chainLen;
+};
+static_assert(sizeof(Project) == 17060, "version 1 layout changed");
+ld::Project upgrade(const Project& o) {
+  ld::Project p;                                 // everything newer than version 1 keeps its default
+  p.bpm = o.bpm; p.swing = o.swing; p.root = o.root; p.scale = o.scale; p.octave = o.octave;
+  for (int i = 0; i < kNumPads; ++i) {
+    p.pads[i].vol = o.pads[i].vol; p.pads[i].pan = o.pads[i].pan; p.pads[i].pitch = o.pads[i].pitch;
+    p.pads[i].decay = o.pads[i].decay; p.pads[i].choke = o.pads[i].choke; p.pads[i].gmNote = o.pads[i].gmNote;
+  }
+  for (int i = 0; i < kNumSynths; ++i) {
+    ld::SynthParams& d = p.synths[i]; const SynthParams& s = o.synths[i];
+    d.wave1 = s.wave1; d.wave2 = s.wave2; d.detune = s.detune; d.cutoff = s.cutoff; d.res = s.res; d.attack = s.attack;
+    d.decay = s.decay; d.sustain = s.sustain; d.release = s.release; d.level = s.level; d.lfoRate = s.lfoRate;
+    d.lfoDepth = s.lfoDepth; d.lfoTarget = s.lfoTarget; d.octaveShift = s.octaveShift; d.chord = s.chord;
+  }
+  for (int i = 0; i < kNumTracks; ++i) p.fx[i] = o.fx[i];
+  p.delayFeedback = o.delayFeedback; p.master = o.master;
+  for (int i = 0; i < kNumScenes; ++i) p.scenes[i] = o.scenes[i];
+  for (int i = 0; i < kMaxChain; ++i) p.chain[i] = o.chain[i];
+  p.chainLen = o.chainLen;
+  return p;
+}
+}  // namespace v1
 template <typename T> T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float fin(float v, float fallback) { return v == v && v > -1e30f && v < 1e30f ? v : fallback; }
 bool sceneOk(int s) { return s >= 0 && s < kNumScenes; }
@@ -65,6 +103,7 @@ void sanitize(Project& p) {
       }
     }
   }
+  if (p.kit > 1) p.kit = 0;
   p.chainLen = clampT(p.chainLen, 1, kMaxChain);
   for (int i = 0; i < kMaxChain; ++i) {
     p.chain[i] = clampT(p.chain[i], 0, kNumScenes - 1);
@@ -82,8 +121,21 @@ Session::Session(double sampleRate) : engine_(sampleRate), proj_(makeDemoProject
 
 void Session::commit() {
   sanitize(proj_);
+  syncKit();
   engine_.setProject(proj_);
   dirty_ = true;
+}
+
+// The kit is part of the project, so undo, redo, reset and loading all bring the right sounds back.
+void Session::syncKit() {
+  if (appliedKit_ == proj_.kit) return;
+  if (proj_.kit == 1) {
+    const std::unique_ptr<Sample> brk = makeJungleBreakSample(engine_.sampleRate());
+    for (int i = 0; i < kNumPads; ++i) engine_.setPadSample(i, std::make_unique<Sample>(*brk));
+  } else {
+    for (int i = 0; i < kNumPads; ++i) engine_.setPadSample(i, nullptr);
+  }
+  appliedKit_ = proj_.kit;
 }
 
 void Session::beginEdit() {
@@ -122,6 +174,7 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_ROOT: kind = 1; return reinterpret_cast<float*>(&p.root);
     case P_SCALE: kind = 2; return reinterpret_cast<float*>(&p.scale);
     case P_OCTAVE: kind = 1; return reinterpret_cast<float*>(&p.octave);
+    case P_KIT: kind = 2; return reinterpret_cast<float*>(&p.kit);
     case P_PAD_VOL: return &pad().vol;
     case P_PAD_PAN: return &pad().pan;
     case P_PAD_PITCH: return &pad().pitch;
@@ -175,6 +228,7 @@ float Session::getParam(int id, int index) const {
 }
 
 void Session::setParam(int id, int index, float value) {
+  if (id == P_KIT) return;                       // changing the kit also changes the pads: use loadJungleKit / loadStandardKit
   bool isInt; int kind;
   void* f = field(proj_, id, index, isInt, kind);
   const int iv = int(value < 0 ? value - 0.5f : value + 0.5f);
@@ -240,9 +294,8 @@ void Session::setChainAuto(int pos, int lane, int param, float startVal, float e
 }
 void Session::loadJungleKit() {
   beginEdit();
-  auto masterBreak = makeJungleBreakSample(engine_.sampleRate());
+  proj_.kit = 1;
   for (int i = 0; i < kNumPads; ++i) {
-    engine_.setPadSample(i, std::make_unique<Sample>(*masterBreak));
     proj_.pads[i].sliceStart = float(i) / float(kNumPads);
     proj_.pads[i].sliceEnd = float(i + 1) / float(kNumPads);
     proj_.pads[i].choke = 1;
@@ -256,10 +309,17 @@ void Session::loadJungleKit() {
 void Session::loadStandardKit() {
   beginEdit();
   const Project def = makeDemoProject();
-  for (int i = 0; i < kNumPads; ++i) {
-    engine_.setPadSample(i, nullptr);
-    proj_.pads[i] = def.pads[i];
-  }
+  proj_.kit = 0;
+  for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
+  commit();
+}
+void Session::writeBreakPattern(int scene) {
+  if (!sceneOk(scene)) return;
+  beginEdit();
+  Scene& sc = proj_.scenes[scene];
+  sc.drums = DrumPattern{};
+  for (int bar = 0; bar < sceneSteps(sc) / kStepsPerBar; ++bar)
+    for (int i = 0; i < kNumPads; ++i) sc.drums.steps[i][bar * kStepsPerBar + i * 2] = uint8_t(i % 4 == 0 ? 2 : 1);
   commit();
 }
 void Session::chainAdd(int scene) {
@@ -281,6 +341,24 @@ void Session::chainRemove(int pos) {
   commit();
 }
 void Session::resetToDemo() { beginEdit(); proj_ = makeDemoProject(); commit(); }
+
+int Session::padWaveform(int pad, float* out, int n) {
+  if (pad < 0 || pad >= kNumPads || !out || n <= 0) return 0;
+  if (waveKit_ != proj_.kit) {
+    for (int i = 0; i < kNumPads; ++i)
+      wave_[i] = proj_.kit == 1 ? makeJungleBreakSample(engine_.sampleRate()) : makeBuiltinSample(i, engine_.sampleRate());
+    waveKit_ = proj_.kit;
+  }
+  const Sample& s = *wave_[pad];
+  const size_t frames = s.frames();
+  for (int b = 0; b < n; ++b) {
+    const size_t a = frames * size_t(b) / size_t(n), e = std::max(a + 1, frames * size_t(b + 1) / size_t(n));
+    float pk = 0;
+    for (size_t i = a; i < e && i < frames; ++i) pk = std::max(pk, std::fabs(s.l[i]));
+    out[b] = pk > 1.0f ? 1.0f : pk;
+  }
+  return n;
+}
 
 bool Session::poll() {
   engine_.collectGarbage();
@@ -326,14 +404,24 @@ bool Session::load(const char* path) {
   char magic[8]; uint32_t head[2] = {0, 0};
   Project p;
   bool ok = std::fread(magic, 1, 8, f) == 8 && std::memcmp(magic, kMagic, 8) == 0 &&
-            std::fread(head, sizeof(uint32_t), 2, f) == 2 && head[0] == kFileVersion && head[1] == sizeof(Project) &&
-            std::fread(&p, sizeof(Project), 1, f) == 1;
+            std::fread(head, sizeof(uint32_t), 2, f) == 2;
+  bool converted = false;
+  if (ok && head[0] == kFileVersion && head[1] == sizeof(Project)) {
+    ok = std::fread(&p, sizeof(Project), 1, f) == 1;
+  } else if (ok && head[0] == 1 && head[1] == sizeof(v1::Project)) {
+    v1::Project old;
+    ok = std::fread(&old, sizeof(old), 1, f) == 1;
+    if (ok) { p = v1::upgrade(old); converted = true; }
+  } else {
+    ok = false;
+  }
   std::fclose(f);
   if (!ok) return false;
   sanitize(p);
   proj_ = p; undo_.clear(); redo_.clear();
+  syncKit();
   engine_.setProject(proj_);
-  dirty_ = false;
+  dirty_ = converted;                            // a converted project gets written back in the current format
   return true;
 }
 

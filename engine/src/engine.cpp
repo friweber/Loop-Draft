@@ -128,8 +128,8 @@ void Engine::processCommands() {
         lastFire_ = std::numeric_limits<int64_t>::min() / 2;
         for (auto& s : sup_) s.on = false;
         for (auto& r : ratchets_) r.active = false;
-        slotStartFrame_ = frame_;
         if (songMode_) { chainPos_ = 0; scene_ = proj_->chain[0]; } else scene_ = c.a;
+        autoPos_ = chainPos_; autoScene_ = scene_; autoStart_ = frame_;
         break;
       case Cmd::Stop:
         playing_ = false; pending_ = -1;
@@ -193,16 +193,18 @@ void Engine::fireStep() {
   const int steps = sceneSteps(sc);
   if (step_ >= steps) step_ = 0;
   const double sl = stepLen();
+  if (step_ == 0 && songMode_) { autoPos_ = chainPos_; autoScene_ = scene_; autoStart_ = nextFire_; }   // a song slot starts sounding
 
   for (int pad = 0; pad < kNumPads; ++pad) {
     const int v = sc.drums.steps[pad][step_];
     if (v && !suppressed(0, pad)) {
-      const int trigVel = (v >= 2) ? 2 : 1;
-      sampler_.trigger(pad, p.pads[pad], padSample(pad), trigVel);
-      if (v >= 3) {
-        const int reps = (v == 3) ? 2 : (v == 4 ? 3 : 4);
-        const double iv = sl / double(reps);
-        ratchets_[pad] = Ratchet{true, pad, reps - 1, std::llround(double(frame_) + iv), iv};
+      sampler_.trigger(pad, p.pads[pad], padSample(pad), v >= 2 ? 2 : 1);
+      const int hits = rollHits(v);
+      if (hits > 1) {                           // roll: the remaining hits are spread evenly inside this step
+        Ratchet& rt = ratchets_[pad];
+        rt.active = true; rt.pad = pad; rt.hits = hits; rt.done = 1;
+        rt.base = double(nextFire_); rt.interval = sl / double(hits);
+        rt.nextFrame = std::llround(rt.base + rt.interval);
       }
     }
   }
@@ -229,7 +231,7 @@ void Engine::fireStep() {
   ++step_;
   if (step_ >= steps) {                         // end of the scene: loop, or move along the song chain
     step_ = 0;
-    if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; slotStartFrame_ = std::llround(stepBase_); }
+    if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; }
   }
   nextFire_ = std::llround(stepBase_ + double(swingOffset(p.swing, step_)) * sl);
 }
@@ -241,12 +243,14 @@ void Engine::renderAudio(float* l, float* r, int n) {
   for (int s = 0; s < kNumSynths; ++s) effSynth[s] = p.synths[s];
   for (int t = 0; t < kNumTracks; ++t) effFx[t] = p.fx[t];
 
-  // Apply Song-Menu Sequence Automation for the active chain slot
-  if (playing_ && songMode_ && chainPos_ >= 0 && chainPos_ < p.chainLen) {
-    const double totalSlotFrames = double(sceneSteps(p.scenes[scene_])) * stepLen();
-    double u = totalSlotFrames > 1.0 ? double(frame_ - slotStartFrame_) / totalSlotFrames : 0.0;
+  // Song automation: each lane sweeps one value from start to end across the song slot that is sounding now.
+  // render() cuts blocks on a fixed 64-frame grid while this is active, so the result does not depend on block size.
+  if (playing_ && songMode_ && autoPos_ >= 0 && autoPos_ < p.chainLen) {
+    const double totalSlotFrames = double(sceneSteps(p.scenes[autoScene_ < 0 || autoScene_ >= kNumScenes ? 0 : autoScene_])) * stepLen();
+    const int64_t gridFrame = ((frame_ - autoStart_) / 64) * 64;     // same value for the whole 64-frame cell
+    double u = totalSlotFrames > 1.0 ? double(gridFrame) / totalSlotFrames : 0.0;
     if (u < 0.0) u = 0.0; else if (u > 1.0) u = 1.0;
-    const ChainAuto& ca = p.chainAuto[chainPos_];
+    const ChainAuto& ca = p.chainAuto[autoPos_];
     for (int ln = 0; ln < 2; ++ln) {
       const AutoLane& al = ca.lanes[ln];
       if (al.param == AutoParam::Off) continue;
@@ -311,8 +315,8 @@ void Engine::render(float* outL, float* outR, int frames) {
         Ratchet& rt = ratchets_[pad];
         while (rt.active && rt.nextFrame <= frame_) {
           sampler_.trigger(rt.pad, proj_->pads[rt.pad], padSample(rt.pad), 2);
-          if (--rt.remaining <= 0) rt.active = false;
-          else rt.nextFrame = std::llround(double(rt.nextFrame) + rt.interval);
+          if (++rt.done >= rt.hits) rt.active = false;
+          else rt.nextFrame = std::llround(rt.base + double(rt.done) * rt.interval);   // from the step start: no rounding build-up
         }
       }
       int64_t until = nextFire_ - frame_;
@@ -323,6 +327,10 @@ void Engine::render(float* outL, float* outR, int frames) {
         }
       }
       if (until < n) n = int(until);
+      if (songMode_) {                          // automation grid, see renderAudio
+        const int g = 64 - int(((frame_ - autoStart_) % 64 + 64) % 64);
+        if (g < n) n = g;
+      }
     }
     if (n > kBlock) n = kBlock;
     renderAudio(outL + done, outR + done, n);

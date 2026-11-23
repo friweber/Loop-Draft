@@ -27,8 +27,12 @@ RenderResult renderOffline(const Project& project, const RenderOptions& opt) {
     for (int t = 0; t < kNumTracks; ++t) p.fx[t].mute = (t != opt.soloTrack);
 
   Engine e(opt.sampleRate);
-  for (int i = 0; i < kNumPads; ++i)
+  std::unique_ptr<Sample> brk;
+  if (p.kit == 1) brk = makeJungleBreakSample(opt.sampleRate);      // same kit as the app plays
+  for (int i = 0; i < kNumPads; ++i) {
     if (opt.samples[i]) e.setPadSample(i, std::make_unique<Sample>(*opt.samples[i]));
+    else if (brk) e.setPadSample(i, std::make_unique<Sample>(*brk));
+  }
   e.setProject(p);
   e.setSongMode(opt.songMode);
   e.play(opt.scene);
@@ -100,9 +104,11 @@ std::vector<uint8_t> buildMidi(const Project& p, bool songMode, int scene) {
     for (int pad = 0; pad < kNumPads; ++pad)
       for (int s = 0; s < steps; ++s)
         if (const int v = sc.drums.steps[pad][s]) {
-          const int t = tickOf(base, s);
-          drums.push_back({t, 1, p.pads[pad].gmNote, velMidi(v)});
-          drums.push_back({t + 30, 0, p.pads[pad].gmNote, 0});
+          const int t = tickOf(base, s), hits = rollHits(v), gap = ST / hits;     // rolls become separate notes
+          for (int h = 0; h < hits; ++h) {
+            drums.push_back({t + h * gap, 1, p.pads[pad].gmNote, velMidi(v)});
+            drums.push_back({t + h * gap + (gap < 36 ? gap - 6 : 30), 0, p.pads[pad].gmNote, 0});
+          }
         }
     for (int y = 0; y < kNumSynths; ++y) {
       const SynthPattern& pat = sc.synth[y];

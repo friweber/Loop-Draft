@@ -63,6 +63,13 @@ object Native {
     external fun loadStandardKit()
     external fun setChainAuto(pos: Int, lane: Int, param: Int, startVal: Float, endVal: Float)
     external fun chainAuto(pos: Int): FloatArray
+    external fun writeBreakPattern(scene: Int)
+    external fun padWave(pad: Int, n: Int): FloatArray
+
+    // export: snapshotForExport() on the main thread, then the export calls may run on a worker thread
+    external fun snapshotForExport()
+    external fun exportMidi(path: String, song: Boolean, scene: Int): Boolean
+    external fun exportWav(path: String, song: Boolean, scene: Int, stem: Int): Boolean
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -74,6 +81,7 @@ object P {
     const val ROOT = 4
     const val SCALE = 5
     const val OCTAVE = 6
+    const val KIT = 7          // read-only: 0 = standard, 1 = jungle
     const val PAD_VOL = 10
     const val PAD_PAN = 11
     const val PAD_PITCH = 12

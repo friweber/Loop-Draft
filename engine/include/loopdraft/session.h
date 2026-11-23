@@ -10,7 +10,7 @@ namespace ld {
 
 // Parameter ids for getParam / setParam. `index` is the pad, synth or track number where it applies.
 enum Param : int {
-  P_BPM = 0, P_SWING, P_MASTER, P_DELAY_FB, P_ROOT, P_SCALE, P_OCTAVE,
+  P_BPM = 0, P_SWING, P_MASTER, P_DELAY_FB, P_ROOT, P_SCALE, P_OCTAVE, P_KIT,   // P_KIT is read-only: use load*Kit()
   P_PAD_VOL = 10, P_PAD_PAN, P_PAD_PITCH, P_PAD_DECAY, P_PAD_CHOKE, P_PAD_SLICE_START, P_PAD_SLICE_END, P_PAD_REVERSE,
   P_SYN_WAVE1 = 20, P_SYN_WAVE2, P_SYN_DETUNE, P_SYN_CUTOFF, P_SYN_RES, P_SYN_ATTACK, P_SYN_DECAY, P_SYN_SUSTAIN,
   P_SYN_RELEASE, P_SYN_LEVEL, P_SYN_LFO_RATE, P_SYN_LFO_DEPTH, P_SYN_LFO_TARGET, P_SYN_OCTAVE, P_SYN_CHORD,
@@ -42,8 +42,9 @@ class Session {
   int  toggleDrumStep(int scene, int pad, int step, bool accent);   // returns the new value 0/1/2
   void setDrumStep(int scene, int pad, int step, int value);        // 0=off, 1=norm, 2=acc, 3=2x, 4=3x, 5=4x roll
   void setChainAuto(int pos, int lane, int param, float startVal, float endVal);
-  void loadJungleKit();
+  void loadJungleKit();            // pads become 8 slices of the built-in break; tempo goes to 168
   void loadStandardKit();
+  void writeBreakPattern(int scene);   // fills the scene's drums with the 8 slices in their original order
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1);   // true if the note now exists
   void setSceneBars(int scene, int bars);
   void copyScene(int from, int to);
@@ -52,16 +53,23 @@ class Session {
   void chainRemove(int pos);
   void resetToDemo();
 
+  // Outline of a pad's sound for drawing: n peak values 0..1 across the whole sample. Returns how many were written.
+  int padWaveform(int pad, float* out, int n);
+
   // Call regularly (every UI frame is fine). Writes live-recorded hits into the project.
   // Returns true if the project changed.
   bool poll();
 
   bool dirty() const { return dirty_; }
   bool save(const char* path);     // atomic: writes a temp file, then renames
-  bool load(const char* path);     // false if the file is missing or not a valid project of this version
+  bool load(const char* path);     // false if the file is missing or not a project. Files from build 5 (version 1) are converted.
 
  private:
   void commit();
+  void syncKit();                  // makes the engine's pad samples match project().kit
+  int appliedKit_ = 0;
+  std::unique_ptr<Sample> wave_[kNumPads];   // UI-side copies of the kit sounds, only for drawing
+  int waveKit_ = -1;
   Engine engine_;
   Project proj_;
   std::vector<Project> undo_, redo_;

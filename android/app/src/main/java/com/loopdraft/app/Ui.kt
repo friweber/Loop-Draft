@@ -78,9 +78,12 @@ class AppState {
     var info by mutableStateOf("")
     // Independent per-synth input octave (-2 .. +2). Shifts only played/edited notes without altering other scenes.
     val inputOctave = mutableStateListOf(0, 0)
-    var jungleMode by mutableStateOf(false)
     var drumRollMode by mutableIntStateOf(0) // 0=normal, 3=2x, 4=3x, 5=4x ratchet roll
     var selChainPos by mutableIntStateOf(0)
+    var exporting by mutableStateOf(false)
+    var exportMsg by mutableStateOf("")
+    /** Set by the activity: 0 = MIDI, 1 = WAV mix, 2 = WAV stems. */
+    var onExport: (Int) -> Unit = {}
     private var frames = 0
 
     /** Runs once per screen frame. */
@@ -135,6 +138,8 @@ fun App(s: AppState) {
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .padding(horizontal = 6.dp)
+                        .border(2.dp, sceneColor(s.scene), RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -154,6 +159,8 @@ fun App(s: AppState) {
 }
 
 // ------------------------------------------------------------------ helpers
+
+fun sceneColor(i: Int): Color = when (i) { 0 -> HwOrange; 1 -> HwCyan; 2 -> HwYellow; else -> HwGreen }
 
 @Composable
 fun Choice(s: AppState, label: String, id: Int, index: Int, options: List<String>, offset: Int = 0, accent: Color = HwOrange) {
@@ -202,7 +209,7 @@ fun TopBar(s: AppState) {
     Column(Modifier.fillMaxWidth().background(HwFaceplate).padding(horizontal = 8.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Column(Modifier.weight(1f)) {
-                SilkLabel("LOOPDRAFT", color = HwSilk, size = 14)
+                Logo()
                 SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = HwMuted, size = 8, bold = false)
             }
             HwButton("UNDO", enabled = canUndo, height = 28.dp, pad = 6.dp) { if (Native.undo()) s.rev++ }
@@ -224,27 +231,36 @@ fun TopBar(s: AppState) {
 
 @Composable
 fun SceneStrip(s: AppState) {
+    val tab = RoundedCornerShape(topStart = 9.dp, topEnd = 9.dp)
     Row(
-        Modifier
-            .fillMaxWidth()
-            .background(HwChassis)
-            .padding(horizontal = 8.dp, vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
+        Modifier.fillMaxWidth().background(HwChassis).padding(start = 6.dp, end = 6.dp, top = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         SCENE_NAMES.forEachIndexed { i, name ->
             val bars = remember(s.rev, i) { Native.sceneBars(i) }
-            val activeColor = when (i) { 0 -> HwOrange; 1 -> HwCyan; 2 -> HwYellow; else -> HwGreen }
-            HwButton(
-                text = "$name (${bars}B)",
-                modifier = Modifier.weight(1f),
-                on = s.scene == i || s.queued == i,
-                ledColor = if (s.queued == i) HwYellow else activeColor,
-                height = 32.dp,
-                pad = 4.dp
+            val active = s.scene == i
+            val queued = s.queued == i
+            val col = if (queued) HwYellow else sceneColor(i)
+            Box(
+                Modifier
+                    .weight(1f)
+                    .height(36.dp)
+                    .clip(tab)
+                    .background(if (active || queued) col else Color(0xFF2B2E35))
+                    .border(1.dp, if (active || queued) col else HwLine, tab)
+                    .clickable {
+                        if (!(s.playing && s.songMode)) {       // in song mode the chain decides
+                            Native.queueScene(i)                  // while playing: switches on the next bar line
+                            if (!s.playing) { s.scene = i; s.drumBar = 0; s.rollPage = 0 }
+                        }
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                if (s.playing && s.songMode) return@HwButton
-                Native.queueScene(i)
-                if (!s.playing) { s.scene = i; s.drumBar = 0; s.rollPage = 0 }
+                SilkLabel(
+                    text = if (bars > 1) "$name  $bars bars" else name,
+                    color = if (active || queued) HwPadInk else HwSilk,
+                    size = 12
+                )
             }
         }
     }
@@ -278,7 +294,7 @@ fun BottomNav(s: AppState) {
 // ------------------------------------------------------------------ DRUMS TAB
 
 @Composable
-fun DrumPad(s: AppState, i: Int, modifier: Modifier) {
+fun DrumPad(s: AppState, i: Int, label: String, modifier: Modifier) {
     val vel by rememberUpdatedState(s.vel())
     var hit by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(9.dp)
@@ -291,7 +307,7 @@ fun DrumPad(s: AppState, i: Int, modifier: Modifier) {
             .border(if (selected) 2.dp else 1.dp, if (hit) HwGreen else if (selected) HwOrange else Color(0xFF4A4840), shape)
             .pointerInput(i) {
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    awaitFirstDown(requireUnconsumed = false)      // sound on touch-down, not on release
                     Native.triggerPad(i, vel)
                     s.selPad = i
                     hit = true
@@ -308,7 +324,7 @@ fun DrumPad(s: AppState, i: Int, modifier: Modifier) {
                 .background(if (hit) HwGreen else if (selected) HwRed else Color(0xFF6B4A4A))
                 .align(Alignment.TopStart)
         )
-        SilkLabel(PAD_NAMES[i].uppercase(), color = HwPadInk, size = 11, modifier = Modifier.align(Alignment.BottomCenter))
+        SilkLabel(label.uppercase(), color = HwPadInk, size = 11, modifier = Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -334,21 +350,28 @@ fun DrumsTab(s: AppState) {
     val grid = remember(s.rev, s.scene) { Native.drumGrid(s.scene) }
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
     val bar = s.drumBar.coerceIn(0, bars - 1)
-
+    // The kit is part of the project in the engine, so it survives restarts and follows undo.
+    val jungle = remember(s.rev) { Native.getParam(P.KIT, 0) > 0.5f }
     val revOn = remember(s.rev, s.selPad) { Native.getParam(P.PAD_REVERSE, s.selPad) > 0.5f }
+    val peaks = remember(s.rev, s.selPad) { Native.padWave(s.selPad, 96) }
+    val slice0 = remember(s.rev, s.selPad) { Native.getParam(P.PAD_SLICE_START, s.selPad) }
+    val slice1 = remember(s.rev, s.selPad) { Native.getParam(P.PAD_SLICE_END, s.selPad) }
+    val accent = if (jungle) HwCyan else HwOrange
+    val padLabel: (Int) -> String = { i -> if (jungle) "Slice ${i + 1}" else PAD_NAMES[i] }
 
     ModulePanel(
-        title = if (s.jungleMode) "Jungle Break Slicer — Slice ${s.selPad + 1}" else "Drum Machine — ${PAD_NAMES[s.selPad]}",
-        accent = if (s.jungleMode) HwCyan else HwOrange,
+        title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "Drums: ${padLabel(s.selPad)}",
+        accent = accent,
         trailing = {
-            HwButton("STD", on = !s.jungleMode, ledColor = HwOrange, height = 26.dp, pad = 6.dp) {
-                if (s.jungleMode) { s.jungleMode = false; Native.loadStandardKit(); s.rev++ }
+            HwButton("STD", on = !jungle, ledColor = HwOrange, height = 26.dp, pad = 6.dp) {
+                if (jungle) { Native.loadStandardKit(); s.rev++ }
             }
-            HwButton("JUNGLE", on = s.jungleMode, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
-                if (!s.jungleMode) { s.jungleMode = true; Native.loadJungleKit(); s.rev++ }
+            HwButton("JUNGLE", on = jungle, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
+                if (!jungle) { Native.loadJungleKit(); s.rev++ }
             }
         }
     ) {
+        WaveformDisplay(peaks, slice0, slice1, accent, Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "Vol", P.PAD_VOL, s.selPad, 0f, 1f, Modifier.weight(1f)) { pct(it) }
             RotaryKnob(s, "Pitch", P.PAD_PITCH, s.selPad, -12f, 12f, Modifier.weight(1f)) { signed(it, "st") }
@@ -357,22 +380,31 @@ fun DrumsTab(s: AppState) {
                 if (it < -0.02f) "L${(it * -100).roundToInt()}" else if (it > 0.02f) "R${(it * 100).roundToInt()}" else "CTR"
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            RotaryKnob(s, "Slice S", P.PAD_SLICE_START, s.selPad, 0f, 0.95f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
-            RotaryKnob(s, "Slice E", P.PAD_SLICE_END, s.selPad, 0.05f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
-            HwButton(if (revOn) "REV ON" else "REV", Modifier.weight(1f), on = revOn, ledColor = HwCyan, showLed = true, height = 46.dp) {
-                Native.beginEdit(); Native.setParam(P.PAD_REVERSE, s.selPad, if (revOn) 0f else 1f); s.rev++
+        if (jungle) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                RotaryKnob(s, "Slice S", P.PAD_SLICE_START, s.selPad, 0f, 0.95f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+                RotaryKnob(s, "Slice E", P.PAD_SLICE_END, s.selPad, 0.05f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+                Column(Modifier.weight(2f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    HwButton(if (revOn) "REVERSE ON" else "REVERSE", Modifier.fillMaxWidth(), on = revOn, ledColor = HwCyan, showLed = true, height = 38.dp) {
+                        Native.beginEdit(); Native.setParam(P.PAD_REVERSE, s.selPad, if (revOn) 0f else 1f); s.rev++
+                    }
+                    // Writes the eight slices in their original order into this scene: the break plays straight away.
+                    HwButton("WRITE BREAK", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 38.dp) {
+                        Native.writeBreakPattern(s.scene); s.rev++
+                    }
+                }
             }
+        } else {
+            Choice(s, "Choke", P.PAD_CHOKE, s.selPad, listOf("Off", "Grp 1", "Grp 2"), accent = HwOrange)
         }
-        Choice(s, "Choke", P.PAD_CHOKE, s.selPad, listOf("Off", "Grp 1", "Grp 2"), accent = HwOrange)
         for (row in 0 until 2) Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            for (col in 0 until 4) DrumPad(s, row * 4 + col, Modifier.weight(1f))
+            for (col in 0 until 4) DrumPad(s, row * 4 + col, if (jungle) "S${row * 4 + col + 1}" else PAD_NAMES[row * 4 + col], Modifier.weight(1f))
         }
     }
 
     val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
     ModulePanel(
-        title = "16-Step Sequencer: ${if (s.jungleMode) "Slice ${s.selPad + 1}" else PAD_NAMES[s.selPad]}",
+        title = "Steps: ${padLabel(s.selPad)}",
         accent = HwOrange,
         trailing = {
             HwButton(rollLabel, on = s.drumRollMode > 0, ledColor = HwCyan, height = 26.dp, pad = 6.dp) {
@@ -383,8 +415,8 @@ fun DrumsTab(s: AppState) {
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             PAD_SHORT.forEachIndexed { i, name ->
-                val lbl = if (s.jungleMode) "S${i + 1}" else name
-                HwButton(lbl, Modifier.weight(1f), on = s.selPad == i, ledColor = if (s.jungleMode) HwCyan else HwOrange, height = 28.dp, pad = 1.dp) { s.selPad = i }
+                val lbl = if (jungle) "S${i + 1}" else name
+                HwButton(lbl, Modifier.weight(1f), on = s.selPad == i, ledColor = accent, height = 32.dp, pad = 1.dp) { s.selPad = i }
             }
         }
         BarPicker(bars, bar, if (s.playing) s.step / 16 else -1) { s.drumBar = it }
@@ -486,7 +518,7 @@ fun SynthTab(s: AppState) {
                 RotaryKnob(s, "Cutoff", P.SYN_CUTOFF, s.synth, 80f, 8000f, Modifier.weight(1f), modulated = lfoTarget == 1) { "${it.roundToInt()}" }
                 RotaryKnob(s, "Res", P.SYN_RES, s.synth, 0.5f, 15f, Modifier.weight(1f)) { "${(it * 10).roundToInt() / 10f}" }
                 RotaryKnob(s, "Detune", P.SYN_DETUNE, s.synth, -30f, 30f, Modifier.weight(1f), modulated = lfoTarget == 2) { signed(it, "c") }
-                RotaryKnob(s, "Decay", P.SYN_DECAY, s.synth, 0.03f, 1.5f, Modifier.weight(1f), modulated = lfoTarget == 3) { secs(it) }
+                RotaryKnob(s, "Level", P.SYN_LEVEL, s.synth, 0f, 1f, Modifier.weight(1f), modulated = lfoTarget == 3) { pct(it) }
             }
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -498,15 +530,19 @@ fun SynthTab(s: AppState) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 RotaryKnob(s, "Cutoff", P.SYN_CUTOFF, s.synth, 80f, 8000f, Modifier.weight(1f), modulated = lfoTarget == 1) { "${it.roundToInt()}" }
                 RotaryKnob(s, "Res", P.SYN_RES, s.synth, 0.5f, 15f, Modifier.weight(1f)) { "${(it * 10).roundToInt() / 10f}" }
-                RotaryKnob(s, "Decay", P.SYN_DECAY, s.synth, 0.03f, 1.5f, Modifier.weight(1f), modulated = lfoTarget == 3) { secs(it) }
-                RotaryKnob(s, "Level", P.SYN_LEVEL, s.synth, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+                RotaryKnob(s, "Level", P.SYN_LEVEL, s.synth, 0f, 1f, Modifier.weight(1f), modulated = lfoTarget == 3) { pct(it) }
             }
         }
 
-        // ADSR + LFO Matrix
+        // Envelope
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "Attack", P.SYN_ATTACK, s.synth, 0.002f, 0.4f, Modifier.weight(1f)) { "${(it * 1000).roundToInt()}ms" }
+            RotaryKnob(s, "Decay", P.SYN_DECAY, s.synth, 0.03f, 1.5f, Modifier.weight(1f)) { secs(it) }
             RotaryKnob(s, "Sustain", P.SYN_SUSTAIN, s.synth, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+            RotaryKnob(s, "Release", P.SYN_RELEASE, s.synth, 0.01f, 1.5f, Modifier.weight(1f)) { secs(it) }
+        }
+        // LFO
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "LFO Hz", P.SYN_LFO_RATE, s.synth, 0.1f, 12f, Modifier.weight(1f)) { "${(it * 10).roundToInt() / 10f}" }
             RotaryKnob(s, "LFO Dep", P.SYN_LFO_DEPTH, s.synth, 0f, 1f, Modifier.weight(1f)) { pct(it) }
         }
@@ -704,6 +740,34 @@ fun SongTab(s: AppState) {
         } else {
             SilkLabel("Select a target above to sweep Cutoff, Drive, or Delay across this song block.", color = HwMuted, size = 9, bold = false)
         }
+    }
+
+    ModulePanel("Mixer", accent = HwGreen) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TRACK_NAMES.forEachIndexed { t, name ->
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    val mute = remember(s.rev, t) { Native.getParam(P.FX_MUTE, t) > 0.5f }
+                    RotaryKnob(s, name, P.FX_LEVEL, t, 0f, 1f, Modifier.fillMaxWidth()) { pct(it) }
+                    HwButton(if (mute) "MUTED" else "MUTE", Modifier.fillMaxWidth(), on = mute, ledColor = HwRed, height = 28.dp, pad = 2.dp) {
+                        Native.beginEdit(); Native.setParam(P.FX_MUTE, t, if (mute) 0f else 1f); s.rev++
+                    }
+                }
+            }
+            RotaryKnob(s, "Master", P.MASTER, 0, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+        }
+    }
+
+    ModulePanel("Export for your DAW", accent = HwSilk) {
+        SilkLabel(
+            if (s.songMode) "Exports the whole song chain." else "Exports scene ${SCENE_NAMES[s.scene]}. Switch SONG on to export the chain.",
+            color = HwMuted, size = 9, bold = false
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            HwButton("EXPORT .MID", Modifier.weight(1f), enabled = !s.exporting, height = 38.dp, pad = 2.dp) { s.onExport(0) }
+            HwButton("RENDER .WAV", Modifier.weight(1f), enabled = !s.exporting, height = 38.dp, pad = 2.dp) { s.onExport(1) }
+            HwButton("STEMS", Modifier.weight(0.7f), enabled = !s.exporting, height = 38.dp, pad = 2.dp) { s.onExport(2) }
+        }
+        if (s.exportMsg.isNotEmpty()) SilkLabel(s.exportMsg, color = HwYellow, size = 10)
     }
 
     ModulePanel("Scene ${SCENE_LABELS[s.scene]}", accent = HwCyan) {

@@ -20,6 +20,7 @@ adb shell am start -W -S -n "$ACT" --ei tab 1;            shot 2_synth
 adb shell am start -W -S -n "$ACT" --ei tab 1 --ez roll true; shot 3_piano_roll
 adb shell am start -W -S -n "$ACT" --ei tab 2;            shot 4_mix
 adb shell am start -W -S -n "$ACT" --ei tab 3;            shot 5_song
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ez jungle true; shot 6_jungle
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 
 adb logcat -d > "$OUT/logcat.txt"
@@ -30,6 +31,7 @@ grep -q "selftest playing=true" "$OUT/selftest.txt" || { echo "FAIL: transport n
 steps=$(grep -o "selftest playing=true step=[0-9]*" "$OUT/selftest.txt" | sort -u | wc -l)
 [ "$steps" -ge 3 ] || { echo "FAIL: the step counter is not advancing ($steps distinct steps)"; fail=1; }
 grep -E "selftest .*sound=true" "$OUT/selftest.txt" >/dev/null || { echo "FAIL: no sound reached the output"; fail=1; }
+grep -q "selftest export midi=true wav=true share=true" "$OUT/selftest.txt" || { echo "FAIL: export of MIDI/WAV or the share link did not work"; fail=1; }
 grep -q "boot audio=true" "$OUT/selftest.txt" || { echo "FAIL: audio output did not open"; fail=1; }
 [ "$(grep -c "boot audio=true bpm=131" "$OUT/selftest.txt")" -ge 4 ] || { echo "FAIL: the saved project was not restored after restarting the app"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"

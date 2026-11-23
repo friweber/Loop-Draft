@@ -111,6 +111,7 @@ struct Project {
   int32_t chain[kMaxChain] = {0, 1, 2, 3};
   ChainAuto chainAuto[kMaxChain];
   int32_t chainLen = 4;
+  uint8_t kit = 0;         // which built-in drum kit the pads play: 0 = standard, 1 = jungle break slices
 };
 
 // Fills in the factory groove (the same one as prototype v0.2, plus a bass line).
@@ -123,8 +124,10 @@ inline int sceneSteps(const Scene& s) {
   int b = s.bars < 1 ? 1 : (s.bars > kMaxBars ? kMaxBars : s.bars);
   return b * kStepsPerBar;
 }
-inline float velGain(int v) { return v == 2 ? 1.0f : 0.72f; }
-inline int   velMidi(int v) { return v == 2 ? 127 : 96; }
+// Drum step values: 0 off, 1 normal, 2 accent, 3/4/5 = roll of 2/3/4 hits inside the step (always accented).
+inline float velGain(int v) { return v >= 2 ? 1.0f : 0.72f; }
+inline int   velMidi(int v) { return v >= 2 ? 127 : 96; }
+inline int   rollHits(int v) { return v >= 3 && v <= 5 ? v - 1 : 1; }
 inline float swingOffset(float swing, int step) { return (step & 1) ? swing : 0.0f; }
 
 // Scales and chords.

@@ -12,6 +12,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 #include "loopdraft/session.h"
 
@@ -236,4 +237,61 @@ JNI(jfloatArray, chainAuto)(JNIEnv* env, jobject, jint pos) {
   }
   env->SetFloatArrayRegion(arr, 0, 6, out);
   return arr;
+}
+JNI(void, writeBreakPattern)(JNIEnv*, jobject, jint scene) { if (S()) S()->writeBreakPattern(scene); }
+
+// Outline of a pad's sound for the display: n peak values 0..1.
+JNI(jfloatArray, padWave)(JNIEnv* env, jobject, jint pad, jint n) {
+  if (n < 1) n = 1;
+  if (n > 256) n = 256;
+  jfloatArray arr = env->NewFloatArray(n);
+  if (!arr || !S()) return arr;
+  float buf[256] = {};
+  S()->padWaveform(pad, buf, n);
+  env->SetFloatArrayRegion(arr, 0, n, buf);
+  return arr;
+}
+
+// ---- export ----
+// The UI thread takes a snapshot of the project; a worker thread then renders from that copy,
+// so editing can go on while a long song is being rendered.
+namespace {
+std::mutex g_exportLock;
+std::unique_ptr<ld::Project> g_exportProject;
+bool exportCopy(ld::Project& out) {
+  std::lock_guard<std::mutex> g(g_exportLock);
+  if (!g_exportProject) return false;
+  out = *g_exportProject;
+  return true;
+}
+std::string jstr(JNIEnv* env, jstring s) {
+  const char* c = env->GetStringUTFChars(s, nullptr);
+  const std::string out = c ? c : "";
+  if (c) env->ReleaseStringUTFChars(s, c);
+  return out;
+}
+}  // namespace
+
+JNI(void, snapshotForExport)(JNIEnv*, jobject) {
+  if (!S()) return;
+  std::lock_guard<std::mutex> g(g_exportLock);
+  g_exportProject = std::make_unique<ld::Project>(S()->project());
+}
+JNI(jboolean, exportMidi)(JNIEnv* env, jobject, jstring path, jboolean song, jint scene) {
+  auto p = std::make_unique<ld::Project>();
+  if (!exportCopy(*p)) return JNI_FALSE;
+  const std::vector<uint8_t> bytes = ld::buildMidi(*p, song == JNI_TRUE, scene);
+  FILE* f = std::fopen(jstr(env, path).c_str(), "wb");
+  if (!f) return JNI_FALSE;
+  const bool ok = std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
+  return (std::fclose(f) == 0 && ok) ? JNI_TRUE : JNI_FALSE;
+}
+// stem: -1 = full mix, 0 = drums, 1 = bass, 2 = lead. Safe to call from a worker thread.
+JNI(jboolean, exportWav)(JNIEnv* env, jobject, jstring path, jboolean song, jint scene, jint stem) {
+  auto p = std::make_unique<ld::Project>();
+  if (!exportCopy(*p)) return JNI_FALSE;
+  ld::RenderOptions o;
+  o.songMode = song == JNI_TRUE; o.scene = scene; o.soloTrack = stem;
+  const ld::RenderResult r = ld::renderOffline(*p, o);
+  return ld::writeWav16(jstr(env, path).c_str(), r.l.data(), r.r.data(), r.l.size(), r.sampleRate) ? JNI_TRUE : JNI_FALSE;
 }
