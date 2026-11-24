@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Acid 303 Squelch",
+  "style": "bass",
+  "comment": "Classic screaming TB-303 acid line with high resonance, wavefolder bite, and legato slides.",
+  "engine": "subtractive",
+  "osc1": "saw",
+  "osc2": "square",
+  "detune": 0.0,
+  "cutoff": 420.0,
+  "res": 11.2,
+  "attack": 0.002,
+  "decay": 0.22,
+  "sustain": 0.1,
+  "release": 0.06,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 1.8,
+    "depth": 0.25
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.48,
+  "slideTime": 0.075,
+  "warmth": 0.65,
+  "motion": 0.45,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.45,
+    "eqLow": 2.0,
+    "eqHigh": 1.5,
+    "delay": 0.3,
+    "reverb": 0.1,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.58,
+        "rate": 0.4
+      },
+      {
+        "type": "compressor",
+        "amount": 0.45,
+        "rate": 0.3
+      },
+      {
+        "type": "phaser",
+        "amount": 0.22,
+        "rate": 0.35
+      }
+    ]
+  }
+}

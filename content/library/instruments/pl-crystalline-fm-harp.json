@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Crystalline FM Harp",
+  "style": "pluck & arp",
+  "comment": "Delicate FM harp with fast modulator decay for a bright pluck transient that blooms into a pure glowing sine tail.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 6800.0,
+  "res": 1.1,
+  "attack": 0.003,
+  "decay": 0.75,
+  "sustain": 0,
+  "release": 0.7,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 4.0,
+    "index": 3.4,
+    "decay": 0.14,
+    "feedback": 0.06
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.03,
+  "warmth": 0.38,
+  "motion": 0.35,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.02,
+    "eqLow": 0.0,
+    "eqHigh": 2.0,
+    "delay": 0.52,
+    "reverb": 0.58,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.55,
+        "rate": 0.26
+      }
+    ]
+  }
+}

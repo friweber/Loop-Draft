@@ -1,0 +1,87 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - 909 Acid Warehouse",
+  "style": "acid techno / house",
+  "comment": "Punchy 909 club kit driven through warm Compression and light Overdrive with crisp offbeat open hats.",
+  "kit": "909 Punch",
+  "hardness": 0.36,
+  "track": {
+    "level": 0.86,
+    "drive": 0.36,
+    "eqLow": 2.5,
+    "eqHigh": 1.5,
+    "delay": 0,
+    "reverb": 0.1,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.48,
+        "rate": 0.3
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.22,
+        "rate": 0.4
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.96,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.42,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": -0.2,
+      "pitch": 0.0,
+      "decay": 0.14,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.22,
+      "pitch": 0.0,
+      "decay": 0.36,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": -0.35,
+      "pitch": 2.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Buchla Wavefold",
+  "style": "bass",
+  "comment": "West Coast synthesis showcase: pure Sine+Triangle oscillators pushed hard through the v0.7 Wavefolder for rich woody harmonics.",
+  "engine": "subtractive",
+  "osc1": "sine",
+  "osc2": "triangle",
+  "detune": 4.0,
+  "cutoff": 1350.0,
+  "res": 2.8,
+  "attack": 0.004,
+  "decay": 0.36,
+  "sustain": 0.4,
+  "release": 0.09,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 1.4,
+    "depth": 0.52
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.85,
+  "slideTime": 0.095,
+  "warmth": 0.68,
+  "motion": 0.6,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.25,
+    "eqLow": 3.0,
+    "eqHigh": 0.5,
+    "delay": 0.18,
+    "reverb": 0,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.3,
+        "rate": 0.35
+      },
+      {
+        "type": "compressor",
+        "amount": 0.52,
+        "rate": 0.25
+      }
+    ]
+  }
+}

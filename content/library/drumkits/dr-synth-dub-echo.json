@@ -1,0 +1,196 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Synth Dub Echo",
+  "style": "dub techno / deep",
+  "comment": "100% custom Drum Synth kit tuned for Dub Techno: subby 44Hz kick, dubby bandpass snare, resonant FM chord-perc feeding 42% delay.",
+  "kit": "808 Classic",
+  "hardness": 0.26,
+  "track": {
+    "level": 0.86,
+    "drive": 0.26,
+    "eqLow": 3.0,
+    "eqHigh": -1.5,
+    "delay": 0.42,
+    "reverb": 0.38,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.34,
+        "rate": 0.18
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.24,
+        "rate": 0.3
+      },
+      {
+        "type": "compressor",
+        "amount": 0.45,
+        "rate": 0.25
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.98,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 44.0,
+        "drop": 140.0,
+        "dropTime": 0.032,
+        "length": 0.52,
+        "tone": 0.98,
+        "noise": 0.02,
+        "noiseFreq": 1800.0,
+        "fm": 0,
+        "fmRatio": 1.0,
+        "drive": 0.28,
+        "click": 0.2
+      }
+    },
+    "snare": {
+      "vol": 0.84,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 165.0,
+        "drop": 65.0,
+        "dropTime": 0.022,
+        "length": 0.32,
+        "tone": 0.3,
+        "noise": 0.9,
+        "noiseFreq": 2600.0,
+        "fm": 1.2,
+        "fmRatio": 2.2,
+        "drive": 0.35,
+        "click": 0.25
+      }
+    },
+    "clap": {
+      "vol": 0.78,
+      "pan": -0.2,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 240.0,
+        "drop": 30.0,
+        "dropTime": 0.015,
+        "length": 0.28,
+        "tone": 0.12,
+        "noise": 0.95,
+        "noiseFreq": 2200.0,
+        "fm": 0.8,
+        "fmRatio": 2.8,
+        "drive": 0.32,
+        "click": 0.2
+      }
+    },
+    "ch": {
+      "vol": 0.68,
+      "pan": -0.3,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 580.0,
+        "drop": 0,
+        "dropTime": 0.01,
+        "length": 0.09,
+        "tone": 0.2,
+        "noise": 0.85,
+        "noiseFreq": 6800.0,
+        "fm": 4.2,
+        "fmRatio": 3.14,
+        "drive": 0.18,
+        "click": 0.15
+      }
+    },
+    "oh": {
+      "vol": 0.66,
+      "pan": 0.3,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 560.0,
+        "drop": 0,
+        "dropTime": 0.012,
+        "length": 0.34,
+        "tone": 0.2,
+        "noise": 0.88,
+        "noiseFreq": 6400.0,
+        "fm": 4.5,
+        "fmRatio": 3.27,
+        "drive": 0.2,
+        "click": 0.12
+      }
+    },
+    "rim": {
+      "vol": 0.78,
+      "pan": -0.4,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 440.0,
+        "drop": 80.0,
+        "dropTime": 0.014,
+        "length": 0.14,
+        "tone": 0.85,
+        "noise": 0.15,
+        "noiseFreq": 3200.0,
+        "fm": 3.5,
+        "fmRatio": 1.5,
+        "drive": 0.24,
+        "click": 0.45
+      }
+    },
+    "tom": {
+      "vol": 0.82,
+      "pan": 0.35,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 88.0,
+        "drop": 95.0,
+        "dropTime": 0.045,
+        "length": 0.42,
+        "tone": 0.94,
+        "noise": 0.06,
+        "noiseFreq": 1200.0,
+        "fm": 0.5,
+        "fmRatio": 1.5,
+        "drive": 0.22,
+        "click": 0.15
+      }
+    },
+    "perc": {
+      "vol": 0.86,
+      "pan": 0.42,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 330.0,
+        "drop": 0,
+        "dropTime": 0.015,
+        "length": 0.3,
+        "tone": 0.92,
+        "noise": 0.08,
+        "noiseFreq": 3000.0,
+        "fm": 4.8,
+        "fmRatio": 1.5,
+        "drive": 0.3,
+        "click": 0.2
+      }
+    }
+  }
+}

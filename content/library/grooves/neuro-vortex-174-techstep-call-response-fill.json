@@ -1,0 +1,270 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Neuro Vortex 174: Techstep Call Response Fill",
+  "style": "neurofunk / techstep dnb",
+  "comment": "From the style pack \"Neuro Vortex 174\". Suggested chain: A B C C D C. Suggested song moves: slot 2 bass vector_x 0.1 to 0.95; slot 2 bass cutoff 400 to 2400; slot 3 bass vector_y 0.2 to 0.9; slot 3 bass fold 0.5 to 0.9; slot 5 syn3 reverb_send 0.75 to 0.15.",
+  "bpm": 174,
+  "swing": 0,
+  "root": "F",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Neuro Techstep",
+      "hardness": 0.55,
+      "track": {
+        "reverb": 0.1,
+        "fx": [
+          {
+            "type": "compressor",
+            "amount": 0.65,
+            "rate": 0.35
+          },
+          {
+            "type": "overdrive",
+            "amount": 0.3,
+            "rate": 0.4
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "kick": "X.........X.....",
+      "snare": "....X.......X.23",
+      "ch": "x.x.x.x.x.x.....",
+      "tom": "............x.x.",
+      "perc": "..............34"
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "engine": "vector",
+        "osc1": "saw",
+        "osc2": "square",
+        "detune": 28.0,
+        "cutoff": 920.0,
+        "res": 5.2,
+        "vector": {
+          "x": 0.45,
+          "y": 0.6
+        },
+        "fold": 0.72,
+        "slideTime": 0.21,
+        "warmth": 0.75,
+        "motion": 0.85,
+        "octave": -1,
+        "track": {
+          "reverb": 0.14,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.65,
+              "rate": 0.5
+            },
+            {
+              "type": "phaser",
+              "amount": 0.6,
+              "rate": 0.45
+            },
+            {
+              "type": "chorus",
+              "amount": 0.35,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 6,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 6,
+          "degree": 1,
+          "len": 4,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 3,
+          "slide": true
+        },
+        {
+          "step": 13,
+          "degree": 5,
+          "len": 3,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 190.0,
+        "res": 1.0,
+        "octave": -1,
+        "track": {
+          "fx": [
+            {
+              "type": "compressor",
+              "amount": 0.55,
+              "rate": 0.25
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 4,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 6,
+          "degree": 3,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 2,
+          "slide": true
+        },
+        {
+          "step": 12,
+          "degree": 1,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": -1,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "pluck",
+        "cutoff": 4200.0,
+        "res": 3.0,
+        "pluckBright": 0.82,
+        "decay": 0.462,
+        "octave": -2,
+        "track": {
+          "delay": 0.4,
+          "reverb": 0.45,
+          "fx": [
+            {
+              "type": "bitcrush",
+              "amount": 0.18,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 4,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 1,
+          "len": 2
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 3,
+          "accent": true
+        },
+        {
+          "step": 13,
+          "degree": 5,
+          "len": 3
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "preset": "Super Pad",
+        "engine": "subtractive",
+        "cutoff": 1300.0,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.6
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 2,
+          "degree": 1,
+          "len": 1
+        },
+        {
+          "step": 4,
+          "degree": 4,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 5,
+          "len": 1
+        },
+        {
+          "step": 8,
+          "degree": 7,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 12,
+          "degree": 5,
+          "len": 2
+        },
+        {
+          "step": 14,
+          "degree": 1,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

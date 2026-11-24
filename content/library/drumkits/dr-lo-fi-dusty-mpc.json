@@ -1,0 +1,87 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Lo-Fi Dusty MPC",
+  "style": "lo-fi hip-hop / boom-bap",
+  "comment": "Dusty acoustic drums pitched down -2 semitones, warmed with light 12-bit Bitcrush and rolled-off top end.",
+  "kit": "Lo-Fi Acoustic",
+  "hardness": 0.14,
+  "track": {
+    "level": 0.86,
+    "drive": 0.14,
+    "eqLow": 2.5,
+    "eqHigh": -3.5,
+    "delay": 0,
+    "reverb": 0.18,
+    "fx": [
+      {
+        "type": "bitcrush",
+        "amount": 0.18,
+        "rate": 0.22
+      },
+      {
+        "type": "compressor",
+        "amount": 0.48,
+        "rate": 0.25
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": -2.0,
+      "decay": 0.48,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": -2.5,
+      "decay": 0.34,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": -0.25,
+      "pitch": -1.5,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.25,
+      "pitch": -2.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

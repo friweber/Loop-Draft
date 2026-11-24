@@ -1,0 +1,92 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - FM Foundry",
+  "style": "industrial / dark techno",
+  "comment": "Harsh metallic FM percussion kit run through Phaser, Overdrive, and cavern Reverb for brutalist factory grooves.",
+  "kit": "FM Industrial",
+  "hardness": 0.7,
+  "track": {
+    "level": 0.86,
+    "drive": 0.7,
+    "eqLow": 2.0,
+    "eqHigh": 2.5,
+    "delay": 0.14,
+    "reverb": 0.3,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.35,
+        "rate": 0.25
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.48,
+        "rate": 0.45
+      },
+      {
+        "type": "compressor",
+        "amount": 0.6,
+        "rate": 0.35
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": -2.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": -0.45,
+      "pitch": 3.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.4,
+      "pitch": -4.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.25,
+      "pitch": 4.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

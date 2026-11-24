@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - Chiptune 8-Bit",
+  "style": "lead & acid",
+  "comment": "Crisp NES/GameBoy square lead with fast vibrato and crunchy Bitcrush for electro, synthwave, and breakcore hooks.",
+  "engine": "subtractive",
+  "osc1": "square",
+  "osc2": "square",
+  "detune": 0.0,
+  "cutoff": 6800.0,
+  "res": 1.2,
+  "attack": 0.001,
+  "decay": 0.25,
+  "sustain": 0.7,
+  "release": 0.05,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 6.8,
+    "depth": 0.2
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.025,
+  "warmth": 0.18,
+  "motion": 0.15,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.18,
+    "eqLow": -3.0,
+    "eqHigh": 3.0,
+    "delay": 0.32,
+    "reverb": 0.1,
+    "fx": [
+      {
+        "type": "bitcrush",
+        "amount": 0.32,
+        "rate": 0.48
+      }
+    ]
+  }
+}

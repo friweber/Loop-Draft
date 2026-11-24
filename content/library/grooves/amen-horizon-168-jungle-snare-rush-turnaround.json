@@ -1,0 +1,227 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Amen Horizon 168: Jungle Snare Rush Turnaround",
+  "style": "jungle / oldschool dnb",
+  "comment": "From the style pack \"Amen Horizon 168\". Suggested chain: A B C C D C. Suggested song moves: slot 1 syn3 cutoff 500 to 2200; slot 2 bass cutoff 320 to 1150; slot 3 bass motion 0.55 to 0.95; slot 5 syn3 vector_x 0.15 to 0.85; slot 5 drums drive 0.15 to 0.55.",
+  "bpm": 168,
+  "swing": 0.04,
+  "root": "D",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Jungle Break",
+      "track": {
+        "delay": 0.08,
+        "reverb": 0.14,
+        "fx": [
+          {
+            "type": "compressor",
+            "amount": 0.5,
+            "rate": 0.3
+          },
+          {
+            "type": "bitcrush",
+            "amount": 0.14,
+            "rate": 0.25
+          }
+        ]
+      }
+    },
+    "steps": {
+      "kick": "X.........X.....",
+      "snare": "....X.......2234",
+      "ch": "x.x.x.x.x.x.....",
+      "rim": ".......x.x......"
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "preset": "Reese DnB",
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "square",
+        "detune": 26.0,
+        "cutoff": 760.0,
+        "res": 3.8,
+        "fold": 0.38,
+        "slideTime": 0.18,
+        "warmth": 0.82,
+        "motion": 0.78,
+        "octave": -1,
+        "track": {
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.4,
+              "rate": 0.4
+            },
+            {
+              "type": "phaser",
+              "amount": 0.45,
+              "rate": 0.3
+            },
+            {
+              "type": "chorus",
+              "amount": 0.3,
+              "rate": 0.25
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 6,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 6,
+          "degree": 2,
+          "len": 4,
+          "slide": true
+        },
+        {
+          "step": 10,
+          "degree": 5,
+          "len": 4,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": 4,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "preset": "FM E-Piano",
+        "engine": "fm",
+        "cutoff": 3800.0,
+        "warmth": 0.65,
+        "motion": 0.45,
+        "octave": -2,
+        "chord": true,
+        "track": {
+          "delay": 0.35,
+          "reverb": 0.42,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.55,
+              "rate": 0.35
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 8,
+          "accent": true
+        },
+        {
+          "step": 8,
+          "degree": 3,
+          "len": 4,
+          "slide": true
+        },
+        {
+          "step": 12,
+          "degree": 2,
+          "len": 2,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": -1,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1900.0,
+        "vector": {
+          "x": 0.28,
+          "y": 0.62
+        },
+        "warmth": 0.75,
+        "motion": 0.7,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.58
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 8
+        },
+        {
+          "step": 8,
+          "degree": 5,
+          "len": 8,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "preset": "FM Bell",
+        "engine": "fm",
+        "octave": 1,
+        "track": {
+          "delay": 0.45,
+          "reverb": 0.4
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 4,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 7,
+          "len": 2
+        },
+        {
+          "step": 6,
+          "degree": 5,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 4,
+          "len": 2
+        },
+        {
+          "step": 14,
+          "degree": 2,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

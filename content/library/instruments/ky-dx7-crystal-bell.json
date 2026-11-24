@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - DX7 Crystal Bell",
+  "style": "keys & chords",
+  "comment": "Glassy, shimmering DX7 FM bell chimes ideal for atmospheric Jungle hooks and 80s counter-melodies.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 7200.0,
+  "res": 1.0,
+  "attack": 0.002,
+  "decay": 0.9,
+  "sustain": 0,
+  "release": 0.55,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 3.5,
+    "index": 4.5,
+    "decay": 0.45,
+    "feedback": 0.1
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.025,
+  "warmth": 0.25,
+  "motion": 0.28,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.04,
+    "eqLow": 0.0,
+    "eqHigh": 2.5,
+    "delay": 0.48,
+    "reverb": 0.45,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.42,
+        "rate": 0.35
+      }
+    ]
+  }
+}

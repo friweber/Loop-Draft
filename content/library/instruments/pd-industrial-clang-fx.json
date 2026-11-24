@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PD - Industrial Clang FX",
+  "style": "pads & vector",
+  "comment": "Metallic, resonant inharmonic FM clang/percussion texture with heavy self-feedback, Wavefolder, and Phaser.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 4800.0,
+  "res": 4.2,
+  "attack": 0.002,
+  "decay": 0.55,
+  "sustain": 0,
+  "release": 0.45,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 5.13,
+    "index": 6.8,
+    "decay": 0.38,
+    "feedback": 0.65
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.5,
+  "slideTime": 0.04,
+  "warmth": 0.35,
+  "motion": 0.65,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.48,
+    "eqLow": -4.0,
+    "eqHigh": 3.0,
+    "delay": 0.48,
+    "reverb": 0.52,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.52,
+        "rate": 0.45
+      },
+      {
+        "type": "phaser",
+        "amount": 0.55,
+        "rate": 0.35
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.2,
+        "rate": 0.35
+      }
+    ]
+  }
+}

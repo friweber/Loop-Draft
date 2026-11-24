@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Dub Techno Chord",
+  "style": "keys & chords",
+  "comment": "Classic Basic Channel dub techno minor chord stab in Chord Mode—warm muffled Vector tone feeding 70% dotted-8th delay.",
+  "engine": "vector",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 14.0,
+  "cutoff": 1150.0,
+  "res": 3.8,
+  "attack": 0.005,
+  "decay": 0.22,
+  "sustain": 0.06,
+  "release": 0.18,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 0.65,
+    "depth": 0.3
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 1.6,
+    "decay": 0.15,
+    "feedback": 0.12
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.4,
+    "y": 0.32
+  },
+  "fold": 0.18,
+  "slideTime": 0.03,
+  "warmth": 0.78,
+  "motion": 0.48,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.24,
+    "eqLow": -2.5,
+    "eqHigh": -1.5,
+    "delay": 0.7,
+    "reverb": 0.62,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.48,
+        "rate": 0.22
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.12,
+        "rate": 0.22
+      },
+      {
+        "type": "chorus",
+        "amount": 0.4,
+        "rate": 0.25
+      }
+    ]
+  }
+}

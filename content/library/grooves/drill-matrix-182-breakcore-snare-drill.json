@@ -1,0 +1,312 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Drill Matrix 182: Breakcore Snare Drill",
+  "style": "breakcore / idm glitch",
+  "comment": "From the style pack \"Drill Matrix 182\". Suggested chain: A B C C D C. Suggested song moves: slot 2 drums delay_send 0.05 to 0.55; slot 3 bass cutoff 700 to 3400; slot 3 lead pluck_bright 0.4 to 0.95; slot 5 syn4 vector_x 0.1 to 0.9; slot 5 drums reverb_send 0.15 to 0.65.",
+  "bpm": 182,
+  "swing": 0.14,
+  "root": "C",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Glitch Breakcore",
+      "hardness": 0.6,
+      "track": {
+        "delay": 0.18,
+        "reverb": 0.2,
+        "fx": [
+          {
+            "type": "bitcrush",
+            "amount": 0.32,
+            "rate": 0.45
+          },
+          {
+            "type": "compressor",
+            "amount": 0.6,
+            "rate": 0.3
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "kick": "X...2.....X...2.",
+      "snare": "..3.X.44..3.X.44",
+      "ch": "x.x.x.x.x.x.x.x.",
+      "tom": ".......x.......x"
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "preset": "Acid 303",
+        "engine": "subtractive",
+        "cutoff": 1100.0,
+        "res": 9.8,
+        "fold": 0.55,
+        "slideTime": 0.055,
+        "octave": -1,
+        "track": {
+          "delay": 0.25,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.5,
+              "rate": 0.45
+            },
+            {
+              "type": "bitcrush",
+              "amount": 0.18,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 1,
+          "degree": 7,
+          "len": 1
+        },
+        {
+          "step": 3,
+          "degree": 3,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 4,
+          "degree": 0,
+          "len": 2
+        },
+        {
+          "step": 7,
+          "degree": -7,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 8,
+          "degree": 5,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 9,
+          "degree": 4,
+          "len": 1
+        },
+        {
+          "step": 11,
+          "degree": 2,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 12,
+          "degree": 7,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 13,
+          "degree": 9,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 15,
+          "degree": -1,
+          "len": 1
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "engine": "pluck",
+        "cutoff": 5200.0,
+        "pluckBright": 0.85,
+        "decay": 0.3324,
+        "octave": 1,
+        "track": {
+          "delay": 0.45,
+          "reverb": 0.3,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.4,
+              "rate": 0.4
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 1,
+          "degree": 4,
+          "len": 1
+        },
+        {
+          "step": 2,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 4,
+          "degree": 9,
+          "len": 1
+        },
+        {
+          "step": 5,
+          "degree": 7,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "degree": 4,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 8,
+          "degree": 5,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 7,
+          "len": 1
+        },
+        {
+          "step": 12,
+          "degree": 11,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 13,
+          "degree": 9,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "degree": 7,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 4800.0,
+        "octave": 0,
+        "track": {
+          "delay": 0.38,
+          "reverb": 0.28
+        }
+      },
+      "notes": [
+        {
+          "step": 2,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 8,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 9,
+          "degree": 5,
+          "len": 1
+        },
+        {
+          "step": 13,
+          "degree": 9,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 15,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 2200.0,
+        "vector": {
+          "x": 0.3,
+          "y": 0.45
+        },
+        "warmth": 0.75,
+        "motion": 0.7,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.62
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 8
+        },
+        {
+          "step": 8,
+          "degree": 3,
+          "len": 8,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

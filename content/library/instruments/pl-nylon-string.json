@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Nylon String",
+  "style": "pluck & arp",
+  "comment": "Warm, woody classical nylon-string guitar simulation with mellow Karplus-Strong damping and soft room reverb.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2900.0,
+  "res": 1.3,
+  "attack": 0.002,
+  "decay": 0.5484,
+  "sustain": 0,
+  "release": 0.4,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.42,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.025,
+  "warmth": 0.74,
+  "motion": 0.2,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.05,
+    "eqLow": 1.0,
+    "eqHigh": -1.5,
+    "delay": 0.22,
+    "reverb": 0.42,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.28,
+        "rate": 0.2
+      }
+    ]
+  }
+}

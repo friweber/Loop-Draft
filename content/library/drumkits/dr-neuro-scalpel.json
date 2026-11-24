@@ -1,0 +1,87 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Neuro Scalpel",
+  "style": "neurofunk / techstep",
+  "comment": "Surgical DnB kit with ultra-tight kick transient, two-layer crack snare, razor hats, and punchy bus compression.",
+  "kit": "Neuro Techstep",
+  "hardness": 0.46,
+  "track": {
+    "level": 0.86,
+    "drive": 0.46,
+    "eqLow": 2.0,
+    "eqHigh": 2.5,
+    "delay": 0,
+    "reverb": 0.08,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.68,
+        "rate": 0.35
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.28,
+        "rate": 0.4
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.98,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.26,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.96,
+      "pan": 0.0,
+      "pitch": 1.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": -0.18,
+      "pitch": 0.0,
+      "decay": 0.08,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.22,
+      "pitch": 0.0,
+      "decay": 0.22,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

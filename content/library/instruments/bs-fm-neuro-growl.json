@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - FM Neuro Growl",
+  "style": "bass",
+  "comment": "Aggressive Neurofunk response bass using high-feedback FM fed into Phaser, Overdrive, and OTT-style Compression.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2200.0,
+  "res": 6.2,
+  "attack": 0.005,
+  "decay": 0.42,
+  "sustain": 0.72,
+  "release": 0.1,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 2.2,
+    "depth": 0.48
+  },
+  "fm": {
+    "ratio": 3.0,
+    "index": 5.2,
+    "decay": 0.24,
+    "feedback": 0.4
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.55,
+  "slideTime": 0.11,
+  "warmth": 0.62,
+  "motion": 0.8,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.45,
+    "eqLow": 1.5,
+    "eqHigh": 2.5,
+    "delay": 0.15,
+    "reverb": 0.12,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.55,
+        "rate": 0.42
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.6,
+        "rate": 0.48
+      },
+      {
+        "type": "compressor",
+        "amount": 0.68,
+        "rate": 0.3
+      }
+    ]
+  }
+}

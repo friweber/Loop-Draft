@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Terrorist Reese",
+  "style": "bass",
+  "comment": "Classic 90s Jungle/DnB detuned dual-saw Reese bass with natural harmonic beating and smooth pitch glides.",
+  "engine": "subtractive",
+  "osc1": "saw",
+  "osc2": "saw",
+  "detune": 24.0,
+  "cutoff": 760.0,
+  "res": 3.8,
+  "attack": 0.02,
+  "decay": 0.5,
+  "sustain": 0.85,
+  "release": 0.18,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 0.8,
+    "depth": 0.45
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.32,
+  "slideTime": 0.14,
+  "warmth": 0.8,
+  "motion": 0.75,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.3,
+    "eqLow": 3.0,
+    "eqHigh": -1.0,
+    "delay": 0,
+    "reverb": 0.08,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.38,
+        "rate": 0.4
+      },
+      {
+        "type": "phaser",
+        "amount": 0.32,
+        "rate": 0.2
+      },
+      {
+        "type": "compressor",
+        "amount": 0.5,
+        "rate": 0.3
+      }
+    ]
+  }
+}

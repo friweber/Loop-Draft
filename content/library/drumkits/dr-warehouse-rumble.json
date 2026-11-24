@@ -1,0 +1,87 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Warehouse Rumble",
+  "style": "hard techno / schranz",
+  "comment": "Massive deep techno kick with dark rumble tail, metallic rides, and heavy Overdrive + Compression squash.",
+  "kit": "Warehouse Rumble",
+  "hardness": 0.74,
+  "track": {
+    "level": 0.86,
+    "drive": 0.74,
+    "eqLow": 3.5,
+    "eqHigh": 1.5,
+    "delay": 0,
+    "reverb": 0.18,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.52,
+        "rate": 0.45
+      },
+      {
+        "type": "compressor",
+        "amount": 0.72,
+        "rate": 0.35
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 1,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.68,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.2,
+      "pitch": 0.0,
+      "decay": 0.55,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": -0.3,
+      "pitch": -2.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.3,
+      "pitch": -3.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PD - FM Submarine Sonar",
+  "style": "pads & vector",
+  "comment": "Deep underwater Dub Techno / Ambient sonar ping using pure FM bell decay echoing endlessly through Delay & Reverb.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 3600.0,
+  "res": 4.5,
+  "attack": 0.008,
+  "decay": 0.95,
+  "sustain": 0,
+  "release": 0.85,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 1.0,
+    "index": 1.4,
+    "decay": 0.55,
+    "feedback": 0.05
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.04,
+  "warmth": 0.55,
+  "motion": 0.25,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.06,
+    "eqLow": -4.0,
+    "eqHigh": 1.5,
+    "delay": 0.75,
+    "reverb": 0.75,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.42,
+        "rate": 0.16
+      },
+      {
+        "type": "chorus",
+        "amount": 0.45,
+        "rate": 0.2
+      }
+    ]
+  }
+}

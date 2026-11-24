@@ -1,0 +1,191 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Synth 80s Simmons",
+  "style": "synthwave / italo / 80s",
+  "comment": "100% custom Drum Synth 80s kit featuring sweeping Simmons-style hexagonal pitch-drop toms, gated noise snare, and snappy electro kick.",
+  "kit": "808 Classic",
+  "hardness": 0.24,
+  "track": {
+    "level": 0.86,
+    "drive": 0.24,
+    "eqLow": 2.0,
+    "eqHigh": 2.0,
+    "delay": 0,
+    "reverb": 0.44,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.58,
+        "rate": 0.28
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.18,
+        "rate": 0.32
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.96,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 54.0,
+        "drop": 210.0,
+        "dropTime": 0.024,
+        "length": 0.42,
+        "tone": 0.92,
+        "noise": 0.08,
+        "noiseFreq": 2800.0,
+        "fm": 0.2,
+        "fmRatio": 1.5,
+        "drive": 0.32,
+        "click": 0.48
+      }
+    },
+    "snare": {
+      "vol": 0.92,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 185.0,
+        "drop": 120.0,
+        "dropTime": 0.018,
+        "length": 0.36,
+        "tone": 0.48,
+        "noise": 0.92,
+        "noiseFreq": 4800.0,
+        "fm": 0.6,
+        "fmRatio": 2.0,
+        "drive": 0.38,
+        "click": 0.5
+      }
+    },
+    "clap": {
+      "vol": 0.84,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 280.0,
+        "drop": 50.0,
+        "dropTime": 0.014,
+        "length": 0.26,
+        "tone": 0.18,
+        "noise": 0.96,
+        "noiseFreq": 3800.0,
+        "fm": 0.5,
+        "fmRatio": 2.4,
+        "drive": 0.34,
+        "click": 0.42
+      }
+    },
+    "ch": {
+      "vol": 0.72,
+      "pan": -0.22,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 820.0,
+        "drop": 0,
+        "dropTime": 0.008,
+        "length": 0.08,
+        "tone": 0.2,
+        "noise": 0.9,
+        "noiseFreq": 8600.0,
+        "fm": 4.8,
+        "fmRatio": 3.62,
+        "drive": 0.15,
+        "click": 0.22
+      }
+    },
+    "oh": {
+      "vol": 0.76,
+      "pan": 0.24,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 790.0,
+        "drop": 0,
+        "dropTime": 0.01,
+        "length": 0.38,
+        "tone": 0.2,
+        "noise": 0.92,
+        "noiseFreq": 8200.0,
+        "fm": 5.2,
+        "fmRatio": 3.74,
+        "drive": 0.18,
+        "click": 0.18
+      }
+    },
+    "rim": {
+      "vol": 0.8,
+      "pan": -0.35,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 520.0,
+        "drop": 180.0,
+        "dropTime": 0.015,
+        "length": 0.12,
+        "tone": 0.85,
+        "noise": 0.15,
+        "noiseFreq": 4200.0,
+        "fm": 1.8,
+        "fmRatio": 2.1,
+        "drive": 0.25,
+        "click": 0.65
+      }
+    },
+    "tom": {
+      "vol": 0.94,
+      "pan": -0.28,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 92.0,
+        "drop": 320.0,
+        "dropTime": 0.14,
+        "length": 0.48,
+        "tone": 0.92,
+        "noise": 0.14,
+        "noiseFreq": 3200.0,
+        "fm": 0.8,
+        "fmRatio": 1.8,
+        "drive": 0.35,
+        "click": 0.55
+      }
+    },
+    "perc": {
+      "vol": 0.92,
+      "pan": 0.32,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 148.0,
+        "drop": 380.0,
+        "dropTime": 0.125,
+        "length": 0.42,
+        "tone": 0.9,
+        "noise": 0.16,
+        "noiseFreq": 3600.0,
+        "fm": 1.2,
+        "fmRatio": 2.0,
+        "drive": 0.35,
+        "click": 0.58
+      }
+    }
+  }
+}

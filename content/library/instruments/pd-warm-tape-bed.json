@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PD - Warm Tape Bed",
+  "style": "pads & vector",
+  "comment": "Ultra-warm, low-passed ambient cassette pad in Chord Mode for gluing Lo-Fi and Chill beats together.",
+  "engine": "vector",
+  "osc1": "triangle",
+  "osc2": "sine",
+  "detune": 15.0,
+  "cutoff": 1250.0,
+  "res": 1.2,
+  "attack": 0.3,
+  "decay": 0.7,
+  "sustain": 0.8,
+  "release": 0.6,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 0.6,
+    "depth": 0.22
+  },
+  "fm": {
+    "ratio": 1.0,
+    "index": 0.8,
+    "decay": 0.5,
+    "feedback": 0.04
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.2,
+    "y": 0.35
+  },
+  "fold": 0,
+  "slideTime": 0.1,
+  "warmth": 0.86,
+  "motion": 0.55,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.1,
+    "eqLow": -1.5,
+    "eqHigh": -4.0,
+    "delay": 0,
+    "reverb": 0.6,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.28,
+        "rate": 0.14
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.08,
+        "rate": 0.15
+      }
+    ]
+  }
+}

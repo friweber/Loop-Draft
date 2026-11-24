@@ -1,0 +1,115 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Jungle Amen Akai",
+  "style": "jungle / oldschool dnb",
+  "comment": "Built-in Amen break sliced across 8 pads: +2st repitch, tight 0.55s envelopes, 30% Akai crunch, and reversed Pad 8.",
+  "kit": "Jungle Break",
+  "slicer": {
+    "pitch": 2.0,
+    "tight": 0.55,
+    "crunch": 0.3
+  },
+  "track": {
+    "level": 0.86,
+    "drive": 0.3,
+    "eqLow": 1.5,
+    "eqHigh": 2.0,
+    "delay": 0.08,
+    "reverb": 0.14,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.48,
+        "rate": 0.3
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.14,
+        "rate": 0.25
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0,
+      "sliceEnd": 0.125,
+      "reverse": false
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.125,
+      "sliceEnd": 0.25,
+      "reverse": false
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.25,
+      "sliceEnd": 0.375,
+      "reverse": false
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.375,
+      "sliceEnd": 0.5,
+      "reverse": false
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.5,
+      "sliceEnd": 0.625,
+      "reverse": false
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.625,
+      "sliceEnd": 0.75,
+      "reverse": false
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.75,
+      "sliceEnd": 0.875,
+      "reverse": false
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.875,
+      "sliceEnd": 1,
+      "reverse": true
+    }
+  }
+}

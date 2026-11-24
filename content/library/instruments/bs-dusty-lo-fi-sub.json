@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Dusty Lo-Fi Sub",
+  "style": "bass",
+  "comment": "Soft-attack rounded sub-bass that hugs Boom-Bap kicks without transient clash, warmed with subtle saturation.",
+  "engine": "subtractive",
+  "osc1": "sine",
+  "osc2": "triangle",
+  "detune": 3.0,
+  "cutoff": 340.0,
+  "res": 1.1,
+  "attack": 0.018,
+  "decay": 0.45,
+  "sustain": 0.65,
+  "release": 0.15,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.05,
+  "slideTime": 0.06,
+  "warmth": 0.84,
+  "motion": 0.15,
+  "octave": -2,
+  "chord": false,
+  "track": {
+    "drive": 0.14,
+    "eqLow": 4.0,
+    "eqHigh": -3.0,
+    "delay": 0,
+    "reverb": 0,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.16,
+        "rate": 0.25
+      }
+    ]
+  }
+}

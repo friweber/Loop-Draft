@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - PS2 Dorian Rhodes",
+  "style": "keys & chords",
+  "comment": "Silky late-90s Jungle & Deep House FM electric piano in Chord Mode with subtle amplitude tremolo and wide Chorus.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 3800.0,
+  "res": 1.2,
+  "attack": 0.004,
+  "decay": 0.68,
+  "sustain": 0.28,
+  "release": 0.28,
+  "level": 0.82,
+  "lfo": {
+    "target": "volume",
+    "rate": 4.2,
+    "depth": 0.22
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.2,
+    "decay": 0.22,
+    "feedback": 0.08
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.03,
+  "warmth": 0.66,
+  "motion": 0.45,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.06,
+    "eqLow": 0.0,
+    "eqHigh": 1.0,
+    "delay": 0.35,
+    "reverb": 0.42,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.58,
+        "rate": 0.32
+      },
+      {
+        "type": "phaser",
+        "amount": 0.24,
+        "rate": 0.2
+      }
+    ]
+  }
+}

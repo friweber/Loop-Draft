@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Dusty Vinyl EP",
+  "style": "keys & chords",
+  "comment": "Dark, lo-fi bitcrushed electric piano chords with heavy warmth and gentle chorus flutter.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2100.0,
+  "res": 1.2,
+  "attack": 0.008,
+  "decay": 0.62,
+  "sustain": 0.24,
+  "release": 0.3,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 1.6,
+    "depth": 0.18
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 1.8,
+    "decay": 0.18,
+    "feedback": 0.05
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.03,
+  "warmth": 0.84,
+  "motion": 0.52,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.12,
+    "eqLow": 1.5,
+    "eqHigh": -3.5,
+    "delay": 0.25,
+    "reverb": 0.44,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.45,
+        "rate": 0.22
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.14,
+        "rate": 0.2
+      }
+    ]
+  }
+}

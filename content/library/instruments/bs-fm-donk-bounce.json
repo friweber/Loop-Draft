@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - FM Donk Bounce",
+  "style": "bass",
+  "comment": "Hollow, rubbery UK Garage / Hardbass FM donk using Ratio 3.0 with ultra-fast modulator decay and punchy Compression.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2400.0,
+  "res": 2.6,
+  "attack": 0.002,
+  "decay": 0.22,
+  "sustain": 0.1,
+  "release": 0.06,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 3.0,
+    "index": 4.4,
+    "decay": 0.075,
+    "feedback": 0.18
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.18,
+  "slideTime": 0.035,
+  "warmth": 0.52,
+  "motion": 0.2,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.28,
+    "eqLow": 3.0,
+    "eqHigh": 2.0,
+    "delay": 0,
+    "reverb": 0,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.34,
+        "rate": 0.35
+      },
+      {
+        "type": "compressor",
+        "amount": 0.62,
+        "rate": 0.3
+      }
+    ]
+  }
+}

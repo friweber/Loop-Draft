@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - IDM Micro Glitch",
+  "style": "pluck & arp",
+  "comment": "Razor-sharp, short-ring Karplus-Strong micro-pluck pushed through Wavefolder and Bitcrush for Aphex-style arps.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 6400.0,
+  "res": 2.8,
+  "attack": 0.001,
+  "decay": 0.282,
+  "sustain": 0,
+  "release": 0.08,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.92,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.35,
+  "slideTime": 0.02,
+  "warmth": 0.28,
+  "motion": 0.5,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.22,
+    "eqLow": 0.0,
+    "eqHigh": 3.0,
+    "delay": 0.46,
+    "reverb": 0.32,
+    "fx": [
+      {
+        "type": "bitcrush",
+        "amount": 0.24,
+        "rate": 0.4
+      },
+      {
+        "type": "chorus",
+        "amount": 0.45,
+        "rate": 0.38
+      }
+    ]
+  }
+}

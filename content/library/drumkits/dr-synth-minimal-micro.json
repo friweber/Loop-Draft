@@ -1,0 +1,186 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Synth Minimal Micro",
+  "style": "minimal techno / microhouse",
+  "comment": "100% custom Drum Synth kit: razor sine click-kick, crisp micro-snare, FM woodblock rim, glassy metallic hats, and laser zap perc.",
+  "kit": "909 Punch",
+  "hardness": 0.2,
+  "track": {
+    "level": 0.86,
+    "drive": 0.2,
+    "eqLow": 2.0,
+    "eqHigh": 2.0,
+    "delay": 0.22,
+    "reverb": 0.14,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.52,
+        "rate": 0.28
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.96,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 50.0,
+        "drop": 170.0,
+        "dropTime": 0.018,
+        "length": 0.28,
+        "tone": 0.96,
+        "noise": 0.04,
+        "noiseFreq": 3400.0,
+        "fm": 0,
+        "fmRatio": 1.5,
+        "drive": 0.22,
+        "click": 0.62
+      }
+    },
+    "snare": {
+      "vol": 0.85,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 220.0,
+        "drop": 90.0,
+        "dropTime": 0.012,
+        "length": 0.16,
+        "tone": 0.35,
+        "noise": 0.85,
+        "noiseFreq": 6200.0,
+        "fm": 0.6,
+        "fmRatio": 2.5,
+        "drive": 0.24,
+        "click": 0.55
+      }
+    },
+    "clap": {
+      "vol": 0.78,
+      "pan": 0.18,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 310.0,
+        "drop": 40.0,
+        "dropTime": 0.01,
+        "length": 0.18,
+        "tone": 0.15,
+        "noise": 0.95,
+        "noiseFreq": 4200.0,
+        "fm": 0.4,
+        "fmRatio": 3.1,
+        "drive": 0.25,
+        "click": 0.45
+      }
+    },
+    "ch": {
+      "vol": 0.74,
+      "pan": -0.25,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 740.0,
+        "drop": 0,
+        "dropTime": 0.008,
+        "length": 0.07,
+        "tone": 0.25,
+        "noise": 0.88,
+        "noiseFreq": 9200.0,
+        "fm": 5.2,
+        "fmRatio": 3.71,
+        "drive": 0.12,
+        "click": 0.3
+      }
+    },
+    "oh": {
+      "vol": 0.72,
+      "pan": 0.25,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "synth": {
+        "pitch": 710.0,
+        "drop": 0,
+        "dropTime": 0.01,
+        "length": 0.24,
+        "tone": 0.25,
+        "noise": 0.9,
+        "noiseFreq": 8800.0,
+        "fm": 5.8,
+        "fmRatio": 3.83,
+        "drive": 0.15,
+        "click": 0.2
+      }
+    },
+    "rim": {
+      "vol": 0.82,
+      "pan": -0.35,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 680.0,
+        "drop": 120.0,
+        "dropTime": 0.008,
+        "length": 0.09,
+        "tone": 0.9,
+        "noise": 0.1,
+        "noiseFreq": 4500.0,
+        "fm": 2.4,
+        "fmRatio": 2.41,
+        "drive": 0.18,
+        "click": 0.7
+      }
+    },
+    "tom": {
+      "vol": 0.84,
+      "pan": 0.32,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 115.0,
+        "drop": 110.0,
+        "dropTime": 0.035,
+        "length": 0.26,
+        "tone": 0.95,
+        "noise": 0.05,
+        "noiseFreq": 1800.0,
+        "fm": 0.3,
+        "fmRatio": 1.5,
+        "drive": 0.15,
+        "click": 0.25
+      }
+    },
+    "perc": {
+      "vol": 0.8,
+      "pan": 0.45,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0,
+      "synth": {
+        "pitch": 280.0,
+        "drop": 520.0,
+        "dropTime": 0.055,
+        "length": 0.15,
+        "tone": 0.92,
+        "noise": 0.08,
+        "noiseFreq": 5000.0,
+        "fm": 3.2,
+        "fmRatio": 4.1,
+        "drive": 0.3,
+        "click": 0.4
+      }
+    }
+  }
+}

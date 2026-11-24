@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Glass Kalimba",
+  "style": "pluck & arp",
+  "comment": "Bright, resonant Karplus-Strong thumb-piano / marimba tone with crisp attack and shimmering stereo Chorus.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 5800.0,
+  "res": 1.6,
+  "attack": 0.001,
+  "decay": 0.4044,
+  "sustain": 0,
+  "release": 0.3,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.88,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.04,
+  "slideTime": 0.02,
+  "warmth": 0.45,
+  "motion": 0.3,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.04,
+    "eqLow": 0.0,
+    "eqHigh": 2.0,
+    "delay": 0.42,
+    "reverb": 0.48,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.48,
+        "rate": 0.28
+      }
+    ]
+  }
+}

@@ -1,0 +1,354 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Acid Tunnel 138: Acid Build Rolls",
+  "style": "acid techno / acid house",
+  "comment": "From the style pack \"Acid Tunnel 138\". Suggested chain: A A B B C C D C. Suggested song moves: slot 1 bass cutoff 340 to 520; slot 3 bass cutoff 520 to 1250; slot 3 bass fold 0.35 to 0.75; slot 5 bass resonance 10.5 to 13.0; slot 7 bass cutoff 600 to 3200; slot 7 syn4 vector_x 0.15 to 0.9.",
+  "bpm": 138,
+  "swing": 0,
+  "root": "D",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "909 Punch",
+      "hardness": 0.35,
+      "track": {
+        "reverb": 0.1,
+        "fx": [
+          {
+            "type": "compressor",
+            "amount": 0.45,
+            "rate": 0.3
+          },
+          {
+            "type": "overdrive",
+            "amount": 0.2,
+            "rate": 0.4
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "kick": "X...X...X...X.x.",
+      "snare": "............2234",
+      "clap": "....X.......X...",
+      "ch": "xxxxxxxxxxxxxxxx",
+      "oh": "..X...X...X...X."
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "preset": "Acid 303",
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "square",
+        "detune": 0.0,
+        "cutoff": 420.0,
+        "res": 11.2,
+        "fold": 0.48,
+        "slideTime": 0.075,
+        "warmth": 0.65,
+        "motion": 0.45,
+        "octave": -1,
+        "track": {
+          "delay": 0.32,
+          "reverb": 0.12,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.6,
+              "rate": 0.4
+            },
+            {
+              "type": "compressor",
+              "amount": 0.45,
+              "rate": 0.3
+            },
+            {
+              "type": "phaser",
+              "amount": 0.25,
+              "rate": 0.35
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 1,
+          "degree": -7,
+          "len": 1
+        },
+        {
+          "step": 2,
+          "degree": 0,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 3,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 5,
+          "degree": -7,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 6,
+          "degree": 2,
+          "len": 2,
+          "slide": true
+        },
+        {
+          "step": 8,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 10,
+          "degree": 4,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 12,
+          "degree": 9,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 13,
+          "degree": 7,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "degree": -1,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 15,
+          "degree": -7,
+          "len": 1
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 210.0,
+        "res": 1.2,
+        "octave": -1,
+        "track": {
+          "fx": [
+            {
+              "type": "filter",
+              "amount": 0.2,
+              "rate": 0.15
+            },
+            {
+              "type": "compressor",
+              "amount": 0.5,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 2,
+          "degree": 7,
+          "len": 1
+        },
+        {
+          "step": 4,
+          "degree": 0,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 5,
+          "degree": 3,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 7,
+          "degree": -7,
+          "len": 1
+        },
+        {
+          "step": 8,
+          "degree": 0,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 9,
+          "degree": 4,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 10,
+          "degree": 5,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 12,
+          "degree": 7,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 13,
+          "degree": 5,
+          "len": 1,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": 4,
+          "len": 1
+        },
+        {
+          "step": 15,
+          "degree": -2,
+          "len": 1
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "pluck",
+        "cutoff": 3400.0,
+        "res": 2.4,
+        "pluckBright": 0.68,
+        "decay": 0.426,
+        "octave": -2,
+        "track": {
+          "delay": 0.42,
+          "reverb": 0.35,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.45,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 2,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 14,
+          "degree": -1,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1400.0,
+        "vector": {
+          "x": 0.35,
+          "y": 0.4
+        },
+        "warmth": 0.7,
+        "motion": 0.65,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.55
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 4,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 8,
+          "degree": 5,
+          "len": 1
+        },
+        {
+          "step": 11,
+          "degree": 4,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "degree": 2,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

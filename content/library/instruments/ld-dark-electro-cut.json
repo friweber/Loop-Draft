@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - Dark Electro Cut",
+  "style": "lead & acid",
+  "comment": "Cold, cutting EBM Saw/Square lead with Wavefolder grit, wide Chorus, and aggressive Overdrive.",
+  "engine": "subtractive",
+  "osc1": "saw",
+  "osc2": "square",
+  "detune": 16.0,
+  "cutoff": 1450.0,
+  "res": 4.8,
+  "attack": 0.004,
+  "decay": 0.28,
+  "sustain": 0.45,
+  "release": 0.1,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.52,
+  "slideTime": 0.095,
+  "warmth": 0.5,
+  "motion": 0.48,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.42,
+    "eqLow": -2.0,
+    "eqHigh": 2.5,
+    "delay": 0.32,
+    "reverb": 0.35,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.55,
+        "rate": 0.3
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.5,
+        "rate": 0.45
+      }
+    ]
+  }
+}

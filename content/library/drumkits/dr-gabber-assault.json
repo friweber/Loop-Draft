@@ -1,0 +1,92 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Gabber Assault",
+  "style": "hardcore / gabber",
+  "comment": "Hard-clipped Gabber tok kick pushed through Bitcrush, Overdrive, and slamming Compression for 165+ BPM chaos.",
+  "kit": "Hardcore Gabber",
+  "hardness": 0.9,
+  "track": {
+    "level": 0.86,
+    "drive": 0.9,
+    "eqLow": 3.0,
+    "eqHigh": 2.5,
+    "delay": 0,
+    "reverb": 0.12,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.68,
+        "rate": 0.5
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.18,
+        "rate": 0.35
+      },
+      {
+        "type": "compressor",
+        "amount": 0.78,
+        "rate": 0.4
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 1,
+      "pan": 0.0,
+      "pitch": 1.0,
+      "decay": 0.55,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": -2.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.25,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

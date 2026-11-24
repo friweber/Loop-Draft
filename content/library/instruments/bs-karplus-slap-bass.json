@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Karplus Slap Bass",
+  "style": "bass",
+  "comment": "Physical-modeled Karplus-Strong slap bass with bright string attack, tight body ring, and subtle warm drive.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2800.0,
+  "res": 2.2,
+  "attack": 0.001,
+  "decay": 0.4476,
+  "sustain": 0,
+  "release": 0.14,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.84,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.15,
+  "slideTime": 0.03,
+  "warmth": 0.62,
+  "motion": 0.2,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.22,
+    "eqLow": 3.5,
+    "eqHigh": 2.0,
+    "delay": 0,
+    "reverb": 0,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.55,
+        "rate": 0.3
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.22,
+        "rate": 0.3
+      }
+    ]
+  }
+}

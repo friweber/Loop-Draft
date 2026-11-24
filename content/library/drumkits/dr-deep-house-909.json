@@ -1,0 +1,82 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Deep House 909",
+  "style": "deep / classic house",
+  "comment": "Softly saturated, pitched-down 909 kit with warm rolled-off highs and gentle glue compression for swung house grooves.",
+  "kit": "909 Punch",
+  "hardness": 0.12,
+  "track": {
+    "level": 0.86,
+    "drive": 0.12,
+    "eqLow": 2.0,
+    "eqHigh": -2.0,
+    "delay": 0,
+    "reverb": 0.14,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.42,
+        "rate": 0.25
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": -1.5,
+      "decay": 0.36,
+      "choke": 0
+    },
+    "snare": {
+      "vol": 0.78,
+      "pan": 0.0,
+      "pitch": -2.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": -0.22,
+      "pitch": 0.0,
+      "decay": 0.1,
+      "choke": 1
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.24,
+      "pitch": 0.0,
+      "decay": 0.26,
+      "choke": 1
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 0
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": -0.35,
+      "pitch": 3.0,
+      "decay": 0.45,
+      "choke": 0
+    }
+  }
+}

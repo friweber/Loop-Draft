@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Berlin Seq Pluck",
+  "style": "pluck & arp",
+  "comment": "Karplus-Strong physical-modeled string pluck tuned to feed Loop Draft's dotted-8th ping-pong delay and Phaser.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2600.0,
+  "res": 3.5,
+  "attack": 0.002,
+  "decay": 0.5916,
+  "sustain": 0,
+  "release": 0.25,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.62,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.08,
+  "slideTime": 0.03,
+  "warmth": 0.55,
+  "motion": 0.42,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.06,
+    "eqLow": 0.0,
+    "eqHigh": 1.0,
+    "delay": 0.65,
+    "reverb": 0.52,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.4,
+        "rate": 0.18
+      },
+      {
+        "type": "chorus",
+        "amount": 0.45,
+        "rate": 0.22
+      }
+    ]
+  }
+}

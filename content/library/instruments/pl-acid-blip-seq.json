@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Acid Blip Seq",
+  "style": "pluck & arp",
+  "comment": "Laser-tight hypnotic Techno blip sequencer sound with high filter resonance and dotted-8th ping-pong delay.",
+  "engine": "subtractive",
+  "osc1": "sine",
+  "osc2": "triangle",
+  "detune": 2.0,
+  "cutoff": 1100.0,
+  "res": 10.5,
+  "attack": 0.001,
+  "decay": 0.12,
+  "sustain": 0,
+  "release": 0.06,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 3.2,
+    "depth": 0.4
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.3,
+  "slideTime": 0.04,
+  "warmth": 0.4,
+  "motion": 0.35,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.24,
+    "eqLow": -3.0,
+    "eqHigh": 1.5,
+    "delay": 0.58,
+    "reverb": 0.35,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.28,
+        "rate": 0.35
+      },
+      {
+        "type": "phaser",
+        "amount": 0.32,
+        "rate": 0.3
+      }
+    ]
+  }
+}

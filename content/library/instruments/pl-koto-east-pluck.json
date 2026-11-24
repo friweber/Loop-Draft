@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Koto East Pluck",
+  "style": "pluck & arp",
+  "comment": "Expressive Japanese Koto / stringed pluck using bright Karplus-Strong excitation, resonant filter body, and space.",
+  "engine": "pluck",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 4600.0,
+  "res": 3.2,
+  "attack": 0.001,
+  "decay": 0.5196,
+  "sustain": 0,
+  "release": 0.35,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.86,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.12,
+  "slideTime": 0.045,
+  "warmth": 0.48,
+  "motion": 0.28,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.08,
+    "eqLow": -2.0,
+    "eqHigh": 2.5,
+    "delay": 0.48,
+    "reverb": 0.52,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.35,
+        "rate": 0.24
+      }
+    ]
+  }
+}

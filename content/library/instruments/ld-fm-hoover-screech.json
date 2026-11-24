@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - FM Hoover Screech",
+  "style": "lead & acid",
+  "comment": "Brutal Warehouse/Schranz inharmonic FM screech lead stacked with Wavefolder, Overdrive, and Bitcrush.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 2600.0,
+  "res": 5.5,
+  "attack": 0.006,
+  "decay": 0.45,
+  "sustain": 0.6,
+  "release": 0.14,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 3.5,
+    "depth": 0.35
+  },
+  "fm": {
+    "ratio": 2.71,
+    "index": 4.8,
+    "decay": 0.3,
+    "feedback": 0.35
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.55,
+  "slideTime": 0.12,
+  "warmth": 0.45,
+  "motion": 0.72,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.55,
+    "eqLow": 0.0,
+    "eqHigh": 3.0,
+    "delay": 0.28,
+    "reverb": 0.25,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.65,
+        "rate": 0.5
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.22,
+        "rate": 0.35
+      },
+      {
+        "type": "compressor",
+        "amount": 0.55,
+        "rate": 0.3
+      }
+    ]
+  }
+}

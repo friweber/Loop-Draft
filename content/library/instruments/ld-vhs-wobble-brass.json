@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - VHS Wobble Brass",
+  "style": "lead & acid",
+  "comment": "Nostalgic Boards-of-Canada / VHS tape-warbled analog brass with slow LFO pitch drift and gentle Bitcrush.",
+  "engine": "subtractive",
+  "osc1": "saw",
+  "osc2": "saw",
+  "detune": 18.0,
+  "cutoff": 1950.0,
+  "res": 2.1,
+  "attack": 0.045,
+  "decay": 0.48,
+  "sustain": 0.68,
+  "release": 0.28,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 1.1,
+    "depth": 0.28
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.5,
+    "decay": 0.25,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.1,
+  "slideTime": 0.085,
+  "warmth": 0.78,
+  "motion": 0.62,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.16,
+    "eqLow": 1.0,
+    "eqHigh": -2.5,
+    "delay": 0.3,
+    "reverb": 0.48,
+    "fx": [
+      {
+        "type": "bitcrush",
+        "amount": 0.14,
+        "rate": 0.18
+      },
+      {
+        "type": "chorus",
+        "amount": 0.58,
+        "rate": 0.24
+      }
+    ]
+  }
+}

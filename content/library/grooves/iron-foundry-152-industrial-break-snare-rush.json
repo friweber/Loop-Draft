@@ -1,0 +1,284 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Iron Foundry 152: Industrial Break Snare Rush",
+  "style": "hard techno / schranz / gabber",
+  "comment": "From the style pack \"Iron Foundry 152\". Suggested chain: A B C C D C. Suggested song moves: slot 2 lead fm_index 2.2 to 6.5; slot 2 lead cutoff 800 to 4200; slot 3 bass fold 0.45 to 0.85; slot 5 drums drive 0.3 to 0.9; slot 5 syn4 vector_y 0.1 to 0.95.",
+  "bpm": 152,
+  "swing": 0,
+  "root": "F",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Warehouse Rumble",
+      "hardness": 0.78,
+      "track": {
+        "reverb": 0.14,
+        "fx": [
+          {
+            "type": "overdrive",
+            "amount": 0.55,
+            "rate": 0.5
+          },
+          {
+            "type": "compressor",
+            "amount": 0.75,
+            "rate": 0.4
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "clap": "....X.......X...",
+      "snare": "............4444",
+      "ch": "x.x.x.x.x.x.x.x.",
+      "rim": ".x.x.x.x.x.x.x.x"
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "square",
+        "detune": 12.0,
+        "cutoff": 380.0,
+        "res": 4.2,
+        "fold": 0.62,
+        "octave": -2,
+        "track": {
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.5,
+              "rate": 0.4
+            },
+            {
+              "type": "compressor",
+              "amount": 0.6,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 1,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 2,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 5,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 7,
+          "degree": 1,
+          "len": 1
+        },
+        {
+          "step": 9,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 11,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 13,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "degree": 5,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 15,
+          "degree": 4,
+          "len": 1
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 2600.0,
+        "res": 5.5,
+        "fold": 0.55,
+        "slideTime": 0.12,
+        "octave": -1,
+        "track": {
+          "delay": 0.28,
+          "reverb": 0.25,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.65,
+              "rate": 0.5
+            },
+            {
+              "type": "bitcrush",
+              "amount": 0.22,
+              "rate": 0.35
+            },
+            {
+              "type": "compressor",
+              "amount": 0.55,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 2,
+          "degree": 1,
+          "len": 2
+        },
+        {
+          "step": 6,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 5,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 12,
+          "degree": 4,
+          "len": 3
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "subtractive",
+        "osc1": "square",
+        "osc2": "saw",
+        "detune": 22.0,
+        "cutoff": 4200.0,
+        "res": 6.0,
+        "octave": 0,
+        "track": {
+          "delay": 0.45,
+          "reverb": 0.35
+        }
+      },
+      "notes": [
+        {
+          "step": 2,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 5,
+          "len": 1
+        },
+        {
+          "step": 10,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 11,
+          "degree": 8,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 14,
+          "degree": 7,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1600.0,
+        "vector": {
+          "x": 0.7,
+          "y": 0.65
+        },
+        "fold": 0.4,
+        "octave": -1,
+        "chord": true,
+        "track": {
+          "reverb": 0.5,
+          "fx": [
+            {
+              "type": "phaser",
+              "amount": 0.5,
+              "rate": 0.25
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 16
+        }
+      ]
+    }
+  ]
+}

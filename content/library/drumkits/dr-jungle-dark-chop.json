@@ -1,0 +1,120 @@
+{
+  "kind": "drumkit",
+  "format": 1,
+  "name": "DR - Jungle Dark Chop",
+  "style": "darkstep / halftime jungle",
+  "comment": "Heavy pitched-down (-3st) break slicer with 50% crunch, Phaser sweep, and reversed slices 4 & 8 for gritty rollers.",
+  "kit": "Jungle Break",
+  "slicer": {
+    "pitch": -3.0,
+    "tight": 0.85,
+    "crunch": 0.5
+  },
+  "track": {
+    "level": 0.86,
+    "drive": 0.48,
+    "eqLow": 3.0,
+    "eqHigh": -1.5,
+    "delay": 0.12,
+    "reverb": 0.18,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.35,
+        "rate": 0.4
+      },
+      {
+        "type": "phaser",
+        "amount": 0.28,
+        "rate": 0.22
+      },
+      {
+        "type": "compressor",
+        "amount": 0.55,
+        "rate": 0.3
+      }
+    ]
+  },
+  "pads": {
+    "kick": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0,
+      "sliceEnd": 0.125,
+      "reverse": false
+    },
+    "snare": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.125,
+      "sliceEnd": 0.25,
+      "reverse": false
+    },
+    "clap": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.25,
+      "sliceEnd": 0.375,
+      "reverse": false
+    },
+    "ch": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.375,
+      "sliceEnd": 0.5,
+      "reverse": true
+    },
+    "oh": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.5,
+      "sliceEnd": 0.625,
+      "reverse": false
+    },
+    "rim": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.625,
+      "sliceEnd": 0.75,
+      "reverse": false
+    },
+    "tom": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.75,
+      "sliceEnd": 0.875,
+      "reverse": false
+    },
+    "perc": {
+      "vol": 0.9,
+      "pan": 0.0,
+      "pitch": 0.0,
+      "decay": 0.45,
+      "choke": 1,
+      "sliceStart": 0.875,
+      "sliceEnd": 1,
+      "reverse": true
+    }
+  }
+}

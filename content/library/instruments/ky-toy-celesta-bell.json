@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Toy Celesta Bell",
+  "style": "keys & chords",
+  "comment": "Delicate, glassy music-box celesta using Ratio 6.0 FM overtones for dreamy Lo-Fi & IDM melodies.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 6600.0,
+  "res": 1.0,
+  "attack": 0.002,
+  "decay": 0.72,
+  "sustain": 0,
+  "release": 0.48,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 6.0,
+    "index": 2.8,
+    "decay": 0.18,
+    "feedback": 0.04
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0,
+  "slideTime": 0.025,
+  "warmth": 0.42,
+  "motion": 0.25,
+  "octave": 1,
+  "chord": false,
+  "track": {
+    "drive": 0.02,
+    "eqLow": -3.0,
+    "eqHigh": 2.0,
+    "delay": 0.44,
+    "reverb": 0.56,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.38,
+        "rate": 0.26
+      }
+    ]
+  }
+}

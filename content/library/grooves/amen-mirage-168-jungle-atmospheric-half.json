@@ -1,0 +1,216 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Amen Mirage 168: Jungle Atmospheric Half",
+  "style": "jungle / oldschool dnb",
+  "comment": "From the style pack \"Amen Mirage 168\". Suggested chain: A B C C D C. Suggested song moves: slot 1 lead cutoff 700 to 3600; slot 2 bass cutoff 380 to 1250; slot 3 syn3 vector_x 0.2 to 0.85; slot 5 drums drive 0.45 to 0.1.",
+  "bpm": 168,
+  "swing": 0.06,
+  "root": "D",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Jungle Break",
+      "track": {
+        "delay": 0.08,
+        "reverb": 0.14,
+        "fx": [
+          {
+            "type": "compressor",
+            "amount": 0.45,
+            "rate": 0.3
+          },
+          {
+            "type": "bitcrush",
+            "amount": 0.14,
+            "rate": 0.25
+          }
+        ]
+      }
+    },
+    "steps": {
+      "kick": "X...............",
+      "clap": "....x.......x...",
+      "oh": "..........x.....",
+      "perc": "..............x."
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "preset": "Reese DnB",
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "saw",
+        "detune": 24.0,
+        "cutoff": 760.0,
+        "res": 3.8,
+        "fold": 0.32,
+        "slideTime": 0.14,
+        "warmth": 0.8,
+        "motion": 0.75,
+        "octave": -1,
+        "track": {
+          "reverb": 0.08,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.38,
+              "rate": 0.4
+            },
+            {
+              "type": "phaser",
+              "amount": 0.3,
+              "rate": 0.2
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 6,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 6,
+          "degree": 2,
+          "len": 4,
+          "slide": true
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 4,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": -2,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "preset": "FM E-Piano",
+        "engine": "fm",
+        "cutoff": 3800.0,
+        "warmth": 0.65,
+        "motion": 0.45,
+        "octave": -2,
+        "chord": true,
+        "track": {
+          "delay": 0.38,
+          "reverb": 0.45,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.6,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 8,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 4,
+          "accent": true
+        },
+        {
+          "step": 14,
+          "degree": 3,
+          "len": 2
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1800.0,
+        "vector": {
+          "x": 0.25,
+          "y": 0.6
+        },
+        "warmth": 0.72,
+        "motion": 0.7,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.62
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 4,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 2,
+          "len": 4
+        },
+        {
+          "step": 12,
+          "degree": 5,
+          "len": 4,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "preset": "FM Bell",
+        "engine": "fm",
+        "octave": 1,
+        "track": {
+          "delay": 0.48,
+          "reverb": 0.42
+        }
+      },
+      "notes": [
+        {
+          "step": 2,
+          "degree": 4,
+          "len": 2
+        },
+        {
+          "step": 6,
+          "degree": 7,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 5,
+          "len": 2
+        },
+        {
+          "step": 14,
+          "degree": 4,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

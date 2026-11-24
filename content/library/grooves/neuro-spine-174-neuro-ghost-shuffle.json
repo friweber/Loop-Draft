@@ -1,0 +1,236 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Neuro Spine 174: Neuro Ghost Shuffle",
+  "style": "neurofunk / techstep dnb",
+  "comment": "From the style pack \"Neuro Spine 174\". Suggested chain: A B C C D C. Suggested song moves: slot 2 bass cutoff 450 to 1800; slot 2 bass fold 0.35 to 0.85; slot 3 lead fm_index 3.2 to 7.2; slot 5 syn4 vector_x 0.1 to 0.95; slot 5 syn4 vector_y 0.9 to 0.15.",
+  "bpm": 174,
+  "swing": 0,
+  "root": "F",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "Neuro Techstep",
+      "hardness": 0.45,
+      "track": {
+        "reverb": 0.1,
+        "fx": [
+          {
+            "type": "compressor",
+            "amount": 0.65,
+            "rate": 0.35
+          },
+          {
+            "type": "overdrive",
+            "amount": 0.3,
+            "rate": 0.4
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "kick": "X.........X.....",
+      "snare": "....X..x.x..X..x",
+      "clap": "....X.......X...",
+      "ch": "xxxxxxxxxxxxxxxx",
+      "oh": "..X.......X....."
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "preset": "Reese DnB",
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "saw",
+        "detune": 28.0,
+        "cutoff": 920.0,
+        "res": 5.5,
+        "fold": 0.65,
+        "slideTime": 0.11,
+        "warmth": 0.72,
+        "motion": 0.85,
+        "octave": -1,
+        "track": {
+          "fx": [
+            {
+              "type": "phaser",
+              "amount": 0.65,
+              "rate": 0.35
+            },
+            {
+              "type": "overdrive",
+              "amount": 0.62,
+              "rate": 0.5
+            },
+            {
+              "type": "compressor",
+              "amount": 0.7,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 4,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 4,
+          "degree": 1,
+          "len": 2
+        },
+        {
+          "step": 10,
+          "degree": 0,
+          "len": 3,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 13,
+          "degree": -1,
+          "len": 3,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 2200.0,
+        "res": 6.2,
+        "fold": 0.55,
+        "octave": -1,
+        "track": {
+          "delay": 0.18,
+          "reverb": 0.15,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.55,
+              "rate": 0.45
+            },
+            {
+              "type": "phaser",
+              "amount": 0.5,
+              "rate": 0.45
+            },
+            {
+              "type": "compressor",
+              "amount": 0.6,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 6,
+          "degree": 3,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 8,
+          "degree": 2,
+          "len": 2
+        },
+        {
+          "step": 14,
+          "degree": 4,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 15,
+          "degree": 1,
+          "len": 1,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "pluck",
+        "cutoff": 3800.0,
+        "pluckBright": 0.8,
+        "decay": 0.354,
+        "octave": 0,
+        "track": {
+          "delay": 0.4,
+          "reverb": 0.32,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.45,
+              "rate": 0.35
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 6,
+          "degree": 1,
+          "len": 2
+        },
+        {
+          "step": 12,
+          "degree": 5,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1650.0,
+        "vector": {
+          "x": 0.45,
+          "y": 0.55
+        },
+        "fold": 0.3,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.5
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 16
+        }
+      ]
+    }
+  ]
+}

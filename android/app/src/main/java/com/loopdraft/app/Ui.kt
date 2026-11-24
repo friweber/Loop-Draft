@@ -83,6 +83,7 @@ class AppState {
     var libOpen by mutableStateOf("")       // which kind is unfolded: "instrument", "drumkit", "groove" or none
     var libName by mutableStateOf("My preset")
     var libMsg by mutableStateOf("")
+    var libStyle by mutableStateOf("")      // show only this style in the open library; empty = all
     var libTempoKey by mutableStateOf(true)   // a groove also sets tempo and key
     var onLibLoad: (LibItem) -> Unit = {}
     var onLibSave: (String, String) -> Unit = { _, _ -> }
@@ -278,7 +279,7 @@ data class LibItem(val kind: String, val name: String, val style: String, val us
 fun LibraryPanel(s: AppState, kind: String, title: String, what: String, accent: Color) {
     val items = s.library.filter { it.kind == kind }
     if (s.libOpen != kind) {
-        HwButton("$title (${items.size})", Modifier.fillMaxWidth(), ledColor = accent, height = 32.dp) { s.libOpen = kind; s.libMsg = ""; s.confirmDelete = "" }
+        HwButton("$title (${items.size})", Modifier.fillMaxWidth(), ledColor = accent, height = 32.dp) { s.libOpen = kind; s.libMsg = ""; s.confirmDelete = ""; s.libStyle = "" }
         return
     }
     ModulePanel(
@@ -292,7 +293,15 @@ fun LibraryPanel(s: AppState, kind: String, title: String, what: String, accent:
                 s.libTempoKey = !s.libTempoKey
             }
         }
-        for (item in items) {
+        // with many files: pick a style first
+        val styles = items.map { if (it.user) "yours" else it.style }.filter { it.isNotEmpty() }.distinct()
+        if (styles.size > 1) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                HwButton("ALL", on = s.libStyle.isEmpty(), ledColor = accent, height = 28.dp, pad = 8.dp) { s.libStyle = "" }
+                for (st in styles) HwButton(st.uppercase(), on = s.libStyle == st, ledColor = accent, height = 28.dp, pad = 8.dp) { s.libStyle = st }
+            }
+        }
+        for (item in items.filter { s.libStyle.isEmpty() || (if (it.user) "yours" else it.style) == s.libStyle }) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     SilkLabel(item.name, color = HwSilk, size = 12)

@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - FM Sync Shredder",
+  "style": "lead & acid",
+  "comment": "Screaming hard-sync-style FM solo lead using high modulator ratio (4.0) with feedback grit and fast legato slides.",
+  "engine": "fm",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 7.0,
+  "cutoff": 3800.0,
+  "res": 3.2,
+  "attack": 0.004,
+  "decay": 0.5,
+  "sustain": 0.68,
+  "release": 0.18,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 5.4,
+    "depth": 0.18
+  },
+  "fm": {
+    "ratio": 4.0,
+    "index": 5.6,
+    "decay": 0.32,
+    "feedback": 0.48
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "fold": 0.42,
+  "slideTime": 0.07,
+  "warmth": 0.46,
+  "motion": 0.55,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.45,
+    "eqLow": 0.0,
+    "eqHigh": 2.5,
+    "delay": 0.36,
+    "reverb": 0.32,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.52,
+        "rate": 0.45
+      },
+      {
+        "type": "chorus",
+        "amount": 0.48,
+        "rate": 0.35
+      }
+    ]
+  }
+}

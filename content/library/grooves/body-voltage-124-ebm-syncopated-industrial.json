@@ -1,0 +1,325 @@
+{
+  "kind": "groove",
+  "format": 1,
+  "name": "Body Voltage 124: EBM Syncopated Industrial",
+  "style": "ebm / dark electro",
+  "comment": "From the style pack \"Body Voltage 124\". Suggested chain: A A B B C C D C. Suggested song moves: slot 1 bass cutoff 520 to 1350; slot 3 bass fm_index 2.4 to 5.2; slot 5 syn3 cutoff 1600 to 4200; slot 7 syn4 vector_x 0.2 to 0.9; slot 7 drums drive 0.3 to 0.8.",
+  "bpm": 124,
+  "swing": 0,
+  "root": "E",
+  "scale": "minor",
+  "octave": 3,
+  "bars": 1,
+  "drums": {
+    "drumkit": {
+      "kit": "EBM Electro",
+      "hardness": 0.42,
+      "track": {
+        "reverb": 0.22,
+        "fx": [
+          {
+            "type": "overdrive",
+            "amount": 0.35,
+            "rate": 0.45
+          },
+          {
+            "type": "bitcrush",
+            "amount": 0.12,
+            "rate": 0.3
+          },
+          {
+            "type": "compressor",
+            "amount": 0.55,
+            "rate": 0.3
+          }
+        ]
+      },
+      "pads": {
+        "ch": {
+          "choke": 1
+        },
+        "oh": {
+          "choke": 1
+        }
+      }
+    },
+    "steps": {
+      "kick": "X.....X.....X...",
+      "snare": "....X.......X...",
+      "ch": "xx.xxx.xxx.xxx.x",
+      "oh": "..X...X...X...X.",
+      "perc": "..x.......x...x."
+    }
+  },
+  "synths": [
+    {
+      "track": "bass",
+      "instrument": {
+        "engine": "fm",
+        "cutoff": 1200.0,
+        "res": 2.6,
+        "fold": 0.4,
+        "warmth": 0.58,
+        "octave": -1,
+        "track": {
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.45,
+              "rate": 0.4
+            },
+            {
+              "type": "compressor",
+              "amount": 0.55,
+              "rate": 0.3
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 1,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 2,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 4,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 5,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 7,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 8,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 9,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 10,
+          "degree": 7,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 11,
+          "degree": 0,
+          "len": 1
+        },
+        {
+          "step": 12,
+          "degree": 3,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 13,
+          "degree": 3,
+          "len": 1
+        },
+        {
+          "step": 14,
+          "degree": 10,
+          "len": 1,
+          "accent": true
+        },
+        {
+          "step": 15,
+          "degree": 2,
+          "len": 1
+        }
+      ]
+    },
+    {
+      "track": "lead",
+      "instrument": {
+        "preset": "Acid 303",
+        "engine": "subtractive",
+        "osc1": "saw",
+        "osc2": "square",
+        "detune": 8.0,
+        "cutoff": 1450.0,
+        "res": 7.5,
+        "fold": 0.55,
+        "slideTime": 0.085,
+        "octave": -1,
+        "track": {
+          "delay": 0.28,
+          "reverb": 0.18,
+          "fx": [
+            {
+              "type": "overdrive",
+              "amount": 0.55,
+              "rate": 0.45
+            },
+            {
+              "type": "phaser",
+              "amount": 0.38,
+              "rate": 0.35
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 6,
+          "degree": 2,
+          "len": 2,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 14,
+          "degree": 4,
+          "len": 1,
+          "accent": true,
+          "slide": true
+        },
+        {
+          "step": 15,
+          "degree": 3,
+          "len": 1,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn3",
+      "instrument": {
+        "engine": "subtractive",
+        "osc1": "square",
+        "osc2": "saw",
+        "detune": 16.0,
+        "cutoff": 2600.0,
+        "res": 3.2,
+        "warmth": 0.55,
+        "motion": 0.5,
+        "octave": 0,
+        "track": {
+          "delay": 0.36,
+          "reverb": 0.3,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.6,
+              "rate": 0.35
+            },
+            {
+              "type": "phaser",
+              "amount": 0.3,
+              "rate": 0.25
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 3,
+          "degree": 2,
+          "len": 1
+        },
+        {
+          "step": 6,
+          "degree": 3,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 10,
+          "degree": 4,
+          "len": 2,
+          "accent": true
+        },
+        {
+          "step": 12,
+          "degree": 2,
+          "len": 2
+        },
+        {
+          "step": 14,
+          "degree": 1,
+          "len": 2,
+          "accent": true
+        }
+      ]
+    },
+    {
+      "track": "syn4",
+      "instrument": {
+        "engine": "vector",
+        "cutoff": 1750.0,
+        "vector": {
+          "x": 0.65,
+          "y": 0.4
+        },
+        "warmth": 0.6,
+        "motion": 0.6,
+        "octave": 0,
+        "chord": true,
+        "track": {
+          "reverb": 0.48,
+          "fx": [
+            {
+              "type": "chorus",
+              "amount": 0.55,
+              "rate": 0.25
+            }
+          ]
+        }
+      },
+      "notes": [
+        {
+          "step": 0,
+          "degree": 0,
+          "len": 12
+        },
+        {
+          "step": 12,
+          "degree": 5,
+          "len": 4,
+          "accent": true
+        }
+      ]
+    }
+  ]
+}

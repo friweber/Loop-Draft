@@ -41,22 +41,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun refreshLibrary() {
-        val items = mutableListOf<LibItem>()
-        val builtIn = mutableListOf<String>()
-        try { assetJsons("library", builtIn) } catch (e: Exception) { }
-        for (p in builtIn.sorted()) {
-            val text = try { assets.open(p).bufferedReader().use { it.readText() } } catch (e: Exception) { continue }
-            val h = header(text) ?: continue
-            items.add(LibItem(h.first, h.second, h.third, false, p))
-        }
-        for (f in (libraryDir().listFiles() ?: emptyArray()).filter { it.isFile && it.name.endsWith(".json") }.sortedBy { it.name }) {
-            val text = try { f.readText() } catch (e: Exception) { continue }
-            val h = header(text) ?: continue
-            items.add(LibItem(h.first, h.second, h.third, true, f.absolutePath))
-        }
-        state.library.clear()
-        state.library.addAll(items)
+    // Reading and parsing well over a hundred small files is kept off the screen's thread, so it never delays the first frame.
+    private fun refreshLibrary(done: () -> Unit = {}) {
+        Thread {
+            val items = mutableListOf<LibItem>()
+            val builtIn = mutableListOf<String>()
+            try { assetJsons("library", builtIn) } catch (e: Exception) { }
+            for (p in builtIn.sorted()) {
+                val text = try { assets.open(p).bufferedReader().use { it.readText() } } catch (e: Exception) { continue }
+                val h = header(text) ?: continue
+                items.add(LibItem(h.first, h.second, h.third, false, p))
+            }
+            for (f in (libraryDir().listFiles() ?: emptyArray()).filter { it.isFile && it.name.endsWith(".json") }.sortedBy { it.name }) {
+                val text = try { f.readText() } catch (e: Exception) { continue }
+                val h = header(text) ?: continue
+                items.add(LibItem(h.first, h.second, h.third, true, f.absolutePath))
+            }
+            val sorted = items.sortedWith(compareBy({ it.kind }, { !it.user }, { it.style }, { it.name }))
+            runOnUiThread {
+                state.library.clear()
+                state.library.addAll(sorted)
+                done()
+            }
+        }.start()
     }
 
     private fun libText(item: LibItem): String? = try {
@@ -239,17 +246,22 @@ class MainActivity : ComponentActivity() {
                 state.selAutoTrack = 1; state.selAutoLane = 0
                 if (intent?.getBooleanExtra("picking", false) == true) { state.pickAuto = true; state.fxTrack = 1; state.tab = 2 } else state.tab = 3
             }
-            "lib" -> {
+            "lib" -> refreshLibrary {
                 // test option: load a built-in groove, save the bass as an own instrument and load that onto the lead
-                val g = state.library.firstOrNull { it.kind == "groove" }
+                val g = state.library.firstOrNull { it.kind == "groove" && !it.user }
                 if (g != null) loadLibItem(g)
                 val grooveMsg = state.libMsg
-                saveLibItem("instrument", "CI bass")
-                state.synth = 1
-                val mine = state.library.firstOrNull { it.user && it.kind == "instrument" }
-                if (mine != null) loadLibItem(mine)
-                Log.i("LoopDraft", "lib items=${state.library.size} groove=[$grooveMsg] own=[${state.libMsg}] bpm=${Native.getParam(P.BPM, 0).toInt()}")
-                state.libOpen = "groove"
+                val text = Native.exportContent(0, state.scene, 0, "CI bass")
+                userFile("instrument", "CI bass").writeText(text)
+                refreshLibrary {
+                    state.synth = 1
+                    val mine = state.library.firstOrNull { it.user && it.kind == "instrument" }
+                    if (mine != null) loadLibItem(mine)
+                    var bad = 0
+                    for (it in state.library) { val t = libText(it); if (t == null || Native.checkContent(t).isNotEmpty()) bad++ }
+                    Log.i("LoopDraft", "lib items=${state.library.size} bad=$bad groove=[$grooveMsg] own=[${state.libMsg}] bpm=${Native.getParam(P.BPM, 0).toInt()}")
+                    state.libOpen = "groove"
+                }
             }
             "dsyncheck" -> Log.i("LoopDraft", "dsyn after restart engine=${Native.getParam(P.DRUM_ENGINE, 0).toInt()} pad0=${Native.padIsSynth(0)}")
             "dsyn" -> {

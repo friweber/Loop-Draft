@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PD - Solina Horizon",
+  "style": "pads & vector",
+  "comment": "Expansive 70s/80s Solina-style string pad in Chord Mode with slow 350ms swell, Chorus, and cavernous 72% Reverb.",
+  "engine": "vector",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 18.0,
+  "cutoff": 1850.0,
+  "res": 1.6,
+  "attack": 0.35,
+  "decay": 0.8,
+  "sustain": 0.82,
+  "release": 0.75,
+  "level": 0.82,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 0.45,
+    "depth": 0.3
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 1.4,
+    "decay": 0.6,
+    "feedback": 0.05
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.25,
+    "y": 0.65
+  },
+  "fold": 0,
+  "slideTime": 0.12,
+  "warmth": 0.75,
+  "motion": 0.7,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.04,
+    "eqLow": -2.0,
+    "eqHigh": 1.5,
+    "delay": 0.25,
+    "reverb": 0.72,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.72,
+        "rate": 0.22
+      }
+    ]
+  }
+}

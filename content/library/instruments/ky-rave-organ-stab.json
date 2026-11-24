@@ -1,0 +1,64 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Rave Organ Stab",
+  "style": "keys & chords",
+  "comment": "Punchy 90s warehouse chord stab blending Vector Square, Sub, and bright FM bite with Overdrive & Chorus.",
+  "engine": "vector",
+  "osc1": "square",
+  "osc2": "saw",
+  "detune": 12.0,
+  "cutoff": 2400.0,
+  "res": 2.6,
+  "attack": 0.004,
+  "decay": 0.24,
+  "sustain": 0.12,
+  "release": 0.14,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.8,
+    "decay": 0.12,
+    "feedback": 0.15
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.45,
+    "y": 0.28
+  },
+  "fold": 0.25,
+  "slideTime": 0.03,
+  "warmth": 0.62,
+  "motion": 0.38,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "drive": 0.3,
+    "eqLow": -2.0,
+    "eqHigh": 1.5,
+    "delay": 0.28,
+    "reverb": 0.46,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.32,
+        "rate": 0.35
+      },
+      {
+        "type": "chorus",
+        "amount": 0.55,
+        "rate": 0.35
+      },
+      {
+        "type": "bitcrush",
+        "amount": 0.1,
+        "rate": 0.25
+      }
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PD - Bowed Cello Vector",
+  "style": "pads & vector",
+  "comment": "Expressive solo bowed string texture combining Vector Saw + Sub with slow 420ms attack and natural LFO vibrato.",
+  "engine": "vector",
+  "osc1": "saw",
+  "osc2": "triangle",
+  "detune": 9.0,
+  "cutoff": 1450.0,
+  "res": 2.0,
+  "attack": 0.42,
+  "decay": 0.75,
+  "sustain": 0.88,
+  "release": 0.55,
+  "level": 0.82,
+  "lfo": {
+    "target": "pitch",
+    "rate": 4.6,
+    "depth": 0.16
+  },
+  "fm": {
+    "ratio": 1.5,
+    "index": 1.2,
+    "decay": 0.5,
+    "feedback": 0.1
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.35,
+    "y": 0.8
+  },
+  "fold": 0.12,
+  "slideTime": 0.16,
+  "warmth": 0.76,
+  "motion": 0.52,
+  "octave": -1,
+  "chord": false,
+  "track": {
+    "drive": 0.08,
+    "eqLow": 1.5,
+    "eqHigh": -1.5,
+    "delay": 0.2,
+    "reverb": 0.65,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.55,
+        "rate": 0.25
+      }
+    ]
+  }
+}

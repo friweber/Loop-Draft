@@ -1,0 +1,59 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - Vector Laser Lead",
+  "style": "lead & acid",
+  "comment": "4-corner Vector synth lead blending FM harmonics with Square/Sub weight—automate Vector X/Y for instant timbre shifts.",
+  "engine": "vector",
+  "osc1": "saw",
+  "osc2": "square",
+  "detune": 11.0,
+  "cutoff": 3100.0,
+  "res": 3.6,
+  "attack": 0.005,
+  "decay": 0.35,
+  "sustain": 0.55,
+  "release": 0.16,
+  "level": 0.82,
+  "lfo": {
+    "target": "off",
+    "rate": 2.5,
+    "depth": 0
+  },
+  "fm": {
+    "ratio": 3.0,
+    "index": 3.4,
+    "decay": 0.2,
+    "feedback": 0.22
+  },
+  "pluckBright": 0.65,
+  "vector": {
+    "x": 0.8,
+    "y": 0.75
+  },
+  "fold": 0.4,
+  "slideTime": 0.065,
+  "warmth": 0.42,
+  "motion": 0.65,
+  "octave": 0,
+  "chord": false,
+  "track": {
+    "drive": 0.24,
+    "eqLow": 0.0,
+    "eqHigh": 2.0,
+    "delay": 0.4,
+    "reverb": 0.28,
+    "fx": [
+      {
+        "type": "phaser",
+        "amount": 0.42,
+        "rate": 0.35
+      },
+      {
+        "type": "compressor",
+        "amount": 0.4,
+        "rate": 0.25
+      }
+    ]
+  }
+}
