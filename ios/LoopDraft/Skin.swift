@@ -283,7 +283,13 @@ struct SkinStudioSheet: View {
                     }.frame(width: 74)
                 }
 
-                ModulePanel("Feel", accent: skin.positive) {
+                ModulePanel("Feel & Layout", accent: skin.positive) {
+                    HStack(spacing: 5) {
+                        SilkLabel(text: "SIZE", size: 9).frame(width: 62, alignment: .leading)
+                        HwButton(text: "COMPACT", on: state.uiScale == 0, ledColor: skin.positive, height: 30) { state.uiScale = 0 }
+                        HwButton(text: "NORMAL", on: state.uiScale == 1, ledColor: skin.positive, height: 30) { state.uiScale = 1 }
+                        HwButton(text: "LARGE", on: state.uiScale == 2, ledColor: skin.positive, height: 30) { state.uiScale = 2 }
+                    }
                     HStack(spacing: 5) {
                         SilkLabel(text: "CONTROLS", size: 9).frame(width: 62, alignment: .leading)
                         HwButton(text: "FINE", on: Feel.speed == 0, ledColor: skin.positive, height: 30) { Feel.speed = 0; state.rev += 1 }
@@ -295,7 +301,21 @@ struct SkinStudioSheet: View {
                         HwButton(text: "OFF", on: !Feel.haptics, ledColor: skin.positive, height: 30) { Feel.haptics = false; state.rev += 1 }
                         HwButton(text: "ON TAP", on: Feel.haptics, ledColor: skin.positive, height: 30) { Feel.haptics = true; state.rev += 1 }
                     }
+                    HStack(spacing: 5) {
+                        SilkLabel(text: "SIDEWAYS", size: 9).frame(width: 62, alignment: .leading)
+                        HwButton(text: "RAIL LEFT", on: !state.leftHanded, ledColor: skin.positive, height: 30) { state.leftHanded = false }
+                        HwButton(text: "RAIL RIGHT", on: state.leftHanded, ledColor: skin.positive, height: 30) { state.leftHanded = true }
+                    }
+                    HStack(spacing: 5) {
+                        SilkLabel(text: "AUDIO", size: 9).frame(width: 62, alignment: .leading)
+                        HwButton(text: "FAST", on: state.audioMode == 0, ledColor: skin.positive, height: 30) { state.audioMode = 0 }
+                        HwButton(text: "BALANCED", on: state.audioMode == 1, ledColor: skin.positive, height: 30) { state.audioMode = 1 }
+                        HwButton(text: "SAFE", on: state.audioMode == 2, ledColor: skin.positive, height: 30) { state.audioMode = 2 }
+                    }
+                    SilkLabel(text: "AUDIO: FAST reacts quickest to your fingers.", color: skin.muted, size: 9)
+                    SilkLabel(text: "If the sound crackles, go to BALANCED or SAFE.", color: skin.muted, size: 9)
                     SilkLabel(text: "Double-tap any slider or knob to set it back to its default.", color: skin.muted, size: 9)
+                    SilkLabel(text: "SIDEWAYS: where the transport rail sits when the phone is turned.", color: skin.muted, size: 9)
                     SilkLabel(text: state.audioInfo, color: skin.silk, size: 10)
                 }
 

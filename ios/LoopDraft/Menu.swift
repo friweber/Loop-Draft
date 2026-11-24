@@ -34,7 +34,6 @@ struct MenuSheet: View {
     @Environment(\.skin) var skin
     @Environment(\.dismiss) var dismiss
 
-    @State private var page: Int = 0
     @State private var items: [LibItem] = []
     @State private var kind: String = "groove"
     @State private var style: String = ""
@@ -46,14 +45,16 @@ struct MenuSheet: View {
     @State private var projects: [String] = []
 
     @State private var exporting: Bool = false
-    @State private var exported: URL? = nil
+    @State private var exported: [URL] = []
+    @State private var libName: String = ""
+    @State private var confirmDelete: String = ""
 
     var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 5) {
-                HwButton(text: "LIBRARY", on: page == 0, ledColor: skin.primary, height: 30) { page = 0 }
-                HwButton(text: "PROJECTS", on: page == 1, ledColor: skin.secondary, height: 30) { page = 1 }
-                HwButton(text: "EXPORT", on: page == 2, ledColor: skin.tertiary, height: 30) { page = 2 }
+                HwButton(text: "LIBRARY", on: state.menuPage == 0, ledColor: skin.primary, height: 30) { state.menuPage = 0; message = "" }
+                HwButton(text: "PROJECTS", on: state.menuPage == 1, ledColor: skin.secondary, height: 30) { state.menuPage = 1; message = "" }
+                HwButton(text: "EXPORT", on: state.menuPage == 2, ledColor: skin.tertiary, height: 30) { state.menuPage = 2; message = "" }
                 HwButton(text: "DONE", on: true, ledColor: skin.positive, height: 30) { dismiss() }.frame(width: 64)
             }
             if !message.isEmpty {
@@ -64,7 +65,7 @@ struct MenuSheet: View {
             }
             ScrollView {
                 VStack(spacing: 8) {
-                    if page == 0 { libraryPage } else if page == 1 { projectsPage } else { exportPage }
+                    if state.menuPage == 0 { libraryPage } else if state.menuPage == 1 { projectsPage } else { exportPage }
                 }
             }
         }
@@ -80,8 +81,8 @@ struct MenuSheet: View {
 
     private var libraryPage: some View {
         let ofKind = items.filter { $0.kind == kind }
-        let styles = Array(Set(ofKind.map { $0.style }.filter { !$0.isEmpty })).sorted()
-        let shown = ofKind.filter { style.isEmpty || $0.style == style }
+        let styles = Array(Set(ofKind.map { styleOf($0) }.filter { !$0.isEmpty })).sorted()
+        let shown = ofKind.filter { style.isEmpty || styleOf($0) == style }
         return VStack(spacing: 8) {
             ModulePanel("Library: \(shown.count) of \(items.count)", accent: skin.primary) {
                 HStack(spacing: 5) {
@@ -105,26 +106,69 @@ struct MenuSheet: View {
                     }
                 }
                 SilkLabel(text: targetHint, color: skin.muted, size: 9)
-                HwButton(text: "LOAD MY OWN .JSON FILE", height: 28) { showImporter = true }
-            }
-            ForEach(shown) { item in
-                Button(action: { apply(item) }) {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            SilkLabel(text: item.name, color: skin.silk, size: 12)
-                            SilkLabel(text: item.style.isEmpty ? item.kind : item.style, color: skin.muted, size: 9)
-                        }
-                        Spacer()
-                        SilkLabel(text: "LOAD", color: skin.primary, size: 10)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .background(skin.recess)
-                    .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(skin.line, lineWidth: 1))
-                    .cornerRadius(skin.buttonRadius)
+                HStack(spacing: 6) {
+                    TextField("Name", text: $libName)
+                        .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled(true)
+                    HwButton(text: "SAVE MINE", ledColor: skin.positive, height: 32) { saveMine() }.frame(width: 96)
+                    HwButton(text: "FILE", ledColor: skin.secondary, height: 32) { showImporter = true }.frame(width: 56)
                 }
-                .buttonStyle(.plain)
+                SilkLabel(text: "SAVE MINE: keeps the current one under that name.", color: skin.muted, size: 9)
+                SilkLabel(text: "FILE: adds a .json preset or groove from the phone.", color: skin.muted, size: 9)
             }
+            ForEach(shown) { item in libraryRow(item) }
+        }
+    }
+
+    private func styleOf(_ item: LibItem) -> String { item.user ? "yours" : item.style }
+
+    private func libraryRow(_ item: LibItem) -> some View {
+        let sure = confirmDelete == "lib:" + item.id
+        let sub = [item.style, item.user ? "yours" : ""].filter { !$0.isEmpty }.joined(separator: " - ")
+        return HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 2) {
+                SilkLabel(text: item.name, color: skin.silk, size: 12)
+                SilkLabel(text: sub.isEmpty ? item.kind : sub, color: skin.muted, size: 9)
+            }
+            Spacer()
+            HwButton(text: "LOAD", ledColor: skin.primary, height: 30) { apply(item) }.frame(width: 60)
+            if item.user {
+                HwButton(text: sure ? "SURE?" : "DEL", on: sure, ledColor: skin.danger, height: 30) {
+                    if sure {
+                        confirmDelete = ""
+                        try? FileManager.default.removeItem(atPath: item.id)
+                        message = "Deleted: \(item.name)"
+                        loadLibrary()
+                    } else {
+                        confirmDelete = "lib:" + item.id
+                    }
+                }.frame(width: 60)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(skin.recess)
+        .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(skin.line, lineWidth: 1))
+        .cornerRadius(skin.buttonRadius)
+    }
+
+    /// Keeps the current instrument, drum kit or groove as a file of the user's own.
+    private func saveMine() {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: " -_"))
+        let name = String(libName.unicodeScalars.filter { allowed.contains($0) }).trimmingCharacters(in: .whitespaces)
+        if name.isEmpty { message = "Give it a name first."; return }
+        let k: Int32 = kind == "instrument" ? 0 : (kind == "drumkit" ? 1 : 2)
+        let json = state.bridge.exportContent(kind: k, scene: state.scene, synth: state.synth, name: name)
+        if json.isEmpty { message = "Could not save \(name)."; return }
+        let dir = MenuSheet.documents().appendingPathComponent("library", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            try json.write(to: dir.appendingPathComponent("\(kind)-\(name).json"), atomically: true, encoding: .utf8)
+            message = "Saved: \(name)"
+            Feel.tick()
+            loadLibrary()
+        } catch {
+            message = "Could not save \(name)."
         }
     }
 
@@ -199,11 +243,30 @@ struct MenuSheet: View {
             }
             ModulePanel("Open (\(projects.count))", accent: skin.secondary) {
                 if projects.isEmpty { SilkLabel(text: "No saved projects yet.", color: skin.muted, size: 10) }
-                ForEach(projects, id: \.self) { name in
-                    HwButton(text: name, height: 34) { openProject(name) }
-                }
+                ForEach(projects, id: \.self) { name in projectRow(name) }
                 SilkLabel(text: "UNDO goes back to what was open before.", color: skin.muted, size: 9)
             }
+        }
+    }
+
+    private func projectRow(_ name: String) -> some View {
+        let sure = confirmDelete == name
+        return HStack(spacing: 6) {
+            SilkLabel(text: name, color: skin.silk, size: 12)
+            Spacer()
+            HwButton(text: "OPEN", ledColor: skin.secondary, height: 30) { openProject(name) }.frame(width: 64)
+            HwButton(text: sure ? "SURE?" : "DEL", on: sure, ledColor: skin.danger, height: 30) {
+                if sure {
+                    confirmDelete = ""
+                    let base = projectsDir().appendingPathComponent(name + ".ldp")
+                    try? FileManager.default.removeItem(at: base)
+                    try? FileManager.default.removeItem(atPath: base.path + ".break.wav")
+                    message = "Deleted: \(name)"
+                    loadProjects()
+                } else {
+                    confirmDelete = name
+                }
+            }.frame(width: 60)
         }
     }
 
@@ -255,10 +318,14 @@ struct MenuSheet: View {
                     HwButton(text: "MIDI: THIS SCENE", enabled: !exporting, height: 34) { export(midi: true, song: false) }
                     HwButton(text: "MIDI: WHOLE SONG", enabled: !exporting, height: 34) { export(midi: true, song: true) }
                 }
+                HStack(spacing: 5) {
+                    HwButton(text: "STEMS: THIS SCENE", enabled: !exporting, height: 34) { exportStems(song: false) }
+                    HwButton(text: "STEMS: WHOLE SONG", enabled: !exporting, height: 34) { exportStems(song: true) }
+                }
                 if exporting { SilkLabel(text: "Rendering...", color: skin.silk, size: 11) }
-                if let url = exported {
-                    ShareLink(item: url) {
-                        Text("SHARE \(url.lastPathComponent)")
+                if !exported.isEmpty {
+                    ShareLink(items: exported) {
+                        Text(exported.count == 1 ? "SHARE \(exported[0].lastPathComponent)" : "SHARE \(exported.count) FILES")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(skin.onAccentInk)
                             .frame(maxWidth: .infinity, minHeight: 38)
@@ -267,6 +334,7 @@ struct MenuSheet: View {
                     }
                 }
                 SilkLabel(text: "The whole song is the chain of the SONG tab, played once.", color: skin.muted, size: 9)
+                SilkLabel(text: "STEMS: drums, bass and lead as separate WAV files.", color: skin.muted, size: 9)
             }
         }
     }
@@ -275,11 +343,39 @@ struct MenuSheet: View {
         let name = "LoopDraft-\(song ? "song" : "scene\(state.scene + 1)").\(midi ? "mid" : "wav")"
         let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
         exporting = true
-        exported = nil
+        exported = []
         message = ""
-        state.bridge.export(to: url.path, midi: midi, song: song, scene: state.scene) { ok in
+        state.bridge.export(to: url.path, midi: midi, song: song, scene: state.scene, stem: -1) { ok in
             exporting = false
-            if ok { exported = url; message = "Ready: \(name)" } else { message = "The export did not work." }
+            if ok { exported = [url]; message = "Ready: \(name)" } else { message = "The export did not work." }
+        }
+    }
+
+    private func exportStems(song: Bool) {
+        exporting = true
+        exported = []
+        message = ""
+        renderStem(0, song: song, done: [])
+    }
+
+    /// One stem after the other, so the phone is not rendering three songs at once.
+    private func renderStem(_ stem: Int, song: Bool, done: [URL]) {
+        let names = ["drums", "bass", "lead"]
+        if stem >= names.count {
+            exporting = false
+            exported = done
+            message = "Ready: \(done.count) stems"
+            return
+        }
+        let name = "LoopDraft-\(song ? "song" : "scene\(state.scene + 1)")-\(names[stem]).wav"
+        let url = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(name)
+        state.bridge.export(to: url.path, midi: false, song: song, scene: state.scene, stem: Int32(stem)) { ok in
+            if ok {
+                renderStem(stem + 1, song: song, done: done + [url])
+            } else {
+                exporting = false
+                message = "The export did not work."
+            }
         }
     }
 }

@@ -77,7 +77,30 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)openProject:(NSString *)path NS_SWIFT_NAME(openProject(_:));
 
 /// Renders on a background queue from a copy of the project; `completion` runs on the main queue.
-- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(export(to:midi:song:scene:completion:));
+/// stem: -1 the full mix, 0 drums, 1 bass, 2 lead (WAV only).
+- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene stem:(int)stem completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(export(to:midi:song:scene:stem:completion:));
+/// What is in the project as a library file. kind: 0 instrument (of `synth`), 1 drum kit, 2 groove (of `scene`).
+- (NSString *)exportContent:(int)kind scene:(int)scene synth:(int)synth name:(NSString *)name NS_SWIFT_NAME(exportContent(kind:scene:synth:name:));
+
+- (void)loadStartPreset;
+- (void)writeBreakPattern:(int)scene NS_SWIFT_NAME(writeBreakPattern(_:));
+/// Outline of a pad's sound for the display: `count` peak values 0..1.
+- (NSArray<NSNumber *> *)padWave:(int)pad count:(int)count NS_SWIFT_NAME(padWave(_:count:));
+- (BOOL)hasOwnBreak;
+/// Like resampleSceneToJungle, but says whether there was something to bounce.
+- (BOOL)bounceScene:(int)scene NS_SWIFT_NAME(bounceScene(_:));
+- (void)applyDrumSynthTemplate:(int)pad tmpl:(int)tmpl NS_SWIFT_NAME(applyDrumSynthTemplate(_:template:));
+- (void)clearCustomPad:(int)pad NS_SWIFT_NAME(clearCustomPad(_:));
+- (BOOL)padIsSynth:(int)pad NS_SWIFT_NAME(padIsSynth(_:));
+
+- (BOOL)toggleNote:(int)scene synth:(int)synth step:(int)step degree:(int)degree accent:(BOOL)accent slide:(BOOL)slide NS_SWIFT_NAME(toggleNote(scene:synth:step:degree:accent:slide:));
+/// The notes that glide in, as a flat list: step, degree, step, degree, ...
+- (NSArray<NSNumber *> *)slideNotes:(int)scene synth:(int)synth NS_SWIFT_NAME(slideNotes(scene:synth:));
+/// Like setChainAuto, but without a new undo step for every movement of a control.
+- (void)setChainAutoLive:(int)pos track:(int)track lane:(int)lane paramId:(int)paramId startVal:(float)startVal endVal:(float)endVal NS_SWIFT_NAME(setChainAutoLive(pos:track:lane:paramId:start:end:));
+
+/// 0 fast, 1 balanced, 2 safe: the audio buffer the app asks the system for.
+- (void)setAudioMode:(int)mode NS_SWIFT_NAME(setAudioMode(_:));
 
 @end
 

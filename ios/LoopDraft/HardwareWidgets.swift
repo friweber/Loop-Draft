@@ -174,6 +174,7 @@ struct RotaryKnob: View {
     var capColor: Color = Color(red: 0.20, green: 0.21, blue: 0.25)
     var modulated: Bool = false
     let fmt: (Float) -> String
+    var onEnd: (() -> Void)? = nil      // after a drag or a reset, e.g. to play the sound once
 
     @State private var dragStartVal: Float? = nil
 
@@ -275,6 +276,7 @@ struct RotaryKnob: View {
             state.bridge.setParam(paramId, index: index, value: state.bridge.defaultParam(paramId, index: index))
             Feel.tick()
             state.rev += 1
+            onEnd?()
         }
         .gesture(
             DragGesture(minimumDistance: 4)
@@ -293,8 +295,29 @@ struct RotaryKnob: View {
                 .onEnded { _ in
                     dragStartVal = nil
                     state.rev += 1
+                    onEnd?()
                 }
         )
+        .overlay(pickOverlay)
+    }
+
+    /// Song automation picking: controls that can be automated get a yellow frame and take the tap.
+    @ViewBuilder
+    private var pickOverlay: some View {
+        if state.pickAuto {
+            if AUTO_PARAMS[paramId] != nil {
+                RoundedRectangle(cornerRadius: skin.buttonRadius)
+                    .fill(HwColor.yellow.opacity(0.16))
+                    .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(HwColor.yellow, lineWidth: 2))
+                    .contentShape(Rectangle())
+                    .onTapGesture { state.addAutomation(paramId, index) }
+            } else {
+                RoundedRectangle(cornerRadius: skin.buttonRadius)
+                    .fill(Color.black.opacity(0.5))
+                    .contentShape(Rectangle())
+                    .onTapGesture { }
+            }
+        }
     }
 }
 

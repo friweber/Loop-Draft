@@ -1,5 +1,6 @@
 import SwiftUI
 import Combine
+import UIKit
 
 enum ParamId {
     static let BPM: Int32 = 0
@@ -57,6 +58,17 @@ enum ParamId {
     static let SYN_VEC_X: Int32 = 60
     static let SYN_VEC_Y: Int32 = 61
     static let KIT_HARDNESS: Int32 = 62
+    static let DSYN_FREQ: Int32 = 70
+    static let DSYN_DROP: Int32 = 71
+    static let DSYN_PDEC: Int32 = 72
+    static let DSYN_TONE: Int32 = 73
+    static let DSYN_NOISE: Int32 = 74
+    static let DSYN_NFREQ: Int32 = 75
+    static let DSYN_FM: Int32 = 76
+    static let DSYN_FMRATIO: Int32 = 77
+    static let DSYN_DRIVE: Int32 = 78
+    static let DSYN_CLICK: Int32 = 79
+    static let DSYN_LEN: Int32 = 80
     static let FX_SLOT1_AMOUNT: Int32 = 81
 }
 
@@ -92,6 +104,24 @@ final class EngineState: ObservableObject {
     @Published var synthLayer: Int = 0
     @Published var showSkinStudio: Bool = false
     @Published var showMenu: Bool = false
+    @Published var menuPage: Int = 0
+    @Published var slide: Bool = false          // piano roll: taps set or clear a slide
+    @Published var pickAuto: Bool = false       // the next tap on a control adds it to the song automation
+    @Published var autoMsg: String = ""
+    @Published var drumMsg: String = ""
+    /// 0 compact, 1 normal, 2 large: everything, text included.
+    @Published var uiScale: Int = (UserDefaults.standard.object(forKey: "loopdraft_scale") as? Int) ?? 1 {
+        didSet { UserDefaults.standard.set(uiScale, forKey: "loopdraft_scale") }
+    }
+    /// Landscape: the transport rail on the right instead of the left.
+    @Published var leftHanded: Bool = UserDefaults.standard.bool(forKey: "loopdraft_lefthand") {
+        didSet { UserDefaults.standard.set(leftHanded, forKey: "loopdraft_lefthand") }
+    }
+    /// 0 fast, 1 balanced, 2 safe.
+    @Published var audioMode: Int = (UserDefaults.standard.object(forKey: "loopdraft_audio") as? Int) ?? 1 {
+        didSet { UserDefaults.standard.set(audioMode, forKey: "loopdraft_audio"); bridge.setAudioMode(Int32(audioMode)) }
+    }
+    var uiScaleFactor: CGFloat { uiScale == 0 ? 0.88 : (uiScale == 2 ? 1.16 : 1.0) }
     @Published var skinConfig: SkinConfig = SkinConfig.decode(UserDefaults.standard.string(forKey: "loopdraft_skin"))
     @Published var ghostDrums: Bool = true
     @Published var ghostSynthMask: Int = 0b1111
@@ -103,6 +133,11 @@ final class EngineState: ObservableObject {
     init() {
         // Options for the simulator test: which screen to show at start.
         let args = ProcessInfo.processInfo.arguments
+        tab = min(max(UserDefaults.standard.integer(forKey: "loopdraft_tab"), 0), 3)     // opens on the screen it was left on
+        if args.contains("--pick") { pickAuto = true }
+        if args.contains("--lefthand") { leftHanded = true }
+        if let i = args.firstIndex(of: "--size"), i + 1 < args.count, let v = Int(args[i + 1]) { uiScale = min(max(v, 0), 2) }
+        if let i = args.firstIndex(of: "--page"), i + 1 < args.count, let v = Int(args[i + 1]) { menuPage = min(max(v, 0), 2) }
         if args.contains("--menu") { showMenu = true }
         if args.contains("--setup") { showSkinStudio = true }
         if let i = args.firstIndex(of: "--tab"), i + 1 < args.count, let t = Int(args[i + 1]) { tab = min(max(t, 0), 3) }
@@ -114,7 +149,17 @@ final class EngineState: ObservableObject {
         UserDefaults.standard.set(cfg.encode(), forKey: "loopdraft_skin")
     }
 
+    func rememberTab() { UserDefaults.standard.set(tab, forKey: "loopdraft_tab") }
+
     func start() {
+        bridge.setAudioMode(Int32(audioMode))
+        if ProcessInfo.processInfo.arguments.contains("--landscape") {       // simulator test: turn the screen
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                    scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight))
+                }
+            }
+        }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         _ = bridge.start(withFilesDir: docs)
         audioInfo = bridge.audioInfo()
@@ -144,6 +189,35 @@ final class EngineState: ObservableObject {
     }
 
     func vel() -> Int32 { accent ? 2 : 1 }
+
+    /// Adds one automation lane to the selected song slot: from where the control stands now to the far end of its range.
+    func addAutomation(_ id: Int32, _ index: Int32) {
+        guard let info = AUTO_PARAMS[id] else { return }
+        let track = autoTrackOf(id, index)
+        let pos = Int32(min(max(Int(selChainPos), 0), max(0, bridge.chain().count - 1)))
+        let data = bridge.chainAutoPos(pos, track: track)
+        var ids: [Int] = []
+        for ln in 0..<3 { ids.append(data.count > ln * 3 ? data[ln * 3].intValue : -1) }
+        pickAuto = false
+        tab = 3
+        selAutoTrack = track
+        let trackName = TRACK_NAMES[min(max(Int(track), 0), TRACK_NAMES.count - 1)]
+        if let have = ids.firstIndex(of: Int(id)) {
+            selAutoLane = Int32(have)
+            autoMsg = "\(info.label) is already automated here."
+            return
+        }
+        guard let lane = ids.firstIndex(where: { $0 < 0 }) else {
+            autoMsg = "All 3 lanes of \(trackName) are in use in this slot. Clear one first."
+            return
+        }
+        let now = min(max(bridge.getParam(id, index: index), info.lo), info.hi)
+        let end: Float = (now - info.lo) < (info.hi - info.lo) * 0.5 ? info.hi : info.lo
+        bridge.setChainAutoPos(pos, track: track, lane: Int32(lane), paramId: id, startVal: now, endVal: end)
+        selAutoLane = Int32(lane)
+        autoMsg = "\(info.label) added on \(trackName). Set where it starts and ends."
+        rev += 1
+    }
 
     func degreeOffset(_ synthIdx: Int32) -> Int32 {
         let sc = Int(bridge.getParam(ParamId.SCALE, index: 0).rounded())

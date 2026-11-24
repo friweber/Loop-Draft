@@ -34,6 +34,22 @@ static std::atomic<float> g_loadAvg{0.0f}, g_loadPeak{0.0f};
   std::string _savePath;
   double _sampleRate;
   BOOL _running;
+  int _audioMode;
+}
+
+- (instancetype)init {
+  if ((self = [super init])) { _audioMode = 1; }
+  return self;
+}
+
+- (double)bufferSeconds { return _audioMode == 0 ? 0.003 : (_audioMode == 2 ? 0.012 : 0.006); }
+
+- (void)setAudioMode:(int)mode {
+  _audioMode = mode < 0 ? 0 : (mode > 2 ? 2 : mode);
+  if (_running) {
+    NSError *err = nil;
+    [[AVAudioSession sharedInstance] setPreferredIOBufferDuration:[self bufferSeconds] error:&err];
+  }
 }
 
 + (instancetype)shared {
@@ -53,7 +69,7 @@ static std::atomic<float> g_loadAvg{0.0f}, g_loadPeak{0.0f};
              mode:AVAudioSessionModeDefault
           options:AVAudioSessionCategoryOptionMixWithOthers
             error:&err];
-  [as setPreferredIOBufferDuration:0.005 error:&err];
+  [as setPreferredIOBufferDuration:[self bufferSeconds] error:&err];
   [as setPreferredSampleRate:48000.0 error:&err];
   [as setActive:YES error:&err];
 
@@ -269,7 +285,7 @@ static std::atomic<float> g_loadAvg{0.0f}, g_loadPeak{0.0f};
 - (BOOL)saveProjectCopy:(NSString *)path { return _session && path && _session->saveCopy(path.UTF8String); }
 - (BOOL)openProject:(NSString *)path { return _session && path && _session->openProject(path.UTF8String); }
 
-- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene completion:(void (^)(BOOL ok))completion {
+- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene stem:(int)stem completion:(void (^)(BOOL ok))completion {
   if (!_session || !path) { if (completion) completion(NO); return; }
   // The copy is taken here, on the UI thread. The worker renders from it, so editing can go on meanwhile.
   std::shared_ptr<ld::Project> proj = std::make_shared<ld::Project>(_session->project());
@@ -286,13 +302,58 @@ static std::atomic<float> g_loadAvg{0.0f}, g_loadPeak{0.0f};
       }
     } else {
       ld::RenderOptions o;
-      o.songMode = song; o.scene = scene;
+      o.songMode = song; o.scene = scene; o.soloTrack = stem;
       if (brk) for (int i = 0; i < ld::kNumPads; ++i) o.samples[i] = brk.get();
       const ld::RenderResult r = ld::renderOffline(*proj, o);
       ok = ld::writeWav16(file.c_str(), r.l.data(), r.r.data(), r.l.size(), r.sampleRate);
     }
     dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(ok ? YES : NO); });
   });
+}
+
+- (NSString *)exportContent:(int)kind scene:(int)scene synth:(int)synth name:(NSString *)name {
+  std::string out;
+  if (_session) {
+    const std::string nm = name ? std::string(name.UTF8String) : std::string();
+    if (kind == 0) out = ld::instrumentToJson(_session->project(), synth, nm);
+    else if (kind == 1) out = ld::drumkitToJson(_session->project(), nm);
+    else out = ld::grooveToJson(_session->project(), scene, nm);
+  }
+  return [NSString stringWithUTF8String:out.c_str()] ?: @"";
+}
+
+- (void)loadStartPreset { if (_session) _session->loadStartPreset(); }
+- (void)writeBreakPattern:(int)scene { if (_session) _session->writeBreakPattern(scene); }
+- (NSArray<NSNumber *> *)padWave:(int)pad count:(int)count {
+  int n = count < 1 ? 1 : (count > 256 ? 256 : count);
+  float buf[256] = {};
+  if (_session) _session->padWaveform(pad, buf, n);
+  NSMutableArray<NSNumber *> *out = [NSMutableArray arrayWithCapacity:n];
+  for (int i = 0; i < n; ++i) [out addObject:@(buf[i])];
+  return out;
+}
+- (BOOL)hasOwnBreak { return _session && _session->activeBreak(); }
+- (BOOL)bounceScene:(int)scene { return _session && _session->resampleSceneToJungle(scene); }
+- (void)applyDrumSynthTemplate:(int)pad tmpl:(int)tmpl { if (_session) _session->applyDrumSynthTemplate(pad, tmpl); }
+- (void)clearCustomPad:(int)pad { if (_session) _session->clearCustomPad(pad); }
+- (BOOL)padIsSynth:(int)pad {
+  return _session && pad >= 0 && pad < ld::kNumPads && _session->project().customDrums[pad].enabled;
+}
+
+- (BOOL)toggleNote:(int)scene synth:(int)synth step:(int)step degree:(int)degree accent:(BOOL)accent slide:(BOOL)slide {
+  return _session && _session->toggleNote(scene, synth, step, degree, accent, 1, slide);
+}
+- (NSArray<NSNumber *> *)slideNotes:(int)scene synth:(int)synth {
+  NSMutableArray<NSNumber *> *out = [NSMutableArray array];
+  if (!_session || scene < 0 || scene >= ld::kNumScenes || synth < 0 || synth >= ld::kNumSynths) return out;
+  const ld::SynthPattern &p = _session->project().scenes[scene].synth[synth];
+  for (int i = 0; i < p.count; ++i) {
+    if (p.notes[i].flags & ld::kNoteSlide) { [out addObject:@(p.notes[i].step)]; [out addObject:@(p.notes[i].degree)]; }
+  }
+  return out;
+}
+- (void)setChainAutoLive:(int)pos track:(int)track lane:(int)lane paramId:(int)paramId startVal:(float)startVal endVal:(float)endVal {
+  if (_session) _session->setChainAuto(pos, track, lane, paramId, startVal, endVal, false);
 }
 
 @end

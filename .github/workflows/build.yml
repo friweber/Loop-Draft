@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, ios-parity]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -169,12 +169,22 @@ jobs:
             pgrep -f "LoopDraft.app/LoopDraft" > /dev/null || { echo "FAIL: the app is not running after $name"; fail=1; }
           }
           shot 1_drums --tab 0
+          shot 1b_drums_pads --tab 0 --layer 1
+          shot 1c_drums_synth --tab 0 --layer 2
           shot 2_synth --tab 1
           shot 3_synth_engine --tab 1 --layer 1
+          shot 3b_synth_deep --tab 1 --layer 2
           shot 4_fx --tab 2
+          shot 4b_fx_pick --tab 2 --pick
           shot 5_song --tab 3
           shot 6_menu_library --menu
+          shot 6b_menu_projects --menu --page 1
+          shot 6c_menu_export --menu --page 2
           shot 7_setup --setup
+          shot 8_large --tab 0 --size 2
+          shot 9_land_drums --tab 0 --landscape
+          shot 9b_land_synth --tab 1 --landscape --lefthand
+          shot 9c_land_song --tab 3 --landscape
           xcrun simctl spawn "$UDID" log show --last 3m --predicate 'process == "LoopDraft"' --style compact 2>/dev/null | tail -40 > ios-shots/log.txt || true
           exit $fail
       - uses: actions/upload-artifact@v4
