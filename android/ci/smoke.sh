@@ -11,6 +11,8 @@ adb install -r "$APK" || exit 1
 adb logcat -c
 shot() { sleep 2; adb exec-out screencap -p > "$OUT/$1.png"; }
 
+# The emulator's own launcher sometimes hangs and puts a dialog over everything. Keep such dialogs off the screenshots.
+adb shell settings put global hide_error_dialogs 1 || true
 adb shell am start -W -n "$ACT" --ez selftest true
 sleep 12
 shot 1_drums_playing
@@ -50,6 +52,18 @@ adb shell am start -W -S -n "$ACT" --ei tab 2 --es kit autopick --ez picking tru
 # the new drum kits and the drum synth; after a restart the synthesized pad must still be there
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyn;    shot 16_drum_synth; sleep 7
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyncheck; sleep 2
+# setup dialog, the layers of the drum and synth screens, a large and a compact size, another look, rail on the right
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ez setup true;            shot 20_setup
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ei layer 1;               shot 21_drums_pads
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ei layer 2;               shot 22_drums_sound
+adb shell am start -W -S -n "$ACT" --ei tab 1 --ei layer 1;               shot 23_synth_sculpt
+adb shell am start -W -S -n "$ACT" --ei tab 1 --ei layer 2;               shot 24_synth_deep
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ei uisize 2;              shot 25_large
+adb shell am start -W -S -n "$ACT" --ei tab 2 --ei uisize 0 --ei rig 2;   shot 26_compact_cream
+adb shell am start -W -S -n "$ACT" --ei tab 1 --ei rig 3 --ei layer 1;    shot 27_cyber_knobs
+adb shell cmd window user-rotation lock 1; sleep 1
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ez lefthand true;         shot 28_land_rail_right
+adb shell cmd window user-rotation lock 0; sleep 1
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 
 adb logcat -d > "$OUT/logcat.txt"

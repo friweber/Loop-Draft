@@ -1,5 +1,6 @@
 package com.loopdraft.app
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -91,6 +92,36 @@ data class SkinConfig(
         }
     }
 }
+
+/**
+ * How the app feels in the hand, apart from how it looks. Stored next to the skin.
+ * scale: 0 compact, 1 normal, 2 large (everything, text included). speed: 0 fine, 1 normal, 2 fast (finger travel of controls).
+ */
+data class UiPrefs(
+    val scale: Int = 1,
+    val speed: Int = 1,
+    val haptics: Boolean = true,
+    val leftHanded: Boolean = false
+) {
+    val scaleFactor: Float get() = when (scale) { 0 -> 0.88f; 2 -> 1.16f; else -> 1f }
+    /** Multiplies the finger travel for a control's whole range: more travel is finer. */
+    val travelFactor: Float get() = when (speed) { 0 -> 1.8f; 2 -> 0.6f; else -> 1f }
+    fun encode(): String = "$scale,$speed,${if (haptics) 1 else 0},${if (leftHanded) 1 else 0}"
+
+    companion object {
+        fun decode(raw: String?): UiPrefs {
+            val p = (raw ?: "").split(",").map { it.toIntOrNull() }
+            return UiPrefs(
+                scale = (p.getOrNull(0) ?: 1).coerceIn(0, 2),
+                speed = (p.getOrNull(1) ?: 1).coerceIn(0, 2),
+                haptics = (p.getOrNull(2) ?: 1) != 0,
+                leftHanded = (p.getOrNull(3) ?: 0) != 0
+            )
+        }
+    }
+}
+
+val LocalUiPrefs = compositionLocalOf { UiPrefs() }
 
 data class RigPreset(val name: String, val config: SkinConfig)
 
@@ -256,10 +287,29 @@ fun SkinStudioModal(s: AppState, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.size(width = 5.dp, height = 18.dp).clip(RoundedCornerShape(2.dp)).background(skin.primary))
                 Column(Modifier.weight(1f)) {
-                    SilkLabel("SKIN STUDIO", color = skin.silk, size = 14)
-                    SilkLabel("Mix frame, sliders/knobs, buttons & accents independently", color = skin.muted, size = 9, bold = false)
+                    SilkLabel("SETUP", color = skin.silk, size = 14)
+                    SilkLabel("How it feels, and how it looks", color = skin.muted, size = 9, bold = false)
                 }
                 HwButton("DONE", on = true, ledColor = skin.positive, height = 30.dp, pad = 12.dp) { onDismiss() }
+            }
+
+            // How it feels in the hand
+            ModulePanel("Feel & Layout", accent = skin.positive) {
+                val pr = s.prefs
+                val row: @Composable (String, List<String>, Int, (Int) -> Unit) -> Unit = { label, names, sel, pick ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SilkLabel(label, size = 9, modifier = Modifier.width(64.dp))
+                        names.forEachIndexed { i, nm ->
+                            HwButton(nm, Modifier.weight(1f), on = sel == i, ledColor = skin.positive, height = 30.dp, pad = 2.dp) { pick(i) }
+                        }
+                    }
+                }
+                row("SIZE", listOf("COMPACT", "NORMAL", "LARGE"), pr.scale) { s.updatePrefs(pr.copy(scale = it)) }
+                row("CONTROLS", listOf("FINE", "NORMAL", "FAST"), pr.speed) { s.updatePrefs(pr.copy(speed = it)) }
+                row("VIBRATE", listOf("OFF", "ON TAP"), if (pr.haptics) 1 else 0) { s.updatePrefs(pr.copy(haptics = it == 1)) }
+                row("SIDEWAYS", listOf("RAIL LEFT", "RAIL RIGHT"), if (pr.leftHanded) 1 else 0) { s.updatePrefs(pr.copy(leftHanded = it == 1)) }
+                SilkLabel("Double-tap any slider or knob to set it back to its default.", color = skin.muted, size = 9, bold = false)
+                SilkLabel("SIDEWAYS: where the transport rail sits when the phone is turned.", color = skin.muted, size = 9, bold = false)
             }
 
             // Live Interactive Preview

@@ -233,6 +233,7 @@ JNI(jintArray, chain)(JNIEnv* env, jobject) {
 }
 JNI(void, chainAdd)(JNIEnv*, jobject, jint scene) { if (S()) S()->chainAdd(scene); }
 JNI(void, chainRemove)(JNIEnv*, jobject, jint pos) { if (S()) S()->chainRemove(pos); }
+JNI(jfloat, defaultParam)(JNIEnv*, jobject, jint id, jint index) { return ld::Session::defaultParam(id, index); }
 JNI(void, resetToDemo)(JNIEnv*, jobject) { if (S()) S()->resetToDemo(); }
 JNI(void, loadStartPreset)(JNIEnv*, jobject) { if (S()) S()->loadStartPreset(); }
 

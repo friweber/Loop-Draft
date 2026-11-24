@@ -1,5 +1,7 @@
 package com.loopdraft.app
 
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -104,6 +106,9 @@ class AppState {
     var onSkinChanged: (SkinConfig) -> Unit = {}
     fun updateSkin(cfg: SkinConfig) { skin = cfg; onSkinChanged(cfg) }
     var showSkinStudio by mutableStateOf(false)
+    var prefs by mutableStateOf(UiPrefs())
+    var onPrefsChanged: (UiPrefs) -> Unit = {}
+    fun updatePrefs(p: UiPrefs) { prefs = p; onPrefsChanged(p) }
     var drumLayer by mutableIntStateOf(0)    // 0 = GRID, 1 = PADS, 2 = SOUND
     var synthLayer by mutableIntStateOf(0)   // 0 = PLAY, 1 = SCULPT, 2 = DEEP
 
@@ -236,7 +241,10 @@ fun App(s: AppState) {
         )
     }
 
-    CompositionLocalProvider(LocalSkin provides skin) {
+    // SIZE scales everything at once, text included: the whole layout is measured in a coarser or finer unit.
+    val baseDensity = LocalDensity.current
+    val density = remember(baseDensity, s.prefs.scale) { Density(baseDensity.density * s.prefs.scaleFactor, baseDensity.fontScale) }
+    CompositionLocalProvider(LocalSkin provides skin, LocalUiPrefs provides s.prefs, LocalDensity provides density) {
         MaterialTheme(colorScheme = colorScheme) {
             BoxWithConstraints(Modifier.fillMaxSize().background(skin.chassis).safeDrawingPadding()) {
                 val wide = maxWidth > maxHeight && maxWidth >= 520.dp
@@ -270,8 +278,10 @@ fun App(s: AppState) {
                 Row(Modifier.fillMaxSize()) {
                     WalnutRail()
                     if (wide) {
-                        SideRail(s)
-                        content(Modifier.weight(1f).fillMaxHeight().padding(top = 6.dp, bottom = 6.dp, end = 6.dp))
+                        // the transport rail sits on the side of the hand that is free
+                        if (!s.prefs.leftHanded) SideRail(s)
+                        content(Modifier.weight(1f).fillMaxHeight().padding(top = 6.dp, bottom = 6.dp, start = if (s.prefs.leftHanded) 6.dp else 0.dp, end = if (s.prefs.leftHanded) 0.dp else 6.dp))
+                        if (s.prefs.leftHanded) SideRail(s)
                     } else {
                         Column(Modifier.weight(1f).fillMaxHeight()) {
                             TopBar(s)
@@ -504,7 +514,7 @@ fun TopBar(s: AppState) {
                 Logo()
                 SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = skin.muted, size = 8, bold = false)
             }
-            HwButton("SKIN", on = s.showSkinStudio, ledColor = skin.tertiary, height = 28.dp, pad = 7.dp) {
+            HwButton("SETUP", on = s.showSkinStudio, ledColor = skin.tertiary, height = 28.dp, pad = 7.dp) {
                 s.showSkinStudio = true
             }
             HwButton("UNDO", enabled = canUndo, height = 28.dp, pad = 6.dp) { if (Native.undo()) s.rev++ }
@@ -589,7 +599,7 @@ fun SideRail(s: AppState) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Logo()
-            HwButton("SKIN", on = s.showSkinStudio, ledColor = skin.tertiary, height = 26.dp, pad = 7.dp) { s.showSkinStudio = true }
+            HwButton("SETUP", on = s.showSkinStudio, ledColor = skin.tertiary, height = 26.dp, pad = 7.dp) { s.showSkinStudio = true }
         }
         SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = skin.muted, size = 8, bold = false)
         Row(horizontalArrangement = gap) {

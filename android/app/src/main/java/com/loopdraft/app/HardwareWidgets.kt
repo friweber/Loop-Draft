@@ -1,5 +1,8 @@
 package com.loopdraft.app
 
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -215,6 +218,8 @@ fun HwButton(
     onClick: () -> Unit
 ) {
     val skin = LocalSkin.current
+    val prefs = LocalUiPrefs.current
+    val haptic = LocalHapticFeedback.current
     val activeCol = ledColor ?: skin.primary
     val shape = RoundedCornerShape(skin.buttonRadius)
     val btnSkin = skin.config.button
@@ -246,7 +251,7 @@ fun HwButton(
             .clip(shape)
             .background(bg)
             .border(borderWidth, borderColor, shape)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, onClick = { if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onClick() })
             .padding(horizontal = pad),
         contentAlignment = Alignment.Center
     ) {
@@ -315,9 +320,13 @@ fun Knob(
     fmt: (Float) -> String,
     onStart: () -> Unit,
     onChange: (Float) -> Unit,
-    onEnd: () -> Unit
+    onEnd: () -> Unit,
+    onReset: (() -> Unit)? = null      // double-tap: back to the default
 ) {
     val skin = LocalSkin.current
+    val prefs = LocalUiPrefs.current
+    val haptic = LocalHapticFeedback.current
+    val reset by rememberUpdatedState(onReset)
     val knobStyle = skin.config.knob
     val cur = remember { mutableFloatStateOf(value) }
     var dragging by remember { mutableStateOf(false) }
@@ -345,9 +354,19 @@ fun Knob(
             .clip(tileShape)
             .background(skin.recess)
             .border(if (dragging) 1.5.dp else 1.dp, borderCol, tileShape)
-            .pointerInput(min, max, isSlider) {
+            .pointerInput(onReset != null, prefs.haptics) {
+                detectTapGestures(onDoubleTap = {
+                    val r = reset
+                    if (r != null) {
+                        if (prefs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        r()
+                    }
+                })
+            }
+            .pointerInput(min, max, isSlider, prefs.speed) {
                 // Horizontal drag: left decreases, right increases. Sliders feel crisp & direct; rotary knobs fine & smooth.
-                val fullTravel = if (isSlider) maxOf(size.width.toFloat() * 0.95f, 120.dp.toPx()) else 200.dp.toPx()
+                // CONTROLS in the setup stretches or shortens the finger travel.
+                val fullTravel = (if (isSlider) maxOf(size.width.toFloat() * 0.95f, 120.dp.toPx()) else 200.dp.toPx()) * prefs.travelFactor
                 detectHorizontalDragGestures(
                     onDragStart = {
                         dragging = true
@@ -620,7 +639,8 @@ fun RotaryKnob(
             label, value, min, max, Modifier.fillMaxWidth(), capColor, modulated, fmt,
             onStart = { Native.beginEdit() },
             onChange = { Native.setParam(id, index, it) },
-            onEnd = { s.rev++ }
+            onEnd = { s.rev++ },
+            onReset = { Native.beginEdit(); Native.setParam(id, index, Native.defaultParam(id, index)); s.rev++ }
         )
         if (s.pickAuto) {
             val shape = RoundedCornerShape(skin.buttonRadius)

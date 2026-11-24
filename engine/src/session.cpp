@@ -1,6 +1,7 @@
 #include "loopdraft/session.h"
 #include "loopdraft/content.h"
 
+#include <memory>
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -265,6 +266,19 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_FX_SLOT3_RATE: return &fx().slots[2].rate;
     case P_FX_MUTE: kind = 4; return reinterpret_cast<float*>(&fx().mute);
     default: scratch = 0; return &scratch;
+  }
+}
+
+float Session::defaultParam(int id, int index) {
+  static const std::unique_ptr<Project> def = std::make_unique<Project>(makeDemoProject());
+  bool isInt; int kind;
+  const void* f = field(*def, id, index, isInt, kind);     // field() only reads here
+  switch (kind) {
+    case 1: return float(*static_cast<const int32_t*>(f));
+    case 2: return float(*static_cast<const uint8_t*>(f));
+    case 3: return float(*static_cast<const int8_t*>(f));
+    case 4: return *static_cast<const bool*>(f) ? 1.0f : 0.0f;
+    default: return *static_cast<const float*>(f);
   }
 }
 

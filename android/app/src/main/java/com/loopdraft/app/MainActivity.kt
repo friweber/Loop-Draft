@@ -213,6 +213,19 @@ class MainActivity : ComponentActivity() {
         val skinPrefs = getSharedPreferences("loopdraft_skin", MODE_PRIVATE)
         state.skin = SkinConfig.decode(skinPrefs.getString("config", null))
         state.onSkinChanged = { cfg -> skinPrefs.edit().putString("config", cfg.encode()).apply() }
+        state.prefs = UiPrefs.decode(skinPrefs.getString("feel", null))
+        state.onPrefsChanged = { p -> skinPrefs.edit().putString("feel", p.encode()).apply() }
+        // the app opens on the screen it was left on
+        if ((intent?.getIntExtra("tab", -1) ?: -1) < 0) state.tab = skinPrefs.getInt("tab", 0).coerceIn(0, 3)
+        // test options: the setup dialog, a size, a layer of the drum and synth screens
+        if (intent?.getBooleanExtra("setup", false) == true) state.showSkinStudio = true
+        val uiSize = intent?.getIntExtra("uisize", -1) ?: -1
+        if (uiSize >= 0) state.prefs = state.prefs.copy(scale = uiSize.coerceIn(0, 2))
+        if (intent?.getBooleanExtra("lefthand", false) == true) state.prefs = state.prefs.copy(leftHanded = true)
+        val rig = intent?.getIntExtra("rig", -1) ?: -1
+        if (rig >= 0) state.skin = SKIN_PRESETS[rig.coerceIn(0, SKIN_PRESETS.size - 1)].config
+        val layer = intent?.getIntExtra("layer", -1) ?: -1
+        if (layer >= 0) { state.drumLayer = layer.coerceIn(0, 2); state.synthLayer = layer.coerceIn(0, 2) }
         setContent { App(state) }
     }
 
@@ -328,6 +341,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        getSharedPreferences("loopdraft_skin", MODE_PRIVATE).edit().putInt("tab", state.tab).apply()
         Native.stop()   // stops the sound and saves the project
         super.onStop()
     }

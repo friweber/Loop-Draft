@@ -1219,6 +1219,10 @@ static void testDrumSynthIsProjectState() {
   CHECK(b.undo()); CHECK(b.project().customDrums[2].enabled);
   // hardness through setParam also drives the drum track, and the ids of the synth controls did not move
   b.setParam(P_KIT_HARDNESS, 0, 0.6f); CHECK(std::fabs(b.project().fx[0].drive - 0.6f) < 1e-6f);
+  // the default of a control does not depend on what the session was changed to
+  { Session q(48000.0); const float d0 = Session::defaultParam(P_SYN_CUTOFF, 0); q.setParam(P_SYN_CUTOFF, 0, 4321.0f);
+    CHECK(Session::defaultParam(P_SYN_CUTOFF, 0) == d0); CHECK(d0 == makeDemoProject().synths[0].cutoff);
+    CHECK(Session::defaultParam(P_FX_EQ_LOW, 2) == makeDemoProject().fx[2].eqLow); CHECK(Session::defaultParam(P_KIT_HARDNESS, 0) == 0.0f); }
   CHECK_EQ(int(P_SYN_FOLD), 57); CHECK_EQ(int(P_SYN_VEC_X), 60); CHECK_EQ(int(P_KIT_HARDNESS), 62); CHECK_EQ(int(P_DSYN_FREQ), 70);
 }
 

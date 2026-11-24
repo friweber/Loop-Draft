@@ -37,6 +37,7 @@ class Session {
   bool canRedo() const { return !redo_.empty(); }
 
   float getParam(int id, int index) const;
+  static float defaultParam(int id, int index);   // what the control is set to in a new project
   void setParam(int id, int index, float value);            // no undo entry of its own
 
   // Each of these makes its own undo entry.
