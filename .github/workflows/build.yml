@@ -183,6 +183,17 @@ jobs:
           name: ios-shots
           path: ios-shots
           if-no-files-found: ignore
+      - name: Keep the simulator screenshots (branch ci-ios)
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ios-shots && cd ios-shots
+          echo "iOS simulator output of run ${{ github.run_number }} (${{ github.sha }})" > README.md
+          git init -q && git checkout -q -b ci-ios && git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "iOS simulator output, run ${{ github.run_number }}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-ios
 
   publish-ios:
     name: Add the iOS build to the release
