@@ -185,4 +185,4 @@ Grooves can also be delivered as standard MIDI files once a MIDI import exists: 
 5. Filter envelope for the synths. This is the biggest missing sound-design tool.
 6. Adjustable delay time and reverb size.
 7. Sidechain ducking from the kick.
-8. Copy and paste of patterns between scenes and tracks, and transposing a pattern.
+8. Copying one track's pattern to another scene or track (today only a whole scene can be copied), and transposing a pattern.
