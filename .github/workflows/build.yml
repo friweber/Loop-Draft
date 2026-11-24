@@ -144,6 +144,45 @@ jobs:
         with:
           name: LoopDraft-ipa
           path: LoopDraft-iOS-unsigned.ipa
+      # Starts the app in a simulator and takes pictures of its screens. Shows that it launches and does not crash.
+      - name: Run in the simulator
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/LoopDraft.xcodeproj -scheme LoopDraft -configuration Debug -sdk iphonesimulator \
+            -derivedDataPath ios/build-sim CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" ONLY_ACTIVE_ARCH=YES ARCHS=arm64 build \
+            > xcodebuild-sim.log 2>&1 || { grep -E "error" -A6 xcodebuild-sim.log | tail -60; exit 1; }
+          APP=ios/build-sim/Build/Products/Debug-iphonesimulator/LoopDraft.app
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; c=[x for k in sorted(d, reverse=True) if 'iOS' in k for x in d[k] if x['name'].startswith('iPhone') and 'SE' not in x['name']]; print(c[0]['udid'])")
+          echo "simulator: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          mkdir -p ios-shots
+          fail=0
+          shot() {   # shot <name> <launch arguments...>
+            name=$1; shift
+            xcrun simctl terminate "$UDID" com.loopdraft.app 2>/dev/null || true
+            xcrun simctl launch "$UDID" com.loopdraft.app "$@"
+            sleep 8
+            xcrun simctl io "$UDID" screenshot "ios-shots/$name.png"
+            pgrep -f "LoopDraft.app/LoopDraft" > /dev/null || { echo "FAIL: the app is not running after $name"; fail=1; }
+          }
+          shot 1_drums --tab 0
+          shot 2_synth --tab 1
+          shot 3_synth_engine --tab 1 --layer 1
+          shot 4_fx --tab 2
+          shot 5_song --tab 3
+          shot 6_menu_library --menu
+          shot 7_setup --setup
+          xcrun simctl spawn "$UDID" log show --last 3m --predicate 'process == "LoopDraft"' --style compact 2>/dev/null | tail -40 > ios-shots/log.txt || true
+          exit $fail
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-shots
+          path: ios-shots
+          if-no-files-found: ignore
 
   publish-ios:
     name: Add the iOS build to the release

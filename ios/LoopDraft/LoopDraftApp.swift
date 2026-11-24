@@ -100,6 +100,15 @@ final class EngineState: ObservableObject {
     private var timer: AnyCancellable?
     private var frames: Int = 0
 
+    init() {
+        // Options for the simulator test: which screen to show at start.
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("--menu") { showMenu = true }
+        if args.contains("--setup") { showSkinStudio = true }
+        if let i = args.firstIndex(of: "--tab"), i + 1 < args.count, let t = Int(args[i + 1]) { tab = min(max(t, 0), 3) }
+        if let i = args.firstIndex(of: "--layer"), i + 1 < args.count, let l = Int(args[i + 1]) { drumLayer = min(max(l, 0), 2); synthLayer = min(max(l, 0), 2) }
+    }
+
     func setSkin(_ cfg: SkinConfig) {
         skinConfig = cfg
         UserDefaults.standard.set(cfg.encode(), forKey: "loopdraft_skin")
