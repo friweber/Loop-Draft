@@ -71,6 +71,6 @@ grep -q "project reopened mode=3 list=1" "$OUT/selftest.txt" || { echo "FAIL: sa
 grep -q "dsyn after restart engine=5 pad0=true" "$OUT/selftest.txt" || { echo "FAIL: the synthesized drum pad was gone after a restart"; fail=1; }
 grep -q 'lib items=6 groove=\[Loaded "Dusty House 122"' "$OUT/selftest.txt" || { echo "FAIL: the built-in library did not load"; fail=1; }
 grep -q 'own=\[Loaded "CI bass"' "$OUT/selftest.txt" || { echo "FAIL: saving and loading an own instrument did not work"; fail=1; }
-grep -q "autopick bass=81,23 drums=62" "$OUT/selftest.txt" || { echo "FAIL: adding automation from a control did not work"; fail=1; }
+grep -q "autopick bass=23,81 drums=62" "$OUT/selftest.txt" || { echo "FAIL: adding automation from a control did not work"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"
