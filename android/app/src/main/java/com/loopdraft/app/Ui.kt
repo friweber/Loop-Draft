@@ -1,5 +1,7 @@
 package com.loopdraft.app
 
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.Canvas
@@ -425,9 +427,16 @@ fun Choice(s: AppState, label: String, id: Int, index: Int, options: List<String
     val cur = remember(s.rev, id, index) { Native.getParam(id, index).roundToInt() }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         SilkLabel(label.uppercase(), size = 9, modifier = Modifier.width(56.dp))
-        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        val scroll = rememberScrollState()
+        val xs = remember(options.size) { IntArray(options.size) }
+        LaunchedEffect(cur, options.size) {
+            withFrameNanos { }                      // positions are known after the first layout
+            val x = xs.getOrNull(cur - offset) ?: return@LaunchedEffect
+            if (x < scroll.value || x > scroll.value + scroll.viewportSize * 2 / 3) scroll.animateScrollTo((x - scroll.viewportSize / 4).coerceAtLeast(0))
+        }
+        Row(Modifier.weight(1f).horizontalScroll(scroll), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             options.forEachIndexed { i, name ->
-                HwButton(name, on = cur == i + offset, ledColor = acc, height = 30.dp, pad = 7.dp) {
+                HwButton(name, Modifier.onGloballyPositioned { c -> xs[i] = c.positionInParent().x.roundToInt() }, on = cur == i + offset, ledColor = acc, height = 30.dp, pad = 7.dp) {
                     Native.beginEdit(); Native.setParam(id, index, (i + offset).toFloat()); s.rev++
                 }
             }
@@ -512,7 +521,7 @@ fun TopBar(s: AppState) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Column(Modifier.weight(1f)) {
                 Logo()
-                SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = skin.muted, size = 8, bold = false)
+                if (!s.audioOk) SilkLabel("NO AUDIO", color = skin.danger, size = 9)
             }
             HwButton("SETUP", on = s.showSkinStudio, ledColor = skin.tertiary, height = 28.dp, pad = 7.dp) {
                 s.showSkinStudio = true
@@ -601,7 +610,7 @@ fun SideRail(s: AppState) {
             Logo()
             HwButton("SETUP", on = s.showSkinStudio, ledColor = skin.tertiary, height = 26.dp, pad = 7.dp) { s.showSkinStudio = true }
         }
-        SilkLabel(if (s.audioOk) s.info else "NO AUDIO", color = skin.muted, size = 8, bold = false)
+        if (!s.audioOk) SilkLabel("NO AUDIO", color = skin.danger, size = 9)
         Row(horizontalArrangement = gap) {
             HwButton(if (s.playing) "STOP" else "PLAY", Modifier.weight(1f), on = s.playing, ledColor = skin.positive, showLed = true, height = 38.dp) {
                 if (s.playing) Native.stopTransport() else Native.play(s.scene)

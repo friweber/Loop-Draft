@@ -61,8 +61,8 @@ adb shell am start -W -S -n "$ACT" --ei tab 1 --ei layer 2;               shot 2
 adb shell am start -W -S -n "$ACT" --ei tab 0 --ei uisize 2;              shot 25_large
 adb shell am start -W -S -n "$ACT" --ei tab 2 --ei uisize 0 --ei rig 2;   shot 26_compact_cream
 adb shell am start -W -S -n "$ACT" --ei tab 1 --ei rig 3 --ei layer 1;    shot 27_cyber_knobs
-adb shell cmd window user-rotation lock 1; sleep 1
-adb shell am start -W -S -n "$ACT" --ei tab 0 --ez lefthand true;         shot 28_land_rail_right
+adb shell cmd window user-rotation lock 1; sleep 3
+adb shell am start -W -S -n "$ACT" --ei tab 0 --ez lefthand true; adb shell cmd window user-rotation lock 1; sleep 2; shot 28_land_rail_right
 adb shell cmd window user-rotation lock 0; sleep 1
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 

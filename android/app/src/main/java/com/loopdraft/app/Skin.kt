@@ -310,6 +310,7 @@ fun SkinStudioModal(s: AppState, onDismiss: () -> Unit) {
                 row("SIDEWAYS", listOf("RAIL LEFT", "RAIL RIGHT"), if (pr.leftHanded) 1 else 0) { s.updatePrefs(pr.copy(leftHanded = it == 1)) }
                 SilkLabel("Double-tap any slider or knob to set it back to its default.", color = skin.muted, size = 9, bold = false)
                 SilkLabel("SIDEWAYS: where the transport rail sits when the phone is turned.", color = skin.muted, size = 9, bold = false)
+                SilkLabel(if (s.audioOk) "Audio: ${s.info}" else "Audio could not be started.", color = skin.muted, size = 9, bold = false)
             }
 
             // Live Interactive Preview
