@@ -1138,6 +1138,90 @@ static void testSlicerSurvivesLeaving() {
   CHECK(c.undo()); CHECK(c.activeBreak() != nullptr);
 }
 
+static void testHardDrumEnginesAndCustomDrumSynth() {
+  ld::Session ses(48000.0);
+  // 1. Verify all 5 new hard drum engines (5..9) render clean, distinct, bounded audio
+  for (int eng = int(ld::DrumEngine::HardcoreGabber); eng <= int(ld::DrumEngine::GlitchBreakcore); ++eng) {
+    ses.setDrumEngine(eng);
+    CHECK_EQ(int(ses.project().drumEngine), eng);
+    ses.engine().triggerPad(0, 2);
+    ses.engine().triggerPad(1, 2);
+    float l[512] = {}, r[512] = {};
+    ses.engine().render(l, r, 512);
+    float pk = 0.0f;
+    for (int i = 0; i < 512; ++i) { CHECK(std::isfinite(l[i])); pk = std::fmax(pk, std::fabs(l[i])); }
+    CHECK(pk > 0.05f && pk <= 1.0f);
+  }
+  // 2. Kit Hardness macro
+  ses.setKitHardness(0.80f);
+  CHECK(std::fabs(ses.getParam(ld::P_KIT_HARDNESS, 0) - 0.80f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_FX_DRIVE, 0) - 0.80f) < 0.01f);
+
+  // 3. Expert Menu Custom Drum Synthesizer: template + custom tweak + save/load v6
+  ses.applyDrumSynthTemplate(0, 3); // Gabber Kick template on Pad 0
+  CHECK(ses.project().customDrums[0].enabled);
+  ses.setParam(ld::P_DSYN_FREQ, 0, 58.0f);
+  ses.setParam(ld::P_DSYN_DRIVE, 0, 0.90f);
+  ses.synthesizeCustomPad(0, true);
+  float l[512] = {}, r[512] = {};
+  ses.engine().render(l, r, 512);
+  float pk = 0.0f;
+  for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  CHECK(pk > 0.05f && pk <= 1.0f);
+
+  const char* pth = "/tmp/ld_v6_custom_drum.ldp";
+  CHECK(ses.save(pth));
+  ld::Session ses2(48000.0);
+  CHECK(ses2.load(pth));
+  CHECK(ses2.project().customDrums[0].enabled);
+  CHECK(std::fabs(ses2.getParam(ld::P_DSYN_FREQ, 0) - 58.0f) < 0.1f);
+  std::remove(pth);
+}
+
+// The drum synth of a pad is project state: it follows undo, survives kit changes and the slicer, and is in the export.
+static void testDrumSynthIsProjectState() {
+  using namespace ld;
+  Session a(48000.0);
+  float w0[32], w1[32];
+  CHECK_EQ(a.padWaveform(2, w0, 32), 32);
+  a.applyDrumSynthTemplate(2, 5);                  // pad 2 becomes a long metallic clang
+  CHECK(a.project().customDrums[2].enabled);
+  CHECK_EQ(a.padWaveform(2, w1, 32), 32);
+  float diff = 0; for (int i = 0; i < 32; ++i) diff += std::fabs(w0[i] - w1[i]);
+  CHECK(diff > 0.5f);
+  const float synthPeak = padPeak(a, 2);
+  CHECK(synthPeak > 0.05f);
+  // turning a drum-synth control switches a pad over and rebuilds its sound; no extra call needed
+  a.setParam(P_DSYN_LEN, 4, 1.2f); CHECK(a.project().customDrums[4].enabled);
+  // changing the kit keeps the synthesized pads; so does a trip through the break slicer
+  a.setDrumEngine(int(DrumEngine::HardcoreGabber)); CHECK(a.project().customDrums[2].enabled);
+  a.setDrumEngine(int(DrumEngine::JungleSlicer)); a.setDrumEngine(int(DrumEngine::Punch909));
+  CHECK(a.project().customDrums[2].enabled);
+  float w2[32]; a.padWaveform(2, w2, 32);
+  diff = 0; for (int i = 0; i < 32; ++i) diff += std::fabs(w2[i] - w1[i]);
+  CHECK(diff < 1e-4f);
+  // offline render uses the synthesized pad: a long clang still sounds where the 909 hat has died away
+  auto p = std::make_unique<Project>(a.project());
+  for (auto& sc : p->scenes) { sc.drums = DrumPattern{}; for (auto& pat : sc.synth) pat.count = 0; sc.bars = 1; }
+  for (auto& f : p->fx) { f.delaySend = 0; f.revSend = 0; }
+  p->scenes[0].drums.steps[2][0] = 2; p->bpm = 120; p->pads[2].decay = 2.0f;
+  RenderOptions o; o.scene = 0; o.soloTrack = 0; o.tailSeconds = 0; o.sampleRate = 48000;
+  const auto withSynth = renderOffline(*p, o).l;
+  p->customDrums[2].enabled = false;
+  const auto kitOnly = renderOffline(*p, o).l;
+  CHECK(rmsOf(withSynth, 14400, 19200) > 4.0f * rmsOf(kitOnly, 14400, 19200) + 1e-4f);
+  // undo steps back through every change; save and load bring the pads back
+  CHECK(a.save("/tmp/ld_dsyn.ldp"));
+  Session b(48000.0); CHECK(b.load("/tmp/ld_dsyn.ldp"));
+  CHECK(b.project().customDrums[2].enabled); CHECK(b.project().customDrums[4].enabled); CHECK(!b.project().customDrums[0].enabled);
+  CHECK(std::fabs(b.project().customDrums[4].length - 1.2f) < 1e-6f); CHECK(int(b.project().drumEngine) == int(DrumEngine::Punch909));
+  b.clearCustomPad(2); CHECK(!b.project().customDrums[2].enabled);
+  CHECK(b.undo()); CHECK(b.project().customDrums[2].enabled);
+  // hardness through setParam also drives the drum track, and the ids of the synth controls did not move
+  b.setParam(P_KIT_HARDNESS, 0, 0.6f); CHECK(std::fabs(b.project().fx[0].drive - 0.6f) < 1e-6f);
+  CHECK_EQ(int(P_SYN_FOLD), 57); CHECK_EQ(int(P_SYN_VEC_X), 60); CHECK_EQ(int(P_KIT_HARDNESS), 62); CHECK_EQ(int(P_DSYN_FREQ), 70);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -1175,6 +1259,8 @@ int main() {
     {"break slicer survives leaving and restarting", testSlicerSurvivesLeaving},
     {"slide, accent, fold", testSlideAccentFold},
     {"pluck and vector engines, named project copy", testPluckAndVector},
+    {"hard drum kits and the drum synth", testHardDrumEnginesAndCustomDrumSynth},
+    {"drum synth pads are project state", testDrumSynthIsProjectState},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

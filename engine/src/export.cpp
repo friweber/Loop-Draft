@@ -31,6 +31,7 @@ RenderResult renderOffline(const Project& project, const RenderOptions& opt) {
   if (p.drumEngine == DrumEngine::JungleSlicer) brk = makeJungleBreakSample(opt.sampleRate);   // same kit as the app plays
   for (int i = 0; i < kNumPads; ++i) {
     if (opt.samples[i]) e.setPadSample(i, std::make_unique<Sample>(*opt.samples[i]));
+    else if (!brk && p.customDrums[i].enabled) e.setPadSample(i, makeCustomDrumSample(p.customDrums[i], opt.sampleRate));
     else if (brk) e.setPadSample(i, std::make_unique<Sample>(*brk));
     else if (p.drumEngine != DrumEngine::Classic808) e.setPadSample(i, makeDrumKitSample(p.drumEngine, i, opt.sampleRate));
   }

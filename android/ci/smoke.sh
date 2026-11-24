@@ -42,6 +42,9 @@ adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit slicer; shot 13_back_in_s
 # named projects, the Vector engine screen and the new Song screen
 adb shell am start -W -S -n "$ACT" --ei tab 1 --es kit project; shot 14_vector_engine
 adb shell am start -W -S -n "$ACT" --ei tab 3;                  shot 15_song_projects
+# the new drum kits and the drum synth; after a restart the synthesized pad must still be there
+adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyn;    shot 16_drum_synth; sleep 7
+adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyncheck; sleep 2
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 
 adb logcat -d > "$OUT/logcat.txt"
@@ -60,5 +63,6 @@ grep -q "kit bounce ok=true" "$OUT/selftest.txt" || { echo "FAIL: bouncing the l
 grep -q "kit engine=4 ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after restarting the app"; fail=1; }
 grep -q "kit back in slicer ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after leaving the slicer and restarting"; fail=1; }
 grep -q "project reopened mode=3 list=1" "$OUT/selftest.txt" || { echo "FAIL: saving and reopening a named project did not work"; fail=1; }
+grep -q "dsyn after restart engine=5 pad0=true" "$OUT/selftest.txt" || { echo "FAIL: the synthesized drum pad was gone after a restart"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"

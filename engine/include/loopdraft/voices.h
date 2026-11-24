@@ -19,6 +19,7 @@ struct Sample {
 // Built-in synthesized drum sounds, used until the user loads their own WAVs. pad = 0..7.
 std::unique_ptr<Sample> makeBuiltinSample(int pad, double sampleRate);
 std::unique_ptr<Sample> makeDrumKitSample(DrumEngine engine, int pad, double sampleRate);
+std::unique_ptr<Sample> makeCustomDrumSample(const DrumSynthParams& d, double sampleRate);
 // Built-in 1-bar Amen-style Jungle breakbeat for instant breakbeat slicing.
 std::unique_ptr<Sample> makeJungleBreakSample(double sampleRate);
 // Reads a WAV file (8/16/24/32-bit PCM or float). Returns nullptr if it cannot be read. Never call on the audio thread.

@@ -383,3 +383,17 @@ JNI(jboolean, resampleSceneToJungle)(JNIEnv*, jobject, jint scene) {
 JNI(jboolean, hasOwnBreak)(JNIEnv*, jobject) {
   return S() && S()->activeBreak() ? JNI_TRUE : JNI_FALSE;
 }
+
+JNI(void, setKitHardness)(JNIEnv*, jobject, jfloat hardness) {
+  if (S()) S()->setKitHardness(hardness);
+}
+JNI(void, synthesizeCustomPad)(JNIEnv*, jobject, jint pad, jboolean audition) {
+  if (S()) S()->synthesizeCustomPad(pad, audition == JNI_TRUE);
+}
+JNI(void, applyDrumSynthTemplate)(JNIEnv*, jobject, jint pad, jint tmpl) {
+  if (S()) S()->applyDrumSynthTemplate(pad, tmpl);
+}
+JNI(void, clearCustomPad)(JNIEnv*, jobject, jint pad) { if (S()) S()->clearCustomPad(pad); }
+JNI(jboolean, padIsSynth)(JNIEnv*, jobject, jint pad) {
+  return S() && pad >= 0 && pad < ld::kNumPads && S()->project().customDrums[pad].enabled ? JNI_TRUE : JNI_FALSE;
+}

@@ -186,6 +186,15 @@ template <class V> void fields(V& v, Project& p) {
     LD_F(pre, d, vol); LD_F(pre, d, pan); LD_F(pre, d, pitch); LD_F(pre, d, decay); LD_F(pre, d, choke); LD_F(pre, d, gmNote);
     LD_F(pre, d, sliceStart); LD_F(pre, d, sliceEnd); LD_F(pre, d, reverse);
   }
+  v.f("kitHardness", p.kitHardness);
+  for (int i = 0; i < kNumPads; ++i) {
+    DrumSynthParams& d = p.customDrums[i];
+    if (v.writing && !d.enabled) continue;           // a pad that plays the kit's sound has nothing to save here
+    std::snprintf(pre, sizeof(pre), "dsyn%d", i);
+    LD_F(pre, d, enabled); LD_F(pre, d, baseFreq); LD_F(pre, d, pitchDrop); LD_F(pre, d, pitchDecay); LD_F(pre, d, toneMix);
+    LD_F(pre, d, noiseMix); LD_F(pre, d, noiseFreq); LD_F(pre, d, fmAmt); LD_F(pre, d, fmRatio); LD_F(pre, d, drive);
+    LD_F(pre, d, click); LD_F(pre, d, length);
+  }
   v.f("altValid", p.altValid);
   if (!v.writing || p.altValid) {                    // the stored set of the other drum mode
     v.f("altDrumDrive", p.altDrumDrive);

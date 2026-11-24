@@ -54,6 +54,11 @@ class Session {
   bool resampleSceneToJungle(int scene);   // renders the scene's drums (with their effects) and slices that
   std::shared_ptr<const Sample> activeBreak() const;   // the user's break if the project plays one, else null
   void writeBreakPattern(int scene);   // fills the scene's drums with the 8 slices in their original order
+  void setKitHardness(float hardness);             // 0..1, drives the whole drum track
+  // Drum synth: a pad can play a drum that is synthesized from its DrumSynthParams instead of the kit's sound.
+  void synthesizeCustomPad(int pad, bool audition = true);   // switches the pad to its drum synth
+  void applyDrumSynthTemplate(int pad, int tmpl);            // 0 kick, 1 snare, 2 hat, 3 gabber kick, 4 zap, 5 clang
+  void clearCustomPad(int pad);                              // back to the kit's own sound
   // true if the note now exists. slide: adds the note as a slide note, or switches slide on/off on an existing one.
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1, bool slide = false);
   void setSceneBars(int scene, int bars);
@@ -88,6 +93,8 @@ class Session {
   uint32_t nextBreakId_ = 1, savedBreakId_ = 0;
   int appliedEngine_ = 0;
   uint32_t appliedBreak_ = 0;
+  uint32_t appliedPad_[kNumPads] = {};   // which drum-synth settings each pad's sound was made from (0 = kit sound)
+  uint32_t wavePad_[kNumPads] = {};
   std::shared_ptr<const Sample> wave_[kNumPads];   // UI-side copies of the kit sounds, only for drawing
   int waveEngine_ = -1;
   uint32_t waveBreak_ = 0;

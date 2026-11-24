@@ -60,7 +60,8 @@ val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
 val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
 val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
 val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
-val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break")
+val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break", "Hardcore Gabber", "Warehouse Rumble", "Neuro Techstep", "EBM Electro", "Glitch Breakcore")
+val DSYN_TEMPLATES = listOf("Kick", "Snare", "Hat", "Gabber", "Zap", "Clang")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -106,6 +107,7 @@ class AppState {
     /** Set by the activity: 0 = MIDI, 1 = WAV mix, 2 = WAV stems. */
     var onExport: (Int) -> Unit = {}
     var drumMsg by mutableStateOf("")
+    var showDrumSynth by mutableStateOf(false)
     var onLoadBreak: () -> Unit = {}
     private var frames = 0
 
@@ -500,7 +502,8 @@ fun DrumsTab(s: AppState) {
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
     val bar = s.drumBar.coerceIn(0, bars - 1)
     // The drum engine is part of the project in the engine, so it survives restarts and follows undo.
-    val drumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, 4) }
+    val drumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, DRUM_ENGINE_NAMES.size - 1) }
+    val padSynth = remember(s.rev, s.selPad) { Native.padIsSynth(s.selPad) }
     val jungle = drumEng == 4
     val ownBreak = remember(s.rev) { Native.hasOwnBreak() }
     val revOn = remember(s.rev, s.selPad) { Native.getParam(P.PAD_REVERSE, s.selPad) > 0.5f }
@@ -544,7 +547,16 @@ fun DrumsTab(s: AppState) {
                 RotaryKnob(s, "Crunch", P.JUNGLE_CRUNCH, 0, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
             }
         } else {
-            HwButton("BOUNCE THIS LOOP INTO THE BREAK SLICER", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 30.dp) { bounce() }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Hardness drives the whole drum track: clean on the left, brutal on the right.
+                RotaryKnob(s, "Hardness", P.KIT_HARDNESS, 0, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { pct(it) }
+                Column(Modifier.weight(2f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    HwButton(if (padSynth) "DRUM SYNTH: ON" else "DRUM SYNTH", Modifier.fillMaxWidth(), on = s.showDrumSynth, ledColor = HwYellow, showLed = padSynth, height = 34.dp) {
+                        s.showDrumSynth = !s.showDrumSynth
+                    }
+                    HwButton("BOUNCE LOOP TO SLICER", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 34.dp) { bounce() }
+                }
+            }
         }
         if (s.drumMsg.isNotEmpty()) SilkLabel(s.drumMsg, color = HwYellow, size = 10, bold = false)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -577,6 +589,53 @@ fun DrumsTab(s: AppState) {
         }
     }
 
+    if (s.showDrumSynth && !jungle) {
+        // One pad, synthesized from scratch. Turning any control switches the pad over; lifting the finger plays it.
+        val pad = s.selPad
+        ModulePanel(
+            title = "Drum synth: ${padLabel(pad)}",
+            accent = HwYellow,
+            trailing = {
+                HwButton(if (padSynth) "USE KIT SOUND" else "KIT SOUND", enabled = padSynth, ledColor = HwOrange, height = 26.dp, pad = 8.dp) {
+                    Native.clearCustomPad(pad); s.rev++; Native.triggerPad(pad, 2)
+                }
+            }
+        ) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel("START", size = 9, modifier = Modifier.width(38.dp))
+                DSYN_TEMPLATES.forEachIndexed { idx, nm ->
+                    HwButton(nm, ledColor = HwOrange, height = 28.dp, pad = 8.dp) { Native.applyDrumSynthTemplate(pad, idx); s.rev++ }
+                }
+            }
+            val dk: @Composable (String, Int, Float, Float, Modifier, Color, (Float) -> String) -> Unit = { label, id, lo, hi, m, cap, f ->
+                val v = remember(s.rev, id, pad) { Native.getParam(id, pad) }
+                Knob(label, v, lo, hi, m, capColor = cap, fmt = f,
+                    onStart = { Native.beginEdit() },
+                    onChange = { Native.setParam(id, pad, it) },
+                    onEnd = { s.rev++; Native.triggerPad(pad, 2) })
+            }
+            val grey = Color(0xFF323640); val blue = Color(0xFF1F3847); val brown = Color(0xFF422A1A)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                dk("Pitch", P.DSYN_FREQ, 25f, 1200f, Modifier.weight(1f), grey) { "${it.roundToInt()}Hz" }
+                dk("Drop", P.DSYN_DROP, 0f, 600f, Modifier.weight(1f), grey) { "${it.roundToInt()}Hz" }
+                dk("Drop time", P.DSYN_PDEC, 0.005f, 0.30f, Modifier.weight(1f), grey) { "${(it * 1000).roundToInt()}ms" }
+                dk("Length", P.DSYN_LEN, 0.05f, 1.5f, Modifier.weight(1f), grey) { secs(it) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                dk("Tone", P.DSYN_TONE, 0f, 1f, Modifier.weight(1f), grey) { pct(it) }
+                dk("Noise", P.DSYN_NOISE, 0f, 1f, Modifier.weight(1f), grey) { pct(it) }
+                dk("Noise Hz", P.DSYN_NFREQ, 300f, 10000f, Modifier.weight(1f), grey) { "${it.roundToInt()}" }
+                dk("Click", P.DSYN_CLICK, 0f, 1f, Modifier.weight(1f), grey) { pct(it) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                dk("FM", P.DSYN_FM, 0f, 8f, Modifier.weight(1f), blue) { "${(it * 10).roundToInt() / 10f}" }
+                dk("FM ratio", P.DSYN_FMRATIO, 0.5f, 8f, Modifier.weight(1f), blue) { "${(it * 10).roundToInt() / 10f}x" }
+                dk("Drive", P.DSYN_DRIVE, 0f, 1f, Modifier.weight(1f), brown) { pct(it) }
+                Box(Modifier.weight(1f))
+            }
+            SilkLabel(if (padSynth) "This pad plays its own synthesized drum. It stays when you change the kit." else "This pad plays the kit's sound. Pick a start or turn a control to synthesize it.", color = HwMuted, size = 9, bold = false)
+        }
+    }
     }, right = {
     ModulePanel(
         title = "Steps: ${padLabel(s.selPad)}",

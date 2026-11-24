@@ -127,6 +127,12 @@ class MainActivity : ComponentActivity() {
                 Log.i("LoopDraft", "project reopened mode=${Native.getParam(P.SYN_MODE, 0).toInt()} list=${state.projects.size} msg=${state.projectMsg}")
                 state.synth = 0; state.rollMode = true
             }
+            "dsyncheck" -> Log.i("LoopDraft", "dsyn after restart engine=${Native.getParam(P.DRUM_ENGINE, 0).toInt()} pad0=${Native.padIsSynth(0)}")
+            "dsyn" -> {
+                Native.setDrumEngine(5); Native.applyDrumSynthTemplate(0, 3); Native.setParam(P.KIT_HARDNESS, 0, 0.4f)
+                state.selPad = 0; state.showDrumSynth = true
+                Log.i("LoopDraft", "dsyn engine=${Native.getParam(P.DRUM_ENGINE, 0).toInt()} pad0=${Native.padIsSynth(0)}")
+            }
             "slicer" -> { Native.setDrumEngine(4); Log.i("LoopDraft", "kit back in slicer ownBreak=${Native.hasOwnBreak()}") }
         }
         intent?.removeExtra("kit")

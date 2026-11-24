@@ -87,6 +87,11 @@ object Native {
     external fun loadJungleBreakWav(path: String): Boolean
     external fun resampleSceneToJungle(scene: Int): Boolean
     external fun hasOwnBreak(): Boolean
+    external fun setKitHardness(hardness: Float)
+    external fun synthesizeCustomPad(pad: Int, audition: Boolean)
+    external fun applyDrumSynthTemplate(pad: Int, tmpl: Int)
+    external fun clearCustomPad(pad: Int)               // back to the kit's own sound
+    external fun padIsSynth(pad: Int): Boolean
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -140,6 +145,18 @@ object P {
     const val JUNGLE_PITCH = 54
     const val JUNGLE_TIGHT = 55
     const val JUNGLE_CRUNCH = 56
+    const val KIT_HARDNESS = 62
+    const val DSYN_FREQ = 70
+    const val DSYN_DROP = 71
+    const val DSYN_PDEC = 72
+    const val DSYN_TONE = 73
+    const val DSYN_NOISE = 74
+    const val DSYN_NFREQ = 75
+    const val DSYN_FM = 76
+    const val DSYN_FMRATIO = 77
+    const val DSYN_DRIVE = 78
+    const val DSYN_CLICK = 79
+    const val DSYN_LEN = 80
     const val FX_LEVEL = 40
     const val FX_DRIVE = 41
     const val FX_EQ_LOW = 42

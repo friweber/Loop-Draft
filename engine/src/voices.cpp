@@ -439,7 +439,7 @@ std::unique_ptr<Sample> makeDrumKitSample(DrumEngine engine, int pad, double sr)
       if ((i & 1u) == 0) hold = std::round(x * 32.0f) / 32.0f;
       s->l[i] = std::tanh(hold * 1.4f);
     }
-  } else { // FmIndustrial
+  } else if (engine == DrumEngine::FmIndustrial) {
     static const double lens[8] = {0.60, 0.40, 0.35, 0.22, 0.65, 0.25, 0.55, 0.45};
     const size_t n = size_t(lens[p] * sr);
     s->l.assign(n, 0.0f);
@@ -454,6 +454,229 @@ std::unique_ptr<Sample> makeDrumKitSample(DrumEngine engine, int pad, double sr)
       const float fm = float(std::sin(2 * kPi * ph + idx * std::sin(2 * kPi * ph2)));
       s->l[i] = float(std::tanh(fm * 1.3f) * std::exp(-t * (p == 3 ? 24.0 : 8.5)));
     }
+  } else if (engine == DrumEngine::HardcoreGabber) {
+    // Hardcore / Gabber: multi-stage hard-clipped 909 kick with aggressive "tok" attack + sawing tail
+    static const double lens[8] = {0.55, 0.32, 0.35, 0.16, 0.55, 0.18, 0.45, 0.32};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (46.0 + 340.0 * std::exp(-t / 0.012)) / sr;
+        const float tok = float(std::sin(2 * kPi * 950.0 * t) * std::exp(-t * 280.0)) * 0.9f;
+        const float body = float(std::sin(2 * kPi * ph)) * float(std::exp(-t * 3.8));
+        // Stage 1: asymmetric saturation -> Stage 2: hard clip
+        float d1 = std::tanh((body + tok) * 4.5f + 0.18f) - std::tanh(0.18f);
+        x = d1 > 0.55f ? 0.55f : (d1 < -0.55f ? -0.55f : d1);
+      } else if (p == 1 || p == 2) {
+        const float nz = rng.next();
+        lp1 += op(1100) * (nz - lp1); lp2 += op(8500) * ((nz - lp1) - lp2);
+        ph += (230.0 + 90.0 * std::exp(-t / 0.01)) / sr;
+        float raw = float((lp2 * 1.5 + std::sin(2 * kPi * ph) * 0.7) * std::exp(-t * 10.0));
+        x = std::tanh(raw * 3.2f);
+      } else if (p == 3 || p == 4) {
+        const float nz = rng.next();
+        lp1 += op(8200) * (nz - lp1);
+        ph += 3740.0 / sr; ph2 += 5610.0 / sr;
+        float ring = float((std::sin(2 * kPi * ph) > 0 ? 1 : -1) * (std::sin(2 * kPi * ph2) > 0 ? 1 : -1));
+        x = std::tanh(((nz - lp1) * 0.9f + ring * 0.35f) * 2.0f) * float(std::exp(-t * (p == 3 ? 32.0 : 7.5)));
+      } else {
+        ph += (140.0 + p * 85.0 + 260.0 * std::exp(-t / 0.02)) / sr;
+        x = std::tanh(float(std::sin(2 * kPi * ph) * 3.5) * float(std::exp(-t * 14.0)));
+      }
+      s->l[i] = x;
+    }
+  } else if (engine == DrumEngine::WarehouseRumble) {
+    // Warehouse Rumble: deep Berlin Techno kick with built-in low-passed rumble tail + dark metallic rides
+    static const double lens[8] = {0.72, 0.38, 0.42, 0.20, 0.85, 0.22, 0.62, 0.45};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    float rLp = 0.0f;
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (44.0 + 165.0 * std::exp(-t / 0.022)) / sr;
+        const float kick = float(std::sin(2 * kPi * ph) * std::exp(-t * 8.5));
+        // Built-in dark rumble tail peaking after the transient
+        const float nz = rng.next();
+        rLp += op(130) * (nz - rLp);
+        const float rEnv = float((1.0 - std::exp(-t * 28.0)) * std::exp(-t * 3.8));
+        x = std::tanh((kick * 1.35f + rLp * 2.4f * rEnv) * 1.4f);
+      } else if (p == 1 || p == 2) {
+        const float nz = rng.next();
+        lp1 += op(750) * (nz - lp1); lp2 += op(5200) * ((nz - lp1) - lp2);
+        x = float(std::tanh(lp2 * 2.0f) * std::exp(-t * 9.5));
+      } else if (p == 3 || p == 4) {
+        // Dark metallic 909/ride cluster
+        const float nz = rng.next();
+        lp1 += op(6200) * (nz - lp1);
+        ph += 2480.0 / sr; ph2 += 3910.0 / sr;
+        const float met = float(std::sin(2 * kPi * ph + 2.8 * std::sin(2 * kPi * ph2)));
+        x = float(((nz - lp1) * 0.55 + met * 0.45) * std::exp(-t * (p == 3 ? 25.0 : 4.2)));
+      } else {
+        // Hollow industrial tom / clang
+        ph += (115.0 + p * 45.0) / sr;
+        ph2 += (115.0 + p * 45.0) * 1.618 / sr;
+        x = float(std::sin(2 * kPi * ph + 3.2 * std::exp(-t * 9.0) * std::sin(2 * kPi * ph2)) * std::exp(-t * 7.5));
+      }
+      s->l[i] = x;
+    }
+  } else if (engine == DrumEngine::NeuroTechstep) {
+    // Neuro / Techstep: ultra-tight punch kick + 2-layer 200Hz/6kHz crack snare + razor hats
+    static const double lens[8] = {0.28, 0.26, 0.25, 0.14, 0.50, 0.14, 0.35, 0.25};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (62.0 + 240.0 * std::exp(-t / 0.010)) / sr;
+        const float click = rng.next() * float(std::exp(-t * 420.0)) * 0.55f;
+        x = std::tanh((float(std::sin(2 * kPi * ph)) * 1.4f + click) * float(std::exp(-t * 16.0)));
+      } else if (p == 1) {
+        // 2-Layer Neuro Snare: 205 Hz punchy fundamental + sharp 6 kHz noise crack
+        ph += (205.0 + 95.0 * std::exp(-t / 0.012)) / sr;
+        const float body = float(std::sin(2 * kPi * ph) * std::exp(-t * 24.0)) * 0.9f;
+        const float nz = rng.next();
+        lp1 += op(2200) * (nz - lp1); lp2 += op(9500) * ((nz - lp1) - lp2);
+        const float crack = lp2 * float(std::exp(-t * 16.0)) * 1.3f;
+        x = std::tanh((body + crack) * 1.6f);
+      } else if (p == 2) {
+        const float nz = rng.next();
+        lp1 += op(1400) * (nz - lp1); lp2 += op(7000) * ((nz - lp1) - lp2);
+        x = std::tanh(lp2 * 1.8f * float(std::exp(-t * 20.0)));
+      } else if (p == 3 || p == 4) {
+        const float nz = rng.next();
+        lp1 += op(9200) * (nz - lp1);
+        x = float((nz - lp1) * std::exp(-t * (p == 3 ? 42.0 : 9.0)));
+      } else {
+        ph += (220.0 + p * 95.0) / sr;
+        x = float(std::sin(2 * kPi * ph) * std::exp(-t * 22.0));
+      }
+      s->l[i] = x;
+    }
+  } else if (engine == DrumEngine::EbmElectro) {
+    // EBM / Electro: dry punchy 80s drums + ring-mod cowbell + pitch-zap percussion
+    static const double lens[8] = {0.42, 0.30, 0.30, 0.16, 0.55, 0.24, 0.38, 0.30};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (48.0 + 190.0 * std::exp(-t / 0.016)) / sr;
+        x = std::tanh(float(std::sin(2 * kPi * ph) * 1.8 * std::exp(-t * 9.5)));
+      } else if (p == 1 || p == 2) {
+        const float nz = rng.next();
+        lp1 += op(1000) * (nz - lp1); lp2 += op(6500) * ((nz - lp1) - lp2);
+        ph += 190.0 / sr;
+        x = std::tanh(float((lp2 * 1.1 + (std::sin(2 * kPi * ph) > 0 ? 0.35 : -0.35) * std::exp(-t * 24.0)) * std::exp(-t * 13.0)) * 1.5f);
+      } else if (p == 3 || p == 4) {
+        const float nz = rng.next();
+        lp1 += op(7000) * (nz - lp1);
+        x = float((nz - lp1) * std::exp(-t * (p == 3 ? 34.0 : 8.0)));
+      } else if (p == 5) {
+        // Classic 80s Ring-Mod Cowbell (540 Hz + 800 Hz square)
+        ph += 540.0 / sr; ph2 += 800.0 / sr;
+        float sq1 = std::sin(2 * kPi * ph) > 0 ? 1.0f : -1.0f;
+        float sq2 = std::sin(2 * kPi * ph2) > 0 ? 1.0f : -1.0f;
+        lp1 += op(2200) * ((sq1 + sq2) * 0.5f - lp1);
+        x = lp1 * float(std::exp(-t * 14.0));
+      } else {
+        // Laser / Pitch-Zap Percussion
+        ph += (90.0 + 1100.0 * std::exp(-t / 0.025)) / sr;
+        x = float(std::sin(2 * kPi * ph) * std::exp(-t * 12.0));
+      }
+      s->l[i] = x;
+    }
+  } else { // GlitchBreakcore
+    // Glitch / Breakcore: ultra-short click kicks, bitcrushed snares, digital bursts & FM lasers
+    static const double lens[8] = {0.22, 0.28, 0.24, 0.12, 0.42, 0.16, 0.30, 0.26};
+    const size_t n = size_t(lens[p] * sr);
+    s->l.assign(n, 0.0f);
+    float hold = 0.0f;
+    const int div = (p == 1 || p == 2) ? 6 : 4;
+    for (size_t i = 0; i < n; ++i) {
+      const double t = double(i) / sr;
+      float x = 0.0f;
+      if (p == 0) {
+        ph += (55.0 + 480.0 * std::exp(-t / 0.006)) / sr;
+        x = std::tanh(float(std::sin(2 * kPi * ph) * 2.5 * std::exp(-t * 20.0)));
+      } else if (p == 1 || p == 2) {
+        const float nz = rng.next();
+        ph += (260.0 + 180.0 * std::sin(2 * kPi * 42.0 * t)) / sr;
+        x = float((nz * 0.8 + std::sin(2 * kPi * ph) * 0.5) * std::exp(-t * 14.0));
+      } else if (p == 3 || p == 4) {
+        x = rng.next() * float(std::exp(-t * (p == 3 ? 45.0 : 11.0)));
+      } else {
+        ph += (180.0 + 1400.0 * std::exp(-t / 0.018)) / sr;
+        ph2 += (620.0 * (1.0 + p * 0.3)) / sr;
+        x = float(std::sin(2 * kPi * ph + 5.0 * std::sin(2 * kPi * ph2)) * std::exp(-t * 15.0));
+      }
+      if (int(i) % div == 0) hold = std::round(x * 8.0f) / 8.0f; // 4-bit crush + downsample
+      s->l[i] = std::tanh(hold * 1.6f);
+    }
+  }
+
+  float pk = 1e-9f;
+  for (float x : s->l) pk = std::fmax(pk, std::fabs(x));
+  for (float& x : s->l) x *= 0.9f / pk;
+  return s;
+}
+
+std::unique_ptr<Sample> makeCustomDrumSample(const DrumSynthParams& d, double sr) {
+  const double lenSec = d.length < 0.05f ? 0.05 : (d.length > 1.5f ? 1.5 : double(d.length));
+  const size_t n = size_t(std::lround(lenSec * sr));
+  auto s = std::make_unique<Sample>();
+  s->rate = sr;
+  s->l.assign(n, 0.0f);
+
+  const double baseF = d.baseFreq < 25.0f ? 25.0 : (d.baseFreq > 1200.0f ? 1200.0 : double(d.baseFreq));
+  const double pDrop = d.pitchDrop < 0.0f ? 0.0 : (d.pitchDrop > 600.0f ? 600.0 : double(d.pitchDrop));
+  const double pDec  = d.pitchDecay < 0.005f ? 0.005 : (d.pitchDecay > 0.30f ? 0.30 : double(d.pitchDecay));
+  const double nFreq = d.noiseFreq < 300.0f ? 300.0 : (d.noiseFreq > 10000.0f ? 10000.0 : double(d.noiseFreq));
+  const double fmRat = d.fmRatio < 0.5f ? 0.5 : (d.fmRatio > 8.0f ? 8.0 : double(d.fmRatio));
+
+  Rng rng(777303u);
+  double ph = 0.0, phM = 0.0;
+  float lp1 = 0.0f, lp2 = 0.0f;
+  const float aLo = float(1.0 - std::exp(-2.0 * kPi * (nFreq * 0.35) / sr));
+  const float aHi = float(1.0 - std::exp(-2.0 * kPi * nFreq / sr));
+  const double ampDecayRate = 6.5 / lenSec;
+
+  for (size_t i = 0; i < n; ++i) {
+    const double t = double(i) / sr;
+    const double env = std::exp(-t * ampDecayRate);
+    const double f = baseF + pDrop * std::exp(-t / pDec);
+    ph += f / sr;
+    phM += (f * fmRat) / sr;
+    const float mod = float(std::sin(2.0 * kPi * phM));
+    const float tone = float(std::sin(2.0 * kPi * ph + double(d.fmAmt) * std::exp(-t * 10.0) * mod));
+
+    const float nz = rng.next();
+    lp1 += aLo * (nz - lp1);
+    lp2 += aHi * ((nz - lp1) - lp2);
+    const float noise = lp2 * 1.4f;
+
+    const float click = d.click * float(std::sin(2.0 * kPi * 1200.0 * t) * std::exp(-t * 350.0));
+    float x = (tone * d.toneMix + noise * d.noiseMix) * float(env) + click;
+
+    if (d.drive > 0.01f) {
+      const float g = 1.0f + d.drive * 8.0f;
+      x = std::tanh(x * g) / std::tanh(g);
+      if (d.drive > 0.6f) { // extra hard-clip edge at high drive
+        const float lim = 1.0f - (d.drive - 0.6f) * 0.9f;
+        x = x > lim ? lim : (x < -lim ? -lim : x);
+      }
+    }
+    // 2 ms fade-out at end to guarantee zero clicks
+    if (i + size_t(0.002 * sr) >= n) {
+      const float fade = float(n - 1 - i) / float(0.002 * sr);
+      x *= fade;
+    }
+    s->l[i] = x;
   }
 
   float pk = 1e-9f;
