@@ -888,10 +888,18 @@ fun DrumsTab(s: AppState) {
     }
 
     val kitSelectorStrip: @Composable () -> Unit = {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // the row scrolls to the kit in use
+        val kitScroll = rememberScrollState()
+        val kitXs = remember { IntArray(DRUM_ENGINE_NAMES.size) }
+        LaunchedEffect(drumEng) {
+            withFrameNanos { }
+            val x = kitXs.getOrNull(drumEng) ?: return@LaunchedEffect
+            if (x < kitScroll.value || x > kitScroll.value + kitScroll.viewportSize * 2 / 3) kitScroll.animateScrollTo((x - kitScroll.viewportSize / 4).coerceAtLeast(0))
+        }
+        Row(Modifier.horizontalScroll(kitScroll), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
             SilkLabel("KIT", size = 9, modifier = Modifier.width(24.dp))
             DRUM_ENGINE_NAMES.forEachIndexed { idx, nm ->
-                HwButton(nm, on = drumEng == idx, ledColor = if (idx == 4) skin.secondary else skin.primary, height = 27.dp, pad = 6.dp) {
+                HwButton(nm, Modifier.onGloballyPositioned { c -> kitXs[idx] = c.positionInParent().x.roundToInt() }, on = drumEng == idx, ledColor = if (idx == 4) skin.secondary else skin.primary, height = 27.dp, pad = 6.dp) {
                     if (drumEng != idx) { Native.setDrumEngine(idx); s.drumMsg = ""; s.rev++ }
                 }
             }
