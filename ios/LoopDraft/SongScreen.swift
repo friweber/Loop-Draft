@@ -222,17 +222,27 @@ struct SongScreen: View {
         }
     }
 
+    private func barsRow(_ sc: Int32, _ bars: Int, _ from: Int, _ to: Int, _ label: String) -> some View {
+        HStack(spacing: 4) {
+            SilkLabel(text: label, size: 9).frame(width: 38, alignment: .leading)
+            ForEach(from..<to, id: \.self) { b in
+                HwButton(text: "\(b)", on: bars == b, ledColor: skin.secondary, height: 30) {
+                    state.bridge.setSceneBars(sc, bars: Int32(b)); state.rev += 1
+                }
+            }
+        }
+    }
+
     private var scenePanel: some View {
         let sc = state.scene
         let bars = Int(state.bridge.sceneBars(sc))
         return ModulePanel("Scene \(SCENE_NAMES[Int(sc)])", accent: skin.secondary) {
-            HStack(spacing: 4) {
-                SilkLabel(text: "BARS", size: 9).frame(width: 38, alignment: .leading)
-                ForEach(1..<9, id: \.self) { b in
-                    HwButton(text: "\(b)", on: bars == b, ledColor: skin.secondary, height: 30) {
-                        state.bridge.setSceneBars(sc, bars: Int32(b)); state.rev += 1
-                    }
-                }
+            if wide {
+                // half the width in landscape: two rows, so the numbers stay readable
+                barsRow(sc, bars, 1, 5, "BARS")
+                barsRow(sc, bars, 5, 9, "")
+            } else {
+                barsRow(sc, bars, 1, 9, "BARS")
             }
             HStack(spacing: 4) {
                 SilkLabel(text: "COPY", size: 9).frame(width: 38, alignment: .leading)
