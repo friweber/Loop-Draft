@@ -109,6 +109,7 @@ class AppState {
     val inputOctave = mutableStateListOf(0, 0, 0, 0)
     var selAutoTrack by mutableIntStateOf(2)
     var selAutoLane by mutableIntStateOf(0)
+    var onFirstFrame: () -> Unit = {}
     var pickAuto by mutableStateOf(false)    // "tap a control": the next tap on a knob adds it to the song automation
     var autoMsg by mutableStateOf("")
 
@@ -174,6 +175,8 @@ class AppState {
 @Composable
 fun App(s: AppState) {
     LaunchedEffect(Unit) {
+        withFrameNanos { }
+        s.onFirstFrame()
         while (true) {
             withFrameNanos { }
             s.frame()

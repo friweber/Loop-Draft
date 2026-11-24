@@ -189,6 +189,8 @@ class MainActivity : ComponentActivity() {
         selfTest = intent?.getBooleanExtra("selftest", false) == true
         jungleShot = intent?.getBooleanExtra("jungle", false) == true
         fourShot = intent?.getBooleanExtra("four", false) == true
+        val createdAt = android.os.SystemClock.uptimeMillis()
+        state.onFirstFrame = { Log.i("LoopDraft", "first frame after ${android.os.SystemClock.uptimeMillis() - createdAt} ms") }
         state.onExport = { kind -> export(kind) }
         state.onSaveProject = { name -> saveProject(name) }
         state.onOpenProject = { name -> openProject(name) }
@@ -335,9 +337,13 @@ class MainActivity : ComponentActivity() {
         }.start()
         Native.play(0)
         var loudest = 0f
-        for (i in 1..12) handler.postDelayed({
-            loudest = maxOf(loudest, Native.peak(0), Native.peak(1))
-            Log.i("LoopDraft", "selftest playing=${Native.isPlaying()} step=${Native.currentStep()} sound=${loudest > 0.01f}")
-        }, i * 400L)
+        // Sampled from its own thread: this checks the audio engine, whatever the screen is busy with while the app starts.
+        Thread {
+            for (i in 1..12) {
+                Thread.sleep(400)
+                loudest = maxOf(loudest, Native.peak(0), Native.peak(1))
+                Log.i("LoopDraft", "selftest playing=${Native.isPlaying()} step=${Native.currentStep()} sound=${loudest > 0.01f}")
+            }
+        }.start()
     }
 }
