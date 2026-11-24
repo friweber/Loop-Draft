@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 
+#include "loopdraft/content.h"
 #include "loopdraft/session.h"
 
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "LoopDraft", __VA_ARGS__)
@@ -396,4 +397,32 @@ JNI(void, applyDrumSynthTemplate)(JNIEnv*, jobject, jint pad, jint tmpl) {
 JNI(void, clearCustomPad)(JNIEnv*, jobject, jint pad) { if (S()) S()->clearCustomPad(pad); }
 JNI(jboolean, padIsSynth)(JNIEnv*, jobject, jint pad) {
   return S() && pad >= 0 && pad < ld::kNumPads && S()->project().customDrums[pad].enabled ? JNI_TRUE : JNI_FALSE;
+}
+
+// Presets and grooves as JSON text (engine/include/loopdraft/content.h). The result is "" when all went well,
+// otherwise the error message for the user.
+JNI(jstring, importContent)(JNIEnv* env, jobject, jstring json, jint scene, jint synth, jboolean tempoKey) {
+  std::string err = "the audio engine is not running";
+  if (S()) {
+    ld::ContentTarget tg;
+    tg.scene = scene; tg.synth = synth; tg.tempoAndKey = tempoKey == JNI_TRUE;
+    if (S()->importContent(jstr(env, json), tg, err)) err.clear();
+  }
+  return env->NewStringUTF(err.c_str());
+}
+JNI(jstring, checkContent)(JNIEnv* env, jobject, jstring json) {
+  std::string err;
+  if (ld::checkContent(jstr(env, json), err)) err.clear();
+  return env->NewStringUTF(err.c_str());
+}
+// kind: 0 instrument (of `synth`), 1 drum kit, 2 groove (of `scene`, with its sounds)
+JNI(jstring, exportContent)(JNIEnv* env, jobject, jint kind, jint scene, jint synth, jstring name) {
+  std::string out;
+  if (S()) {
+    const std::string nm = jstr(env, name);
+    if (kind == 0) out = ld::instrumentToJson(S()->project(), synth, nm);
+    else if (kind == 1) out = ld::drumkitToJson(S()->project(), nm);
+    else out = ld::grooveToJson(S()->project(), scene, nm);
+  }
+  return env->NewStringUTF(out.c_str());
 }

@@ -66,6 +66,11 @@ object Native {
     external fun setChainAuto(pos: Int, track: Int, lane: Int, paramId: Int, startVal: Float, endVal: Float)
     /** Same without its own undo entry: call beginEdit() once before a drag. */
     external fun setChainAutoLive(pos: Int, track: Int, lane: Int, paramId: Int, startVal: Float, endVal: Float)
+    /** Presets and grooves as JSON text. Returns "" when it worked, otherwise the error message. One undo step. */
+    external fun importContent(json: String, scene: Int, synth: Int, tempoAndKey: Boolean): String
+    external fun checkContent(json: String): String
+    /** kind: 0 = instrument of `synth`, 1 = drum kit, 2 = groove of `scene`. */
+    external fun exportContent(kind: Int, scene: Int, synth: Int, name: String): String
     external fun saveProjectCopy(path: String): Boolean
     external fun openProject(path: String): Boolean    // one undo step
     external fun chainAuto(pos: Int, track: Int): FloatArray

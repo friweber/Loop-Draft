@@ -2,8 +2,8 @@ name: Build
 
 on:
   push:
-    branches: [main]
-    paths: ['engine/**', 'android/**', 'ios/**', '.github/workflows/build.yml']
+    branches: [main, v0.8]
+    paths: ['engine/**', 'android/**', 'ios/**', 'content/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
 permissions:
@@ -24,6 +24,8 @@ jobs:
           cmake -S engine -B engine/build -DCMAKE_BUILD_TYPE=Release
           cmake --build engine/build -j 4
           ./engine/build/ld_tests
+      - name: Check every preset and groove in content/
+        run: ./engine/build/ld_content check $(find content -name '*.json' | sort)
       - name: Test again with memory checks
         run: |
           cmake -S engine -B engine/build-asan -DLD_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug

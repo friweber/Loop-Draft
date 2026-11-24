@@ -1,4 +1,4 @@
-# Loop Draft: what the app can do (v0.7)
+# Loop Draft: what the app can do (v0.8)
 
 Reference for anyone designing sounds, presets and grooves for Loop Draft.
 Everything here is taken from the engine code on `main`. If something is not listed, the app cannot do it.
@@ -126,9 +126,10 @@ There are no curves and no automation inside a scene outside the song chain.
 
 **In:**
 - a WAV as the break for the slicer.
-- nothing else. **There is no MIDI import and no preset import yet.** See section 8.
+- presets and grooves as JSON files, see section 8.
+- there is no MIDI import yet.
 
-**Saving:** the open project is kept automatically. Named projects can be saved, opened and deleted in the app. One built-in start project ("Warehouse 303").
+**Saving:** the open project is kept automatically. Named projects can be saved, opened and deleted in the app. One built-in start project ("Warehouse 303"). The current instrument, drum kit or groove can be saved to the library under a name.
 
 ## 7. Styles this covers well, and where it falls short
 
@@ -144,43 +145,21 @@ Falls short for: anything needing real instrument samples (acoustic drums, piano
 
 ## 8. Presets and grooves: how to deliver them
 
-There are three useful kinds of content:
+Three kinds of content, each a plain JSON file:
 
-1. **Instrument preset:** the settings of one synth (engine, oscillators, filter, envelope, LFO, fold, effects of its track).
-2. **Drum preset:** kit, hardness, pad settings, drum-synth pads, drum track effects.
-3. **Groove:** a drum pattern and/or note patterns for one scene, 1 to 8 bars, with a suggested tempo, swing and scale.
+1. **Instrument:** the sound of one synth track and its effects.
+2. **Drum kit:** kit, hardness, pad settings, synthesized pads, drum track effects.
+3. **Groove:** drum and note patterns for one scene (1 to 8 bars), with tempo, key and its sounds.
 
-**Today** the app can only take a complete project file in its own binary format. That format is internal and changes with the app, so it is not a good hand-over format.
+Files go into `content/library/` in the repository and ship inside the app, where they show up in the libraries on the Drums, Synth and Song screens. Loading one is a single undo step.
 
-**Proposed hand-over format (not built yet):** plain text JSON, one file per preset or groove, using the names and ranges of this document. The app would get an importer and a browser for them. Sketch:
-
-```json
-{
-  "kind": "groove",
-  "name": "Rolling acid 136",
-  "style": "acid techno",
-  "bpm": 136, "swing": 0.0, "root": "D", "scale": "minor", "bars": 2,
-  "drums": {
-    "kit": "909 Punch",
-    "steps": { "kick": "x...x...x...x...", "ch": "..x...x...x...x.", "clap": "....X.......X..." }
-  },
-  "synths": [
-    { "track": "bass", "instrument": "Acid 303",
-      "notes": [ { "step": 0, "degree": 0, "len": 1, "accent": true },
-                 { "step": 3, "degree": 7, "len": 1, "slide": true } ] }
-  ]
-}
-```
-
-In drum step strings: `.` off, `x` normal, `X` accent, `2` `3` `4` a roll of that many hits.
-
-Grooves can also be delivered as standard MIDI files once a MIDI import exists: drums on the GM notes of section 2, 16th-note grid, velocity above 110 read as accent, overlapping notes read as slide. Notes that are not in the project's scale would be moved to the nearest scale note.
+The exact format, every key and range, and the tool that checks and renders files are in **`docs/CONTENT_FORMAT.md`**.
 
 ## 9. Software gaps worth closing next
 
-1. Preset and groove import (the JSON above) with a browser in the app. Without it, content made outside cannot get in.
-2. Saving a single instrument or drum kit as a preset, separate from the whole project.
-3. MIDI import for grooves.
+1. MIDI import for grooves.
+2. Tags and search in the library once it holds many files.
+3. Grooves that fill several scenes at once (verse, break, drop).
 4. Loading own WAV one-shots onto pads (today only a whole break can be loaded).
 5. Filter envelope for the synths. This is the biggest missing sound-design tool.
 6. Adjustable delay time and reverb size.

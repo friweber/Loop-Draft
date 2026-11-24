@@ -1222,6 +1222,147 @@ static void testDrumSynthIsProjectState() {
   CHECK_EQ(int(P_SYN_FOLD), 57); CHECK_EQ(int(P_SYN_VEC_X), 60); CHECK_EQ(int(P_KIT_HARDNESS), 62); CHECK_EQ(int(P_DSYN_FREQ), 70);
 }
 
+// Presets and grooves as JSON text: what goes in comes out, mistakes are named with their place, and nothing changes on an error.
+static void testContentJson() {
+  using namespace ld;
+  std::string err;
+  ContentInfo info;
+  // --- a groove written by hand, the way an author would
+  const std::string groove = R"({
+    "kind": "groove", "name": "Rolling acid", "style": "acid techno",
+    "bpm": 136, "swing": 0.1, "root": "F#", "scale": "dorian", "bars": 2,
+    "drums": { "kit": "909 Punch",
+               "steps": { "kick": "x...x...x...x...", "ch": "..x. ..x. ..x. ..3.|..x...x...x...X.", "clap": "....X.......X..." } },
+    "synths": [
+      { "track": "bass", "preset": "Acid 303",
+        "notes": [ { "step": 0, "degree": 0, "len": 2, "accent": true }, { "step": 3, "degree": 7, "slide": true }, { "step": 20, "midi": 54 } ] },
+      { "track": "syn3", "instrument": { "engine": "pluck", "pluckBright": 0.8, "decay": 0.4, "track": { "reverb": 0.3, "fx": [ { "type": "chorus", "amount": 0.6 } ] } },
+        "notes": [ { "step": 8, "degree": 4 } ] }
+    ] })";
+  auto p = std::make_unique<Project>(makeDemoProject());
+  ContentTarget tg; tg.scene = 1;
+  const float oldBass = p->synths[0].cutoff;
+  CHECK(applyContent(groove, *p, tg, err, &info));
+  CHECK(err.empty()); CHECK(info.kind == "groove"); CHECK(info.name == "Rolling acid"); CHECK(info.style == "acid techno"); CHECK(info.warnings.empty());
+  CHECK(p->bpm == 136.0f); CHECK(std::fabs(p->swing - 0.1f) < 1e-6f); CHECK_EQ(p->root, 6); CHECK(p->scale == Scale::Dorian);
+  CHECK(p->drumEngine == DrumEngine::Punch909);
+  const Scene& sc = p->scenes[1];
+  CHECK_EQ(sc.bars, 2);
+  CHECK_EQ(int(sc.drums.steps[0][0]), 1); CHECK_EQ(int(sc.drums.steps[0][20]), 1);   // a one-bar row repeats over both bars
+  CHECK_EQ(int(sc.drums.steps[0][1]), 0); CHECK_EQ(int(sc.drums.steps[3][14]), 4);   // '3' = roll of three hits
+  CHECK_EQ(int(sc.drums.steps[3][30]), 2); CHECK_EQ(int(sc.drums.steps[2][4]), 2);
+  CHECK_EQ(int(sc.drums.steps[1][0]), 0);                                            // snare not listed: silent
+  CHECK_EQ(sc.synth[0].count, 3);
+  CHECK_EQ(int(sc.synth[0].notes[0].vel), 2); CHECK_EQ(int(sc.synth[0].notes[0].len), 2);
+  CHECK_EQ(int(sc.synth[0].notes[1].degree), 7); CHECK_EQ(int(sc.synth[0].notes[1].flags), int(kNoteSlide));
+  CHECK_EQ(degreeToMidi(*p, p->synths[0].octaveShift, sc.synth[0].notes[2].degree), 54);   // F#3 is the root
+  CHECK(p->synths[0].instrument == InstrumentPreset::Acid303); CHECK(p->synths[0].cutoff != oldBass);
+  CHECK_EQ(p->activeSynths, 3); CHECK(p->synths[2].mode == SynthMode::Pluck); CHECK(std::fabs(p->synths[2].pluckBright - 0.8f) < 1e-6f);
+  CHECK(std::fabs(p->fx[3].revSend - 0.3f) < 1e-6f); CHECK(p->fx[3].slots[0].type == FxType::Chorus); CHECK(p->fx[3].slots[1].type == FxType::Off);
+  CHECK_EQ(p->scenes[0].bars, makeDemoProject().scenes[0].bars);                      // other scenes untouched
+  // without tempo and key
+  auto q = std::make_unique<Project>(makeDemoProject());
+  tg.tempoAndKey = false;
+  CHECK(applyContent(groove, *q, tg, err, nullptr));
+  CHECK(q->bpm == makeDemoProject().bpm); CHECK_EQ(q->root, makeDemoProject().root); CHECK_EQ(q->scenes[1].synth[0].count, 3);
+  tg.tempoAndKey = true;
+
+  // --- errors name the place, and leave the project alone
+  const auto bad = [&](const std::string& text, const char* expect) {
+    auto x = std::make_unique<Project>(makeDemoProject());
+    const auto before = std::make_unique<Project>(*x);
+    std::string e;
+    const bool ok = applyContent(text, *x, ContentTarget{}, e, nullptr);
+    CHECK(!ok);
+    if (e.find(expect) == std::string::npos) { std::printf("    got: %s\n", e.c_str()); CHECK(false); }
+    CHECK(std::memcmp(static_cast<const void*>(x.get()), static_cast<const void*>(before.get()), sizeof(Project)) == 0);
+  };
+  bad("{ \"kind\": \"groove\", ", "not valid JSON, line 1");
+  bad("[1,2]", "must be one JSON object");
+  bad(R"({"name":"x"})", "kind: is missing");
+  bad(R"({"kind":"song","name":"x"})", "is not one of: instrument, drumkit, groove");
+  bad(R"({"kind":"groove"})", "name: is missing");
+  bad(R"({"kind":"groove","name":"x","bpm":300})", "bpm: 300 is outside 40 .. 240");
+  bad(R"({"kind":"groove","name":"x","scale":"phrygian"})", "scale: \"phrygian\" is not one of: minor, major, dorian, pentatonic");
+  bad(R"({"kind":"groove","name":"x","drums":{"steps":{"cowbell":"x..."}}})", "drums.steps.cowbell: is not a pad");
+  bad(R"({"kind":"groove","name":"x","drums":{"steps":{"kick":"x..o"}}})", "'o' is not a step");
+  bad(R"({"kind":"groove","name":"x","bars":1,"drums":{"steps":{"kick":"x...x...x...x...x...x...x...x..."}}})", "32 steps, but 1 bar(s) have only 16");
+  bad(R"({"kind":"groove","name":"x","drums":{"steps":{"kick":"x...x."}}})", "6 steps is not a whole number of bars");
+  bad(R"({"kind":"groove","name":"x","bars":1,"synths":[{"track":"bass","notes":[{"step":16,"degree":0}]}]})", "synths[0].notes[0].step: 16 is outside 0 .. 15");
+  bad(R"({"kind":"groove","name":"x","synths":[{"track":"bass","notes":[{"step":0}]}]})", "needs either \"degree\"");
+  bad(R"({"kind":"groove","name":"x","synths":[{"track":"bass","notes":[{"step":0,"degree":0},{"step":0,"degree":0}]}]})", "listed twice");
+  bad(R"({"kind":"groove","name":"x","synths":[{"notes":[]}]})", "synths[0]: needs a \"track\"");
+  bad(R"({"kind":"groove","name":"x","synths":[{"track":"bass"},{"track":"bass"}]})", "synths[1].track: this track is listed twice");
+  bad(R"({"kind":"instrument","name":"x","cutoff":"bright"})", "cutoff: must be a number");
+  bad(R"({"kind":"instrument","name":"x","lfo":{"target":"filter"}})", "lfo.target: \"filter\" is not one of: off, cutoff, pitch, volume");
+  bad(R"({"kind":"instrument","name":"x","track":{"fx":[{"amount":0.5}]}})", "track.fx[0]: needs a \"type\"");
+  bad(R"({"kind":"instrument","name":"x","track":{"fx":[{"type":"chorus"},{"type":"phaser"},{"type":"filter"},{"type":"bitcrush"}]}})", "3 effect slots");
+  bad(R"({"kind":"drumkit","name":"x","kit":"jungle","pads":{"kick":{"synth":{"pitch":50}}}})", "the break slicer has no synthesized pads");
+  bad(R"({"kind":"drumkit","name":"x","pads":{"kick":{"synth":{"pitch":5}}}})", "pads.kick.synth.pitch: 5 is outside 25 .. 1200");
+  // unknown keys are not errors, they are reported
+  CHECK(checkContent(R"({"kind":"instrument","name":"x","filterEnv":0.5,"lfo":{"shape":"sine"}})", err, &info));
+  CHECK_EQ(int(info.warnings.size()), 2); CHECK(info.warnings[0].find("filterEnv") != std::string::npos);
+  // a note outside the scale is moved and reported
+  CHECK(checkContent(R"({"kind":"groove","name":"x","root":"C","scale":"major","synths":[{"track":"lead","notes":[{"step":0,"midi":61}]}]})", err, &info));
+  CHECK_EQ(int(info.warnings.size()), 1); CHECK(info.warnings[0].find("not in the scale") != std::string::npos);
+
+  // --- an instrument: a file replaces the whole sound, so the same file always gives the same sound
+  auto a = std::make_unique<Project>(makeDemoProject());
+  a->synths[1].fold = 0.9f; a->synths[1].chord = true;
+  ContentTarget ti; ti.synth = 1;
+  CHECK(applyContent(R"({"kind":"instrument","name":"Glass","engine":"fm","fm":{"ratio":3.5,"index":4},"attack":0.01})", *a, ti, err, &info));
+  CHECK(a->synths[1].mode == SynthMode::Fm); CHECK(a->synths[1].fmRatio == 3.5f); CHECK(a->synths[1].fold == 0.0f); CHECK(!a->synths[1].chord);
+  CHECK(a->synths[0].mode == makeDemoProject().synths[0].mode);
+
+  // --- export and import again: instrument, drum kit and groove come back the same
+  Session ses(48000.0);
+  ses.loadStartPreset();
+  ses.setParam(P_SYN_MODE, 2, 3); ses.setParam(P_SYN_VEC_X, 2, 0.8f); ses.setParam(P_SYN_FOLD, 2, 0.35f);
+  ses.setFxSlot(3, 1, int(FxType::Phaser), 0.7f, 0.2f, true);
+  ses.setDrumEngine(int(DrumEngine::EbmElectro)); ses.applyDrumSynthTemplate(0, 3); ses.setParam(P_PAD_PAN, 4, -0.5f); ses.setKitHardness(0.4f);
+  ses.setParam(P_FX_DRIVE, 0, 0.15f);
+  ses.toggleNote(0, 0, 4, 2, false, 1, true);
+  const Project src = ses.project();
+  const std::string ij = instrumentToJson(src, 2, "My \"vector\" pad", "ambient"), dj = drumkitToJson(src, "EBM plus"), gj = grooveToJson(src, 0, "Scene A");
+  CHECK(checkContent(ij, err, &info)); CHECK(info.name == "My \"vector\" pad"); CHECK(info.warnings.empty());
+  CHECK(checkContent(dj, err, &info)); CHECK(info.kind == "drumkit"); CHECK(info.warnings.empty());
+  CHECK(checkContent(gj, err, &info)); CHECK(info.warnings.empty());
+  Session dst(48000.0);
+  ContentTarget t2; t2.synth = 1; t2.scene = 2;
+  CHECK(dst.importContent(ij, t2, err));
+  CHECK(std::memcmp(&dst.project().synths[1], &src.synths[2], sizeof(SynthParams)) != 0);        // "instrument" tag differs at most...
+  { SynthParams x = dst.project().synths[1], y = src.synths[2]; x.instrument = y.instrument = InstrumentPreset::Custom;
+    CHECK(x.mode == y.mode); CHECK(std::fabs(x.vecX - y.vecX) < 1e-5f); CHECK(std::fabs(x.fold - y.fold) < 1e-5f);
+    CHECK(std::fabs(x.cutoff - y.cutoff) < 0.01f); CHECK(x.wave1 == y.wave1); CHECK(x.lfoTarget == y.lfoTarget); CHECK(x.octaveShift == y.octaveShift); }
+  CHECK(dst.project().fx[2].slots[1].type == FxType::Phaser); CHECK(dst.project().fx[2].slots[1].bypass);
+  CHECK(dst.undo()); CHECK(dst.project().synths[1].mode != SynthMode::Vector);                   // one undo step
+  CHECK(dst.importContent(dj, t2, err));
+  CHECK(dst.project().drumEngine == DrumEngine::EbmElectro); CHECK(dst.project().customDrums[0].enabled);
+  CHECK(std::fabs(dst.project().customDrums[0].baseFreq - src.customDrums[0].baseFreq) < 1e-3f);
+  CHECK(std::fabs(dst.project().pads[4].pan + 0.5f) < 1e-5f); CHECK(std::fabs(dst.project().kitHardness - 0.4f) < 1e-5f);
+  CHECK(std::fabs(dst.project().fx[0].drive - 0.15f) < 1e-5f);                                   // the drive set by hand survives
+  CHECK(padPeak(dst, 0) > 0.05f);                                                                // and the sounds are really loaded
+  CHECK(dst.importContent(gj, t2, err));
+  const Scene& g = dst.project().scenes[2];
+  CHECK_EQ(g.bars, src.scenes[0].bars); CHECK(std::memcmp(&g.drums, &src.scenes[0].drums, sizeof(DrumPattern)) == 0);
+  for (int y = 0; y < src.activeSynths; ++y) {
+    CHECK_EQ(g.synth[y].count, src.scenes[0].synth[y].count);
+    CHECK(std::memcmp(g.synth[y].notes, src.scenes[0].synth[y].notes, sizeof(Note) * size_t(g.synth[y].count)) == 0);
+  }
+  CHECK(dst.project().bpm == src.bpm); CHECK_EQ(dst.project().root, src.root); CHECK_EQ(dst.project().activeSynths, src.activeSynths);
+  // a failed import through the session leaves no undo step behind
+  Session clean(48000.0);
+  CHECK(!clean.importContent("{}", ContentTarget{}, err)); CHECK(!clean.canUndo()); CHECK(!err.empty());
+  // Vector Y automation survives an edit (its id is the highest one that can be automated)
+  clean.setChainAuto(0, 1, 0, P_SYN_VEC_Y, 0.1f, 0.9f); clean.setParam(P_BPM, 0, 100.0f);
+  CHECK_EQ(clean.project().chainAuto[0].tracks[1][0].paramId, P_SYN_VEC_Y);
+  // the slicer: naming the kit that is already on keeps an own break
+  Session js(48000.0);
+  CHECK(js.resampleSceneToJungle(0)); const uint32_t id = js.project().breakId;
+  CHECK(js.importContent(R"({"kind":"groove","name":"amen","bars":1,"drums":{"kit":"Jungle Break","steps":{"kick":"x.x.x.x.x.x.x.x."}}})", ContentTarget{}, err));
+  CHECK_EQ(js.project().breakId, id); CHECK(js.activeBreak() != nullptr);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -1261,6 +1402,7 @@ int main() {
     {"pluck and vector engines, named project copy", testPluckAndVector},
     {"hard drum kits and the drum synth", testHardDrumEnginesAndCustomDrumSynth},
     {"drum synth pads are project state", testDrumSynthIsProjectState},
+    {"presets and grooves as JSON", testContentJson},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

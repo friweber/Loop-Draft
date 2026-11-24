@@ -24,6 +24,99 @@ class MainActivity : ComponentActivity() {
     // "LOAD WAV" in the break slicer: the system file picker, then a private copy the engine can open by path.
     private val pickBreak = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) loadBreak(uri) }
 
+    // ---------------------------------------------------------------- library of presets and grooves
+    // Built-in ones are assets (the repository's content/library folder), the user's own are files in the app's folder.
+    private val pickContent = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) importContentFile(uri) }
+    private fun libraryDir() = File(filesDir, "library").apply { mkdirs() }
+
+    private fun header(text: String): Triple<String, String, String>? = try {
+        val o = org.json.JSONObject(text)
+        Triple(o.getString("kind").lowercase(), o.getString("name"), o.optString("style", ""))
+    } catch (e: Exception) { null }
+
+    private fun assetJsons(dir: String, out: MutableList<String>) {
+        for (n in assets.list(dir) ?: emptyArray()) {
+            val p = "$dir/$n"
+            if (n.endsWith(".json")) out.add(p) else if (!n.contains('.')) assetJsons(p, out)
+        }
+    }
+
+    private fun refreshLibrary() {
+        val items = mutableListOf<LibItem>()
+        val builtIn = mutableListOf<String>()
+        try { assetJsons("library", builtIn) } catch (e: Exception) { }
+        for (p in builtIn.sorted()) {
+            val text = try { assets.open(p).bufferedReader().use { it.readText() } } catch (e: Exception) { continue }
+            val h = header(text) ?: continue
+            items.add(LibItem(h.first, h.second, h.third, false, p))
+        }
+        for (f in (libraryDir().listFiles() ?: emptyArray()).filter { it.isFile && it.name.endsWith(".json") }.sortedBy { it.name }) {
+            val text = try { f.readText() } catch (e: Exception) { continue }
+            val h = header(text) ?: continue
+            items.add(LibItem(h.first, h.second, h.third, true, f.absolutePath))
+        }
+        state.library.clear()
+        state.library.addAll(items)
+    }
+
+    private fun libText(item: LibItem): String? = try {
+        if (item.user) File(item.path).readText() else assets.open(item.path).bufferedReader().use { it.readText() }
+    } catch (e: Exception) { null }
+
+    private fun loadLibItem(item: LibItem) {
+        val text = libText(item)
+        val err = if (text == null) "could not be read" else Native.importContent(text, state.scene, state.synth, state.libTempoKey)
+        state.libMsg = if (err.isEmpty()) "Loaded \"${item.name}\". UNDO takes it back." else "\"${item.name}\" has an error: $err"
+        if (err.isEmpty() && item.kind == "groove") { state.drumBar = 0; state.rollPage = 0 }
+        state.rev++
+    }
+
+    private fun userFile(kind: String, name: String) = File(libraryDir(), "$kind-${cleanName(name).replace(' ', '_')}.json")
+
+    private fun saveLibItem(kind: String, raw: String) {
+        val name = cleanName(raw)
+        if (name.isEmpty()) { state.libMsg = "Give it a name first."; return }
+        val text = Native.exportContent(when (kind) { "instrument" -> 0; "drumkit" -> 1; else -> 2 }, state.scene, state.synth, name)
+        val ok = text.isNotEmpty() && try { userFile(kind, name).writeText(text); true } catch (e: Exception) { false }
+        state.libMsg = if (ok) "Saved \"$name\"." else "Could not save."
+        refreshLibrary()
+    }
+
+    private fun deleteLibItem(item: LibItem) {
+        if (item.user) File(item.path).delete()
+        state.libMsg = "Deleted \"${item.name}\"."
+        refreshLibrary()
+    }
+
+    private fun readLimited(input: java.io.InputStream, max: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(1 shl 14)
+        while (out.size() <= max) {
+            val n = input.read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+        }
+        return out.toByteArray()
+    }
+
+    private fun importContentFile(uri: Uri) {
+        val limit = 2 * 1024 * 1024
+        val text = try {
+            contentResolver.openInputStream(uri)?.use { input ->
+                val bytes = readLimited(input, limit)
+                if (bytes.size > limit) null else String(bytes, Charsets.UTF_8)
+            }
+        } catch (e: Exception) { null }
+        if (text == null) { state.libMsg = "Could not read this file (it must be a .json of at most 2 MB)."; return }
+        val err = Native.checkContent(text)
+        val h = header(text)
+        if (err.isNotEmpty() || h == null) { state.libMsg = "This file has an error: ${if (err.isNotEmpty()) err else "kind or name is missing"}"; return }
+        val ok = try { userFile(h.first, h.second).writeText(text); true } catch (e: Exception) { false }
+        state.libMsg = if (ok) "Added ${h.first} \"${h.second}\" to the library." else "Could not save the file."
+        if (ok) state.libOpen = h.first
+        refreshLibrary()
+    }
+
     // Named projects live as files in the app's own folder: <name>.ldp, plus <name>.ldp.break.wav for an own break.
     private fun projectDir() = File(filesDir, "projects").apply { mkdirs() }
     private fun projectFile(name: String) = File(projectDir(), "$name.ldp")
@@ -101,6 +194,11 @@ class MainActivity : ComponentActivity() {
         state.onOpenProject = { name -> openProject(name) }
         state.onDeleteProject = { name -> deleteProject(name) }
         refreshProjects()
+        state.onLibLoad = { item -> loadLibItem(item) }
+        state.onLibSave = { kind, name -> saveLibItem(kind, name) }
+        state.onLibDelete = { item -> deleteLibItem(item) }
+        state.onLibImport = { try { pickContent.launch("*/*") } catch (e: Exception) { state.libMsg = "No file picker on this device." } }
+        refreshLibrary()
         state.onLoadBreak = { try { pickBreak.launch("audio/*") } catch (e: Exception) { state.drumMsg = "No file picker on this device." } }
 
         setContent { App(state) }
@@ -126,6 +224,18 @@ class MainActivity : ComponentActivity() {
                 openProject("CI test")
                 Log.i("LoopDraft", "project reopened mode=${Native.getParam(P.SYN_MODE, 0).toInt()} list=${state.projects.size} msg=${state.projectMsg}")
                 state.synth = 0; state.rollMode = true
+            }
+            "lib" -> {
+                // test option: load a built-in groove, save the bass as an own instrument and load that onto the lead
+                val g = state.library.firstOrNull { it.kind == "groove" }
+                if (g != null) loadLibItem(g)
+                val grooveMsg = state.libMsg
+                saveLibItem("instrument", "CI bass")
+                state.synth = 1
+                val mine = state.library.firstOrNull { it.user && it.kind == "instrument" }
+                if (mine != null) loadLibItem(mine)
+                Log.i("LoopDraft", "lib items=${state.library.size} groove=[$grooveMsg] own=[${state.libMsg}] bpm=${Native.getParam(P.BPM, 0).toInt()}")
+                state.libOpen = "groove"
             }
             "dsyncheck" -> Log.i("LoopDraft", "dsyn after restart engine=${Native.getParam(P.DRUM_ENGINE, 0).toInt()} pad0=${Native.padIsSynth(0)}")
             "dsyn" -> {

@@ -1,0 +1,24 @@
+{
+  "kind": "groove", "format": 1,
+  "name": "Dusty House 122", "style": "lo-fi house",
+  "comment": "One bar with swing. Chords on the lead, a short bass line under it.",
+  "bpm": 122, "swing": 0.14, "root": "A", "scale": "dorian", "bars": 1,
+  "drums": {
+    "kit": "Lo-Fi Acoustic",
+    "steps": {
+      "kick":  "x......x..x.....",
+      "snare": "....x.......x...",
+      "ch":    "x.x.x.x.x.x.x.x.",
+      "oh":    "..............x.",
+      "perc":  ".......x.....x.."
+    }
+  },
+  "synths": [
+    { "track": "bass", "preset": "Analog Bass",
+      "notes": [ { "step": 0, "degree": 0, "len": 2, "accent": true }, { "step": 3, "degree": 0 },
+                 { "step": 7, "degree": 4 }, { "step": 10, "degree": 2, "len": 2 }, { "step": 14, "degree": -1 } ] },
+    { "track": "lead", "instrument": { "preset": "FM E-Piano", "chord": true, "octave": 1,
+                                         "track": { "level": 0.6, "delay": 0.2, "reverb": 0.3, "fx": [ { "type": "chorus", "amount": 0.35 } ] } },
+      "notes": [ { "step": 2, "degree": 0, "len": 3 }, { "step": 8, "degree": 3, "len": 2 }, { "step": 12, "degree": 4, "len": 3 } ] }
+  ]
+}

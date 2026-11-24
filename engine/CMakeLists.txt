@@ -11,7 +11,7 @@ option(LD_SANITIZE "Build with address and undefined-behaviour sanitizers" OFF)
 option(LD_BUILD_TESTS "Build desktop tests and tools" ON)
 
 add_library(loopdraft STATIC
-  src/project.cpp src/voices.cpp src/engine.cpp src/export.cpp src/wav.cpp src/session.cpp src/project_io.cpp)
+  src/project.cpp src/voices.cpp src/engine.cpp src/export.cpp src/wav.cpp src/session.cpp src/project_io.cpp src/content.cpp)
 target_include_directories(loopdraft PUBLIC include PRIVATE third_party)
 target_compile_options(loopdraft PRIVATE -Wall -Wextra)
 set_source_files_properties(src/wav.cpp PROPERTIES COMPILE_OPTIONS "-w")   # third-party header
@@ -35,6 +35,8 @@ if(LD_BUILD_TESTS)
   target_compile_definitions(ld_tests PRIVATE LD_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
   add_executable(ld_render tools/ld_render.cpp)
   target_link_libraries(ld_render PRIVATE loopdraft)
+  add_executable(ld_content tools/ld_content.cpp)
+  target_link_libraries(ld_content PRIVATE loopdraft)
   enable_testing()
   add_test(NAME engine COMMAND ld_tests)
 endif()

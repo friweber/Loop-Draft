@@ -1,0 +1,37 @@
+{
+  "kind": "groove", "format": 1,
+  "name": "Rolling Acid 136", "style": "acid techno",
+  "comment": "Two bars. Four-on-the-floor with an offbeat hat and a sliding 303 line.",
+  "bpm": 136, "swing": 0, "root": "D", "scale": "minor", "bars": 2,
+  "drums": {
+    "kit": "909 Punch",
+    "steps": {
+      "kick": "x...x...x...x...",
+      "clap": "....X.......X...",
+      "ch":   "..x...x...x...x.|..x...x...x..3x.",
+      "oh":   "..........x.....|..............x.",
+      "rim":  "...x......x..x..|...x......x....."
+    }
+  },
+  "synths": [
+    { "track": "bass", "preset": "Acid 303",
+      "notes": [
+        { "step": 0,  "degree": 0, "accent": true },
+        { "step": 2,  "degree": 0 },
+        { "step": 3,  "degree": 7, "slide": true },
+        { "step": 6,  "degree": 0 },
+        { "step": 8,  "degree": 2, "accent": true },
+        { "step": 10, "degree": 0 },
+        { "step": 11, "degree": 4, "slide": true },
+        { "step": 14, "degree": 3 },
+        { "step": 16, "degree": 0, "accent": true },
+        { "step": 18, "degree": 0 },
+        { "step": 19, "degree": 7, "slide": true },
+        { "step": 22, "degree": 5 },
+        { "step": 24, "degree": 6, "accent": true },
+        { "step": 26, "degree": 4, "slide": true },
+        { "step": 28, "degree": 2 },
+        { "step": 30, "degree": -1, "slide": true }
+      ] }
+  ]
+}

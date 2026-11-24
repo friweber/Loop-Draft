@@ -1,0 +1,18 @@
+{
+  "kind": "drumkit", "format": 1,
+  "name": "Warehouse Hard", "style": "hard techno",
+  "comment": "Rumble kit with a synthesized, driven kick and a short metallic hat.",
+  "kit": "Warehouse Rumble", "hardness": 0.35,
+  "track": { "level": 0.85, "eqLow": 2, "eqHigh": 1, "delay": 0, "reverb": 0.08,
+             "fx": [ { "type": "compressor", "amount": 0.5, "rate": 0.4 } ] },
+  "pads": {
+    "kick": { "vol": 0.95, "decay": 0.5,
+              "synth": { "pitch": 47, "drop": 260, "dropTime": 0.02, "length": 0.5, "tone": 1.0, "noise": 0.05,
+                         "noiseFreq": 3000, "fm": 0.3, "fmRatio": 2, "drive": 0.7, "click": 0.6 } },
+    "ch":   { "vol": 0.6, "decay": 0.06, "choke": 1,
+              "synth": { "pitch": 640, "drop": 0, "dropTime": 0.01, "length": 0.12, "tone": 0.3, "noise": 0.9,
+                         "noiseFreq": 9000, "fm": 5.5, "fmRatio": 3.7, "drive": 0.2, "click": 0.1 } },
+    "oh":   { "vol": 0.55, "decay": 0.3, "choke": 1 },
+    "clap": { "vol": 0.8, "pan": 0.1 }
+  }
+}

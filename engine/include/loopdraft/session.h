@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "loopdraft/content.h"
 #include "loopdraft/engine.h"
 
 namespace ld {
@@ -78,6 +79,8 @@ class Session {
 
   bool dirty() const { return dirty_; }
   bool save(const char* path);     // atomic: writes a temp file, then renames
+  // A preset or groove file (see content.h). One undo step; on an error nothing changes and `error` says where.
+  bool importContent(const std::string& json, const ContentTarget& target, std::string& error, ContentInfo* info = nullptr);
   bool openProject(const char* path);      // loads a named project as one undo step: UNDO goes back to what was open
   bool saveCopy(const char* path) const;   // a second copy somewhere else (a named project); the autosave state is untouched
   bool load(const char* path);     // false if the file is missing or not a project. Files from build 5 (version 1) are converted.

@@ -78,6 +78,16 @@ class AppState {
     var rollMode by mutableStateOf(false)
     var accent by mutableStateOf(false)
     var slide by mutableStateOf(false)     // piano roll: taps set or clear a slide
+    // The library: presets and grooves that ship with the app, plus the user's own.
+    val library = mutableStateListOf<LibItem>()
+    var libOpen by mutableStateOf("")       // which kind is unfolded: "instrument", "drumkit", "groove" or none
+    var libName by mutableStateOf("My preset")
+    var libMsg by mutableStateOf("")
+    var libTempoKey by mutableStateOf(true)   // a groove also sets tempo and key
+    var onLibLoad: (LibItem) -> Unit = {}
+    var onLibSave: (String, String) -> Unit = { _, _ -> }
+    var onLibDelete: (LibItem) -> Unit = {}
+    var onLibImport: () -> Unit = {}
     val projects = mutableStateListOf<String>()
     var projectName by mutableStateOf("My loop")
     var projectMsg by mutableStateOf("")
@@ -185,6 +195,64 @@ fun App(s: AppState) {
                 WalnutRail()
             }
         }
+    }
+}
+
+/** One preset or groove in the library. `user` ones are files the user saved or imported and can delete. */
+data class LibItem(val kind: String, val name: String, val style: String, val user: Boolean, val path: String)
+
+/**
+ * The library for one kind of content. Folded up it is a single button. Loading is one undo step.
+ * what: what a tap on LOAD changes, shown as a hint.
+ */
+@Composable
+fun LibraryPanel(s: AppState, kind: String, title: String, what: String, accent: Color) {
+    val items = s.library.filter { it.kind == kind }
+    if (s.libOpen != kind) {
+        HwButton("$title (${items.size})", Modifier.fillMaxWidth(), ledColor = accent, height = 32.dp) { s.libOpen = kind; s.libMsg = ""; s.confirmDelete = "" }
+        return
+    }
+    ModulePanel(
+        title = title,
+        accent = accent,
+        trailing = { HwButton("CLOSE", ledColor = HwOrange, height = 26.dp, pad = 8.dp) { s.libOpen = "" } }
+    ) {
+        SilkLabel(what, color = HwMuted, size = 9, bold = false)
+        if (kind == "groove") {
+            HwButton(if (s.libTempoKey) "ALSO TAKES TEMPO AND KEY: ON" else "ALSO TAKES TEMPO AND KEY: OFF", Modifier.fillMaxWidth(), on = s.libTempoKey, ledColor = HwYellow, showLed = true, height = 28.dp) {
+                s.libTempoKey = !s.libTempoKey
+            }
+        }
+        for (item in items) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    SilkLabel(item.name, color = HwSilk, size = 12)
+                    if (item.style.isNotEmpty() || item.user) SilkLabel(listOf(item.style, if (item.user) "yours" else "").filter { t -> t.isNotEmpty() }.joinToString(" - "), color = HwMuted, size = 9, bold = false)
+                }
+                HwButton("LOAD", ledColor = accent, height = 30.dp, pad = 10.dp) { s.onLibLoad(item) }
+                if (item.user) {
+                    val sure = s.confirmDelete == "lib:" + item.path
+                    HwButton(if (sure) "SURE?" else "DEL", on = sure, ledColor = HwRed, height = 30.dp, pad = 8.dp) {
+                        if (sure) { s.confirmDelete = ""; s.onLibDelete(item) } else s.confirmDelete = "lib:" + item.path
+                    }
+                }
+            }
+        }
+        if (items.isEmpty()) SilkLabel("Nothing here yet.", color = HwMuted, size = 10, bold = false)
+        if (s.libMsg.isNotEmpty()) SilkLabel(s.libMsg, color = HwYellow, size = 10, bold = false)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = s.libName,
+                onValueChange = { v -> s.libName = v.take(40).filter { c -> c.isLetterOrDigit() || c in " -_" } },
+                singleLine = true,
+                textStyle = TextStyle(color = HwSilk, fontSize = 14.sp),
+                cursorBrush = SolidColor(accent),
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(HwRecess).border(1.dp, HwLine, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 9.dp)
+            )
+            HwButton("SAVE MINE", ledColor = HwGreen, height = 34.dp, pad = 8.dp) { s.onLibSave(kind, s.libName) }
+            HwButton("FILE", ledColor = HwCyan, height = 34.dp, pad = 8.dp) { s.onLibImport() }
+        }
+        SilkLabel("SAVE MINE keeps what is set right now under that name. FILE adds a preset or groove file (.json) from the phone.", color = HwMuted, size = 9, bold = false)
     }
 }
 
@@ -519,6 +587,8 @@ fun DrumsTab(s: AppState) {
 
     val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
     Panes(s, left = {
+    LibraryPanel(s, "groove", "GROOVE LIBRARY", "A groove replaces the patterns of scene ${SCENE_NAMES[s.scene]} and brings its sounds. UNDO takes it back.", HwGreen)
+    LibraryPanel(s, "drumkit", "DRUM KIT LIBRARY", "A kit sets the kit, all eight pads and the drum track's effects. Patterns stay.", HwOrange)
     ModulePanel(
         title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "${DRUM_ENGINE_NAMES[drumEng]}: ${padLabel(s.selPad)}",
         accent = accent
@@ -732,6 +802,7 @@ fun SynthTab(s: AppState) {
     val curInst = remember(s.rev, s.synth) { Native.getParam(P.SYN_INSTRUMENT, s.synth).roundToInt() }
 
     Panes(s, left = {
+    LibraryPanel(s, "instrument", "INSTRUMENT LIBRARY", "An instrument replaces the sound of ${TRACK_NAMES[s.synth + 1]} and its effects. Notes stay.", HwCyan)
     ModulePanel(
         title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${listOf("SUB", "FM", "PLUCK", "VECTOR")[mode]})",
         accent = HwCyan,
@@ -1037,6 +1108,7 @@ fun SongTab(s: AppState) {
         Native.getParam(ch.id, if (ch.id in 20..39 || ch.id >= 50) autoTrk - 1 else autoTrk).coerceIn(ch.lo, ch.hi)
 
     Panes(s, left = {
+    LibraryPanel(s, "groove", "GROOVE LIBRARY", "A groove replaces the patterns of scene ${SCENE_NAMES[s.scene]} and brings its sounds. UNDO takes it back.", HwGreen)
     ModulePanel(
         title = "Arrangement Chain",
         accent = HwGreen,

@@ -1,4 +1,5 @@
 #include "loopdraft/session.h"
+#include "loopdraft/content.h"
 
 #include <algorithm>
 #include <cmath>
@@ -105,7 +106,7 @@ void sanitize(Project& p) {
     for (int t = 0; t < kNumTracks; ++t) {
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {
         auto& al = p.chainAuto[i].tracks[t][ln];
-        if (al.paramId < -1 || al.paramId > 60) al.paramId = -1;
+        if (al.paramId < -1 || al.paramId > P_SYN_VEC_Y) al.paramId = -1;   // the highest id that can be automated
         al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
       }
     }
@@ -374,10 +375,7 @@ void Session::setActiveSynths(int count) {
   proj_.activeSynths = clampT(count, 2, kNumSynths);
   commit();
 }
-void Session::applyInstrument(int synth, int preset) {
-  if (synth < 0 || synth >= kNumSynths) return;
-  beginEdit();
-  SynthParams& sp = proj_.synths[synth];
+void setInstrumentPreset(SynthParams& sp, int preset) {
   const auto pr = InstrumentPreset(clampT(preset, 0, int(InstrumentPreset::PluckLead)));
   sp.instrument = pr;
   switch (pr) {
@@ -418,6 +416,11 @@ void Session::applyInstrument(int synth, int preset) {
       break;
     default: break;
   }
+}
+void Session::applyInstrument(int synth, int preset) {
+  if (synth < 0 || synth >= kNumSynths) return;
+  beginEdit();
+  setInstrumentPreset(proj_.synths[synth], preset);
   commit();
 }
 namespace {
@@ -439,46 +442,46 @@ void Session::loadStandardKit() { setDrumEngine(int(DrumEngine::Classic808)); }
 
 // Only project fields change here. commit() -> syncKit() then loads the matching sounds, and does the
 // same after undo, redo and loading a file.
-void Session::switchDrumMode(bool toJungle) {
-  const bool isJungle = proj_.drumEngine == DrumEngine::JungleSlicer;
+void switchDrumMode(Project& p, bool toJungle) {
+  const bool isJungle = p.drumEngine == DrumEngine::JungleSlicer;
   if (isJungle == toJungle) return;
   PadParams pads[kNumPads];
   DrumPattern drums[kNumScenes];
-  const float drive = proj_.fx[0].drive;
-  for (int i = 0; i < kNumPads; ++i) pads[i] = proj_.pads[i];
-  for (int i = 0; i < kNumScenes; ++i) drums[i] = proj_.scenes[i].drums;
-  if (proj_.altValid) {                            // been in that mode before: everything comes back as it was left
-    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = proj_.altPads[i];
-    for (int i = 0; i < kNumScenes; ++i) proj_.scenes[i].drums = proj_.altDrums[i];
-    proj_.fx[0].drive = proj_.altDrumDrive;
+  const float drive = p.fx[0].drive;
+  for (int i = 0; i < kNumPads; ++i) pads[i] = p.pads[i];
+  for (int i = 0; i < kNumScenes; ++i) drums[i] = p.scenes[i].drums;
+  if (p.altValid) {                            // been in that mode before: everything comes back as it was left
+    for (int i = 0; i < kNumPads; ++i) p.pads[i] = p.altPads[i];
+    for (int i = 0; i < kNumScenes; ++i) p.scenes[i].drums = p.altDrums[i];
+    p.fx[0].drive = p.altDrumDrive;
   } else if (toJungle) {                           // first visit: slice the break, keep the pattern as a start
-    sliceAcrossPads(proj_);
-    proj_.fx[0].drive = proj_.jungleCrunch;
+    sliceAcrossPads(p);
+    p.fx[0].drive = p.jungleCrunch;
   } else {                                         // an old project that was saved inside the slicer
     const Project def = makeDemoProject();
-    for (int i = 0; i < kNumPads; ++i) proj_.pads[i] = def.pads[i];
+    for (int i = 0; i < kNumPads; ++i) p.pads[i] = def.pads[i];
   }
-  for (int i = 0; i < kNumPads; ++i) proj_.altPads[i] = pads[i];
-  for (int i = 0; i < kNumScenes; ++i) proj_.altDrums[i] = drums[i];
-  proj_.altDrumDrive = drive;
-  proj_.altValid = 1;
-  proj_.drumEngine = toJungle ? DrumEngine::JungleSlicer : DrumEngine::Classic808;
+  for (int i = 0; i < kNumPads; ++i) p.altPads[i] = pads[i];
+  for (int i = 0; i < kNumScenes; ++i) p.altDrums[i] = drums[i];
+  p.altDrumDrive = drive;
+  p.altValid = 1;
+  p.drumEngine = toJungle ? DrumEngine::JungleSlicer : DrumEngine::Classic808;
 }
-void Session::setDrumEngine(int engine) {
-  beginEdit();
+void setDrumEngine(Project& p, int engine) {
   const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::GlitchBreakcore)));
-  const bool wasJungle = proj_.drumEngine == DrumEngine::JungleSlicer;
+  const bool wasJungle = p.drumEngine == DrumEngine::JungleSlicer;
   const bool toJungle = de == DrumEngine::JungleSlicer;
   if (wasJungle && toJungle) {                     // choosing the slicer again inside it: back to the built-in break
-    proj_.breakId = 0;
-    sliceAcrossPads(proj_);
+    p.breakId = 0;
+    sliceAcrossPads(p);
   }
   // The built-in break is made for 168 BPM. An own break keeps the tempo it was made at.
-  if (toJungle && !wasJungle && !proj_.altValid && proj_.breakId == 0) proj_.bpm = 168.0f;
-  switchDrumMode(toJungle);                        // the own break (breakId) stays with the project
-  proj_.drumEngine = de;
-  commit();
+  if (toJungle && !wasJungle && !p.altValid && p.breakId == 0) p.bpm = 168.0f;
+  switchDrumMode(p, toJungle);                        // the own break (breakId) stays with the project
+  p.drumEngine = de;
 }
+void Session::switchDrumMode(bool toJungle) { ld::switchDrumMode(proj_, toJungle); }
+void Session::setDrumEngine(int engine) { beginEdit(); ld::setDrumEngine(proj_, engine); commit(); }
 void Session::applyJungleTuning(float pitch, float tight, float crunch, bool undoStep) {
   if (undoStep) beginEdit();
   proj_.junglePitch = clampT(fin(pitch, 0.0f), -12.0f, 12.0f);
@@ -704,6 +707,15 @@ bool Session::save(const char* path) {
   }
   if (!writeProjectFile(path, proj_)) return false;
   dirty_ = false;
+  return true;
+}
+
+bool Session::importContent(const std::string& json, const ContentTarget& target, std::string& error, ContentInfo* info) {
+  auto work = std::make_unique<Project>(proj_);
+  if (!applyContent(json, *work, target, error, info)) return false;
+  beginEdit();
+  proj_ = *work;
+  commit();
   return true;
 }
 

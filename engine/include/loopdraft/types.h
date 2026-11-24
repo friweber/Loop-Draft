@@ -189,6 +189,10 @@ struct Project {
   DrumPattern altDrums[kNumScenes];
 };
 
+// Building blocks that work on plain project data (no undo, no audio): shared by the session and the content importer.
+void setDrumEngine(Project& p, int engine);            // 0..9; entering or leaving the break slicer swaps pads and patterns
+void switchDrumMode(Project& p, bool toJungle);
+void setInstrumentPreset(SynthParams& sp, int preset); // one of the built-in instruments, see InstrumentPreset
 Project makeDemoProject();
 // The "Warehouse 303" preset built into the app: what a fresh install opens with.
 Project makeStartProject();
