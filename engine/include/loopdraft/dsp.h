@@ -8,6 +8,31 @@ namespace ld {
 
 constexpr double kPi = 3.14159265358979323846;
 
+// ---- Fast maths for the audio thread. The library sin and tanh were the largest single cost of the engine.
+
+// tanh, within 1e-4 of the real one everywhere (a 7/6 Pade fraction, which reaches 1 at +-4.97).
+inline float fastTanh(float x) {
+  x = x < -4.97f ? -4.97f : (x > 4.97f ? 4.97f : x);
+  const float x2 = x * x;
+  return x * (135135.0f + x2 * (17325.0f + x2 * (378.0f + x2))) / (135135.0f + x2 * (62370.0f + x2 * (3150.0f + x2 * 28.0f)));
+}
+
+// sin(2 pi t) from a table with linear interpolation, within 1.2e-6. t is in turns and may be any value.
+struct SineTable {
+  static constexpr int kSize = 2048;
+  float v[kSize + 1];
+  SineTable() { for (int i = 0; i <= kSize; ++i) v[i] = float(std::sin(2.0 * kPi * double(i) / kSize)); }
+};
+inline const SineTable kSineTable;
+inline float sinTurns(float t) {
+  t -= std::floor(t);
+  const float f = t * float(SineTable::kSize);
+  int i = int(f);
+  if (i >= SineTable::kSize) i = SineTable::kSize - 1;      // t rounded up to exactly 1
+  const float fr = f - float(i);
+  return kSineTable.v[i] + fr * (kSineTable.v[i + 1] - kSineTable.v[i]);
+}
+
 // One-pole parameter smoother, removes zipper noise from level changes.
 struct Smooth {
   float y = 0.0f, a = 1.0f;
@@ -64,7 +89,7 @@ struct Drive {
     m = amount < 0 ? 0 : (amount > 1 ? 1 : amount);
     g = 1.0f + m * 24.0f; norm = 1.0f / std::tanh(g);
   }
-  float tick(float x) const { return m == 0.0f ? x : (1.0f - m) * x + m * std::tanh(g * x) * norm; }
+  float tick(float x) const { return m == 0.0f ? x : (1.0f - m) * x + m * fastTanh(g * x) * norm; }
 };
 
 // Stereo ping-pong delay with a darkening feedback path.
@@ -186,8 +211,8 @@ struct Chorus {
     const float hz = 0.15f + rate * 3.5f;
     ph += hz / float(sr);
     if (ph >= 1.0f) ph -= 1.0f;
-    const float modL = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * ph);
-    const float modR = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * (ph + 0.25f));
+    const float modL = 0.5f + 0.5f * sinTurns(ph);
+    const float modR = 0.5f + 0.5f * sinTurns(ph + 0.25f);
     const auto readTap = [&](const std::vector<float>& b, float dMs) {
       float dSamp = dMs * 0.001f * float(sr);
       if (dSamp > size - 2) dSamp = float(size - 2);
@@ -209,15 +234,19 @@ struct Chorus {
 
 // 4-stage stereo all-pass Phaser.
 struct Phaser {
-  float aL[4] = {}, aR[4] = {}, ph = 0.0f;
+  float aL[4] = {}, aR[4] = {}, ph = 0.0f, a = 0.0f;
+  uint32_t age = 0;
   double sr = 48000.0;
-  void init(double sampleRate) { sr = sampleRate; ph = 0.0f; for (int i = 0; i < 4; ++i) aL[i] = aR[i] = 0.0f; }
+  void init(double sampleRate) { sr = sampleRate; ph = 0.0f; a = 0.0f; age = 0; for (int i = 0; i < 4; ++i) aL[i] = aR[i] = 0.0f; }
   void tick(float& l, float& r, float amount, float rate) {
     const float hz = 0.1f + rate * 4.0f;
     ph += hz / float(sr); if (ph >= 1.0f) ph -= 1.0f;
-    const float lfo = 0.5f + 0.5f * std::sin(2.0f * float(kPi) * ph);
-    const float f = 220.0f + lfo * 2400.0f;
-    const float a = float((1.0 - std::tan(kPi * f / sr)) / (1.0 + std::tan(kPi * f / sr)));
+    if ((age++ & 15u) == 0) {              // the sweep moves slowly: a new coefficient every 16 samples is enough
+      const float lfo = 0.5f + 0.5f * sinTurns(ph);
+      const float f = 220.0f + lfo * 2400.0f;
+      const float tn = float(std::tan(kPi * f / sr));
+      a = (1.0f - tn) / (1.0f + tn);
+    }
     float yL = l, yR = r;
     for (int i = 0; i < 4; ++i) {
       float tL = a * yL + aL[i]; aL[i] = yL - a * tL; yL = tL;
@@ -231,21 +260,24 @@ struct Phaser {
 
 // Punchy OTT-style track compressor.
 struct TrackComp {
-  float env = 0.0f, att = 0.01f, rel = 0.001f;
+  float env = 0.0f, att = 0.01f, rel = 0.001f, gain = 1.0f;
+  uint32_t age = 0;
   void init(double sr) {
-    env = 0.0f;
+    env = 0.0f; gain = 1.0f; age = 0;
     att = float(1.0 - std::exp(-1.0 / (sr * 0.005)));
     rel = float(1.0 - std::exp(-1.0 / (sr * 0.060)));
   }
   void tick(float& l, float& r, float amount) {
     const float pk = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
     env += (pk > env ? att : rel) * (pk - env);
-    const float thr = 0.45f - amount * 0.30f;
-    float gain = 1.0f;
-    if (env > thr && env > 1e-5f) {
-      const float ratio = 1.0f + amount * 6.0f;
-      const float over = env / thr;
-      gain = std::pow(over, (1.0f / ratio) - 1.0f);
+    if ((age++ & 7u) == 0) {               // the envelope takes milliseconds to move: the gain follows every 8 samples
+      const float thr = 0.45f - amount * 0.30f;
+      gain = 1.0f;
+      if (env > thr && env > 1e-5f) {
+        const float ratio = 1.0f + amount * 6.0f;
+        const float over = env / thr;
+        gain = std::pow(over, (1.0f / ratio) - 1.0f);
+      }
     }
     const float makeup = 1.0f + amount * 0.75f;
     l *= gain * makeup; r *= gain * makeup;

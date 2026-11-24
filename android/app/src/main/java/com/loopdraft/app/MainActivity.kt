@@ -231,6 +231,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        Native.setAudioMode(state.prefs.audio)
         state.audioOk = Native.start(filesDir.absolutePath)
         state.info = Native.info()
         Native.setSongMode(state.songMode)
@@ -372,6 +373,7 @@ class MainActivity : ComponentActivity() {
                 Thread.sleep(400)
                 loudest = maxOf(loudest, Native.peak(0), Native.peak(1))
                 Log.i("LoopDraft", "selftest playing=${Native.isPlaying()} step=${Native.currentStep()} sound=${loudest > 0.01f}")
+                Log.i("LoopDraft", "selftest audio: ${Native.info()}")
             }
         }.start()
     }

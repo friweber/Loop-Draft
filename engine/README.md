@@ -45,3 +45,8 @@ Sanitizer builds: `-DLD_SANITIZE=ON` (address + undefined behaviour) and `-DLD_T
 Portable project files (the autosave is a raw snapshot tied to this version), and loading samples from the app's storage.
 
 `third_party/dr_wav.h` is dr_wav by David Reid (public domain or MIT-0), as chosen in the spec.
+
+## Measuring the cost
+
+`build/ld_bench [frames-per-callback]` renders light and heavy projects in small blocks, the way the phone asks for them,
+and prints the mean and worst time per callback as a share of real time.

@@ -80,7 +80,7 @@ inline float osc(Wave w, float t, float dt) {
       return v - polyBlep(t2, dt);
     }
     case Wave::Triangle: return 4.0f * std::fabs(t - 0.5f) - 1.0f;
-    default: return std::sin(2.0f * float(kPi) * t);
+    default: return sinTurns(t);
   }
 }
 }  // namespace
@@ -142,6 +142,9 @@ void Synth::process(float* out, int n, const SynthParams& p) {
   const bool pluck = p.mode == SynthMode::Pluck, vector = p.mode == SynthMode::Vector;
   const float bright = p.pluckBright < 0 ? 0 : (p.pluckBright > 1 ? 1 : p.pluckBright);
   const float ksBlend = 0.5f * (1.0f - bright);      // how much each trip round the string smooths it
+  const bool warm = p.feelWarmth > 0.55f;
+  const float warmG = 1.0f + (p.feelWarmth - 0.55f) * 3.5f, warmNorm = warm ? 1.0f / std::tanh(warmG) : 1.0f;
+  const float fbTurns = p.fmFeedback * 2.5f / (2.0f * float(kPi)), idxTurns = p.fmIndex / (2.0f * float(kPi));   // radians -> turns
 
   for (auto& v : v_) {
     if (v.stage == Off) continue;
@@ -194,9 +197,9 @@ void Synth::process(float* out, int n, const SynthParams& p) {
       v.amp += v.ampStep;
       float x;
       if (p.mode == SynthMode::Fm) {
-        const float mod = std::sin(2.0f * float(kPi) * v.ph2 + p.fmFeedback * 2.5f * v.lastMod);
+        const float mod = sinTurns(v.ph2 + fbTurns * v.lastMod);
         v.lastMod = mod;
-        x = std::sin(2.0f * float(kPi) * v.ph1 + p.fmIndex * v.modEnv * mod);
+        x = sinTurns(v.ph1 + idxTurns * v.modEnv * mod);
         v.modEnv *= modDecMul;
       } else if (pluck) {
         float rp = float(v.ksPos) - v.ksDelay;
@@ -209,10 +212,10 @@ void Synth::process(float* out, int n, const SynthParams& p) {
         v.ksLast = x;
         v.ksPos = (v.ksPos + 1) & (kStringLen - 1);
       } else if (vector) {
-        const float mod = std::sin(2.0f * float(kPi) * v.ph3 + p.fmFeedback * 2.5f * v.lastMod);
+        const float mod = sinTurns(v.ph3 + fbTurns * v.lastMod);
         v.lastMod = mod;
         const float a = osc(p.wave1, v.ph1, v.inc1), b = osc(p.wave2, v.ph2, v.inc2);
-        const float c = std::sin(2.0f * float(kPi) * v.ph1 + p.fmIndex * v.modEnv * mod);
+        const float c = sinTurns(v.ph1 + idxTurns * v.modEnv * mod);
         const float d = osc(Wave::Square, v.ph4, v.inc4);
         v.modEnv *= modDecMul;
         x = 0.8f * ((1.0f - v.vx) * ((1.0f - v.vy) * a + v.vy * c) + v.vx * ((1.0f - v.vy) * b + v.vy * d));
@@ -221,11 +224,11 @@ void Synth::process(float* out, int n, const SynthParams& p) {
       } else {
         x = 0.5f * (osc(p.wave1, v.ph1, v.inc1) + osc(p.wave2, v.ph2, v.inc2));
       }
-      if (foldGain > 1.0f) x = std::sin(x * foldGain * 0.5f * float(kPi));   // wavefolder: louder input wraps round
+      if (foldGain > 1.0f) x = sinTurns(x * foldGain * 0.25f);   // wavefolder: louder input wraps round
       v.ph1 += v.inc1; if (v.ph1 >= 1.0f) v.ph1 -= std::floor(v.ph1);
       v.ph2 += v.inc2; if (v.ph2 >= 1.0f) v.ph2 -= std::floor(v.ph2);
       float y = v.flt.low(x);
-      if (p.feelWarmth > 0.55f) { const float g = 1.0f + (p.feelWarmth - 0.55f) * 3.5f; y = std::tanh(y * g) / std::tanh(g); }
+      if (warm) y = fastTanh(y * warmG) * warmNorm;
 
       if (v.stage == Attack && pluck) { v.env = 1.0f; v.stage = Decay; }
       else if (v.stage == Attack) { v.env += attInc; if (v.env >= 1.0f) { v.env = 1.0f; v.stage = Decay; } }

@@ -58,6 +58,7 @@ object Native {
     external fun chain(): IntArray
     external fun chainAdd(scene: Int)
     external fun chainRemove(pos: Int)
+    external fun setAudioMode(mode: Int)   // 0 fast, 1 balanced, 2 safe: the smallest audio buffer
     external fun defaultParam(id: Int, index: Int): Float   // what a control is set to in a new project
     external fun resetToDemo()
     external fun loadStartPreset()      // the built-in Warehouse 303 project; undoable

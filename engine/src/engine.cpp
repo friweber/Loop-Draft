@@ -332,9 +332,21 @@ void Engine::renderAudio(float* l, float* r, int n) {
     std::memcpy(tb[1 + s][0], mono, sizeof(float) * size_t(n));
     std::memcpy(tb[1 + s][1], mono, sizeof(float) * size_t(n));
   }
+  // A track that has had nothing to play for a while costs nothing: its channel strip and effects are skipped.
+  // (None of them rings longer than this; delay and reverb are shared and keep running.)
+  bool live[kNumTracks];
+  const int64_t idleAfter = int64_t(sr_ * 0.75);
+  for (int t = 0; t < kNumTracks; ++t) {
+    bool sound = false;
+    for (int i = 0; i < n && !sound; ++i) sound = tb[t][0][i] != 0.0f || tb[t][1][i] != 0.0f;
+    TrackState& ts = tr_[t];
+    if (sound) ts.idle = 0; else if (ts.idle < idleAfter) ts.idle += n;
+    live[t] = ts.idle < idleAfter;
+  }
   for (int i = 0; i < n; ++i) {
     float mL = 0, mR = 0, dL = 0, dR = 0, rL = 0, rR = 0;
     for (int t = 0; t < kNumTracks; ++t) {
+      if (!live[t]) continue;
       const TrackFx& fx = effFx[t];
       TrackState& ts = tr_[t];
       const float lvl = ts.level.next(fx.mute ? 0.0f : fx.level);

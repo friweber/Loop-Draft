@@ -9,6 +9,8 @@
 #include <android/log.h>
 #include <oboe/Oboe.h>
 
+#include <atomic>
+#include <ctime>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -48,6 +50,7 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
     wantRunning_ = false;
     if (session_) { session_->engine().stop(); session_->save(savePath_.c_str()); }
     if (stream_) { stream_->stop(); stream_->close(); stream_.reset(); }
+    tuner_.reset();
   }
 
   ld::Session* session() { return session_.get(); }
@@ -56,19 +59,40 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
   std::string info() {
     std::lock_guard<std::mutex> g(lock_);
     if (!stream_) return "audio off";
-    char buf[160];
+    char buf[240];
     const auto lat = stream_->calculateLatencyMillis();
-    std::snprintf(buf, sizeof(buf), "%s %d Hz, burst %d, buffer %d%s", oboe::convertToText(stream_->getAudioApi()),
-                  stream_->getSampleRate(), stream_->getFramesPerBurst(), stream_->getBufferSizeInFrames(),
-                  lat ? (", out " + std::to_string(int(lat.value() + 0.5)) + " ms").c_str() : "");
+    const auto xr = stream_->getXRunCount();
+    const double bufMs = 1000.0 * stream_->getBufferSizeInFrames() / double(stream_->getSampleRate());
+    // load: how much of the time between two callbacks the engine needs. peak: the highest since the last look.
+    const int peak = int(loadPeak_.exchange(0.0f, std::memory_order_relaxed) * 100.0f + 0.5f);
+    std::snprintf(buf, sizeof(buf), "%s %d Hz, burst %d, buffer %d (%.0f ms)%s, load %d%% peak %d%%, dropouts %d",
+                  oboe::convertToText(stream_->getAudioApi()),
+                  stream_->getSampleRate(), stream_->getFramesPerBurst(), stream_->getBufferSizeInFrames(), bufMs,
+                  lat ? (", out " + std::to_string(int(lat.value() + 0.5)) + " ms").c_str() : "",
+                  int(loadAvg_.load(std::memory_order_relaxed) * 100.0f + 0.5f), peak, xr ? xr.value() : -1);
     return buf;
+  }
+
+  // 0 fast (2 bursts), 1 balanced (4), 2 safe (8). The buffer still grows by itself when the phone cannot keep up.
+  void setAudioMode(int mode) {
+    std::lock_guard<std::mutex> g(lock_);
+    audioMode_ = mode < 0 ? 0 : (mode > 2 ? 2 : mode);
+    applyAudioMode();
   }
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream* s, void* data, int32_t frames) override {
     if (!denormalsOff_) { flushDenormalsToZero(); denormalsOff_ = true; }
+    timespec t0; clock_gettime(CLOCK_MONOTONIC, &t0);
     float* out = static_cast<float*>(data);
     if (session_ && s->getChannelCount() == 2) session_->engine().renderInterleaved(out, frames);
     else std::memset(out, 0, sizeof(float) * size_t(frames) * size_t(s->getChannelCount()));
+    timespec t1; clock_gettime(CLOCK_MONOTONIC, &t1);
+    const double took = double(t1.tv_sec - t0.tv_sec) + double(t1.tv_nsec - t0.tv_nsec) * 1e-9;
+    const float load = float(took * double(s->getSampleRate()) / double(frames > 0 ? frames : 1));
+    const float avg = loadAvg_.load(std::memory_order_relaxed);
+    loadAvg_.store(avg + 0.02f * (load - avg), std::memory_order_relaxed);
+    if (load > loadPeak_.load(std::memory_order_relaxed)) loadPeak_.store(load, std::memory_order_relaxed);
+    if (tuner_) tuner_->tune();            // a dropout makes the buffer one burst longer, so it does not repeat
     return oboe::DataCallbackResult::Continue;
   }
 
@@ -76,6 +100,7 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
   void onErrorAfterClose(oboe::AudioStream*, oboe::Result r) override {
     LOGI("stream closed: %s", oboe::convertToText(r));
     std::lock_guard<std::mutex> g(lock_);
+    tuner_.reset();
     stream_.reset();
     if (wantRunning_) open();
   }
@@ -100,7 +125,11 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
     denormalsOff_ = false;
     const oboe::Result r = b.openStream(stream_);
     if (r != oboe::Result::OK || !stream_) { LOGE("cannot open audio: %s", oboe::convertToText(r)); stream_.reset(); return false; }
-    stream_->setBufferSizeInFrames(stream_->getFramesPerBurst() * 2);
+    tuner_ = std::make_unique<oboe::LatencyTuner>(*stream_);
+    applyAudioMode();
+    // Tells the phone how long each callback may take, so it keeps a fast enough core awake for the audio thread.
+    stream_->setPerformanceHintEnabled(true);
+    loadAvg_.store(0.0f); loadPeak_.store(0.0f);
     if (!session_) {
       sampleRate_ = stream_->getSampleRate();
       session_ = std::make_unique<ld::Session>(double(sampleRate_));
@@ -120,8 +149,19 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
       }
     }
     const oboe::Result s = stream_->requestStart();
-    if (s != oboe::Result::OK) { LOGE("cannot start audio: %s", oboe::convertToText(s)); stream_->close(); stream_.reset(); return false; }
+    if (s != oboe::Result::OK) { LOGE("cannot start audio: %s", oboe::convertToText(s)); stream_->close(); stream_.reset(); tuner_.reset(); return false; }
     return true;
+  }
+
+  void applyAudioMode() {                  // lock_ is held
+    if (!stream_ || !tuner_) return;
+    static const int bursts[3] = {2, 4, 8};
+    int32_t want = stream_->getFramesPerBurst() * bursts[audioMode_];
+    const int32_t cap = stream_->getBufferCapacityInFrames();
+    if (cap > 0 && want > cap) want = cap;
+    tuner_->setMinimumBufferSize(want);
+    tuner_->requestReset();                // the audio thread sets the size at its next callback
+    stream_->setBufferSizeInFrames(want);
   }
 
   std::string presetSeenPath_, beforePresetPath_;
@@ -132,6 +172,9 @@ class Host : public oboe::AudioStreamDataCallback, public oboe::AudioStreamError
   int32_t sampleRate_ = 0;
   bool wantRunning_ = false;
   bool denormalsOff_ = false;
+  std::unique_ptr<oboe::LatencyTuner> tuner_;   // made before the stream starts, freed after it is closed
+  int audioMode_ = 1;
+  std::atomic<float> loadAvg_{0.0f}, loadPeak_{0.0f};
 };
 
 Host g_host;
@@ -151,6 +194,7 @@ JNI(jboolean, start)(JNIEnv* env, jobject, jstring dir) {
 }
 JNI(void, stop)(JNIEnv*, jobject) { g_host.stop(); }
 JNI(jstring, info)(JNIEnv* env, jobject) { return env->NewStringUTF(g_host.info().c_str()); }
+JNI(void, setAudioMode)(JNIEnv*, jobject, jint mode) { g_host.setAudioMode(mode); }
 JNI(void, saveIfDirty)(JNIEnv*, jobject) { g_host.saveIfDirty(); }
 JNI(jboolean, poll)(JNIEnv*, jobject) { return S() && S()->poll() ? JNI_TRUE : JNI_FALSE; }
 

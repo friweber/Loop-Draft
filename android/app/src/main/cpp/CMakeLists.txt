@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # The audio code has to be optimized in every build type, or it cannot keep up in real time.
-add_compile_options(-O2)
+add_compile_options(-O3 -fno-math-errno)
 
 # The portable engine from the repository root.
 set(LD_BUILD_TESTS OFF CACHE BOOL "" FORCE)

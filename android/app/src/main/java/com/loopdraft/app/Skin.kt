@@ -101,12 +101,13 @@ data class UiPrefs(
     val scale: Int = 1,
     val speed: Int = 1,
     val haptics: Boolean = true,
-    val leftHanded: Boolean = false
+    val leftHanded: Boolean = false,
+    val audio: Int = 1          // 0 fast, 1 balanced, 2 safe
 ) {
     val scaleFactor: Float get() = when (scale) { 0 -> 0.88f; 2 -> 1.16f; else -> 1f }
     /** Multiplies the finger travel for a control's whole range: more travel is finer. */
     val travelFactor: Float get() = when (speed) { 0 -> 1.8f; 2 -> 0.6f; else -> 1f }
-    fun encode(): String = "$scale,$speed,${if (haptics) 1 else 0},${if (leftHanded) 1 else 0}"
+    fun encode(): String = "$scale,$speed,${if (haptics) 1 else 0},${if (leftHanded) 1 else 0},$audio"
 
     companion object {
         fun decode(raw: String?): UiPrefs {
@@ -115,7 +116,8 @@ data class UiPrefs(
                 scale = (p.getOrNull(0) ?: 1).coerceIn(0, 2),
                 speed = (p.getOrNull(1) ?: 1).coerceIn(0, 2),
                 haptics = (p.getOrNull(2) ?: 1) != 0,
-                leftHanded = (p.getOrNull(3) ?: 0) != 0
+                leftHanded = (p.getOrNull(3) ?: 0) != 0,
+                audio = (p.getOrNull(4) ?: 1).coerceIn(0, 2)
             )
         }
     }
@@ -308,6 +310,8 @@ fun SkinStudioModal(s: AppState, onDismiss: () -> Unit) {
                 row("CONTROLS", listOf("FINE", "NORMAL", "FAST"), pr.speed) { s.updatePrefs(pr.copy(speed = it)) }
                 row("VIBRATE", listOf("OFF", "ON TAP"), if (pr.haptics) 1 else 0) { s.updatePrefs(pr.copy(haptics = it == 1)) }
                 row("SIDEWAYS", listOf("RAIL LEFT", "RAIL RIGHT"), if (pr.leftHanded) 1 else 0) { s.updatePrefs(pr.copy(leftHanded = it == 1)) }
+                row("AUDIO", listOf("FAST", "BALANCED", "SAFE"), pr.audio) { Native.setAudioMode(it); s.updatePrefs(pr.copy(audio = it)) }
+                SilkLabel("AUDIO: FAST reacts quickest to your fingers. If the sound crackles, go to BALANCED or SAFE.", color = skin.muted, size = 9, bold = false)
                 SilkLabel("Double-tap any slider or knob to set it back to its default.", color = skin.muted, size = 9, bold = false)
                 SilkLabel("SIDEWAYS: where the transport rail sits when the phone is turned.", color = skin.muted, size = 9, bold = false)
                 SilkLabel(if (s.audioOk) "Audio: ${s.info}" else "Audio could not be started.", color = skin.muted, size = 9, bold = false)
