@@ -39,6 +39,9 @@ adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit bounce; sleep 9
 adb shell am start -W -S -n "$ACT" --ei tab 0;                 shot 12_bounced_after_restart
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit 909;    sleep 9
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit slicer; shot 13_back_in_slicer
+# named projects, the Vector engine screen and the new Song screen
+adb shell am start -W -S -n "$ACT" --ei tab 1 --es kit project; shot 14_vector_engine
+adb shell am start -W -S -n "$ACT" --ei tab 3;                  shot 15_song_projects
 adb shell pidof com.loopdraft.app || { echo "FAIL: app died while switching screens"; fail=1; }
 
 adb logcat -d > "$OUT/logcat.txt"
@@ -56,5 +59,6 @@ grep -q "starting with the Warehouse 303 preset" "$OUT/logcat.txt" || { echo "FA
 grep -q "kit bounce ok=true" "$OUT/selftest.txt" || { echo "FAIL: bouncing the loop into the slicer did not work"; fail=1; }
 grep -q "kit engine=4 ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after restarting the app"; fail=1; }
 grep -q "kit back in slicer ownBreak=true" "$OUT/selftest.txt" || { echo "FAIL: the bounced loop was gone after leaving the slicer and restarting"; fail=1; }
+grep -q "project reopened mode=3 list=1" "$OUT/selftest.txt" || { echo "FAIL: saving and reopening a named project did not work"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"

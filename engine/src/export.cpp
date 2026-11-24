@@ -119,7 +119,10 @@ std::vector<uint8_t> buildMidi(const Project& p, bool songMode, int scene) {
         if (nt.step >= steps) continue;
         const int t0 = tickOf(base, nt.step);
         const int endStep = std::min<int>(nt.step + nt.len, steps);
-        const int t1 = std::max(t0 + 10, tickOf(base, endStep) - 12);
+        int t1 = std::max(t0 + 10, tickOf(base, endStep) - 12);
+        // A slide is written the way 303-style instruments expect it: the note before overlaps the slide note.
+        for (int j = 0; j < std::min(pat.count, kMaxNotes); ++j)
+          if (pat.notes[j].step == endStep && (pat.notes[j].flags & kNoteSlide) && endStep < steps) t1 = tickOf(base, endStep) + 12;
         int m[3];
         const int n = chordMidis(p, p.synths[y], nt.degree, m);
         for (int i = 0; i < n; ++i) { syn[y].push_back({t0, 1, m[i], velMidi(nt.vel)}); syn[y].push_back({t1, 0, m[i], 0}); }

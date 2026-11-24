@@ -85,10 +85,24 @@ inline float osc(Wave w, float t, float dt) {
 }
 }  // namespace
 
-void Synth::init(double sr) { sr_ = sr; clock_ = 0; for (auto& v : v_) v = Voice{}; }
+void Synth::init(double sr) {
+  sr_ = sr; clock_ = 0;
+  for (auto& v : v_) v = Voice{};
+  strings_.assign(size_t(kSynthVoices) * kStringLen, 0.0f);
+}
 
-void Synth::noteOn(int midi, int vel, int64_t gateFrames, int voicesInChord, int tag) {
+void Synth::noteOn(int midi, int vel, int64_t gateFrames, int voicesInChord, int tag, bool slide) {
+  const float freq = 440.0f * std::pow(2.0f, float(midi - 69) / 12.0f);
   Voice* t = nullptr;
+  if (slide && voicesInChord <= 1) {               // 303 style: the newest sounding note bends over, its envelope carries on
+    for (auto& v : v_) if (v.stage != Off && (!t || v.born > t->born)) t = &v;
+    if (t) {
+      t->target = freq; t->tag = tag; t->gate = gateFrames;
+      if (t->stage == Release) t->stage = Decay;
+      if (vel >= 2) t->acc = 1.0f;
+      return;
+    }
+  }
   for (auto& v : v_) if (v.stage == Off) { t = &v; break; }
   if (!t) {                                      // prefer the quietest releasing voice, else the oldest
     for (auto& v : v_) if (v.stage == Release && (!t || v.env < t->env)) t = &v;
@@ -96,7 +110,8 @@ void Synth::noteOn(int midi, int vel, int64_t gateFrames, int voicesInChord, int
   }
   *t = Voice{};
   t->stage = Attack; t->tag = tag;
-  t->freq = 440.0f * std::pow(2.0f, float(midi - 69) / 12.0f);
+  t->freq = t->target = freq;
+  t->acc = vel >= 2 ? 1.0f : 0.0f;
   t->gain = 0.6f * velGain(vel) / std::sqrt(float(voicesInChord < 1 ? 1 : voicesInChord));
   t->gate = gateFrames; t->cut = -1.0f; t->born = ++clock_;
 }
@@ -121,9 +136,16 @@ void Synth::process(float* out, int n, const SynthParams& p) {
   const float lfoInc = 16.0f * p.lfoRate / sr;
   const float effLfoDepth = (p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f) < 0.0f ? 0.0f : ((p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f) > 1.0f ? 1.0f : (p.lfoDepth + (p.feelMotion - 0.3f) * 0.35f));
   const bool lfoOn = p.lfoTarget != LfoTarget::Off && effLfoDepth > 0.0f;
+  const float slideK = 1.0f - std::exp(-16.0f / ((p.slideTime < 0.005f ? 0.005f : p.slideTime) * sr));
+  const float accMul = std::exp(-16.0f / (0.12f * sr));
+  const float foldGain = 1.0f + 5.0f * (p.fold < 0 ? 0 : (p.fold > 1 ? 1 : p.fold));
+  const bool pluck = p.mode == SynthMode::Pluck, vector = p.mode == SynthMode::Vector;
+  const float bright = p.pluckBright < 0 ? 0 : (p.pluckBright > 1 ? 1 : p.pluckBright);
+  const float ksBlend = 0.5f * (1.0f - bright);      // how much each trip round the string smooths it
 
   for (auto& v : v_) {
     if (v.stage == Off) continue;
+    float* const str = strings_.data() + size_t(&v - v_) * kStringLen;
     for (int i = 0; i < n; ++i) {
       // Control-rate work every 16 samples, counted from the note start. Tying it to the note's own age
       // (not to the audio block) keeps the output identical for any block size.
@@ -137,9 +159,35 @@ void Synth::process(float* out, int n, const SynthParams& p) {
           else if (p.lfoTarget == LfoTarget::Pitch) pitchMul = std::pow(2.0f, lfo * effLfoDepth * 100.0f / 1200.0f);
           else ampT = 1.0f + 0.5f * effLfoDepth * lfo;
         }
+        if (v.acc > 0.001f) { cutoff *= std::pow(2.0f, 1.1f * v.acc); v.acc *= accMul; }
+        if (cutoff > 16000.0f) cutoff = 16000.0f;
+        v.freq += slideK * (v.target - v.freq);
         v.cut = v.cut < 0.0f ? cutoff : v.cut + 0.6f * (cutoff - v.cut);
         v.flt.set(sr_, v.cut, p.res);
         v.inc1 = v.freq * pitchMul / sr;
+        if (vector) {
+          v.inc3 = v.inc1 * p.fmRatio; v.inc4 = v.inc1 * 0.5f;
+          const float tx = p.vecX < 0 ? 0 : (p.vecX > 1 ? 1 : p.vecX), ty = p.vecY < 0 ? 0 : (p.vecY > 1 ? 1 : p.vecY);
+          v.vx = v.vx < 0.0f ? tx : v.vx + 0.25f * (tx - v.vx);
+          v.vy = v.vy < 0.0f ? ty : v.vy + 0.25f * (ty - v.vy);
+        }
+        if (pluck) {
+          const float f = v.freq * pitchMul < 12.0f ? 12.0f : v.freq * pitchMul;
+          float d = sr / f - ksBlend - 1.0f;         // the loop filter and the interpolation add their own delay
+          v.ksDelay = d < 2.0f ? 2.0f : (d > float(kStringLen - 4) ? float(kStringLen - 4) : d);
+          // the Decay knob is how long the string rings (to -60 dB)
+          const float t60 = (p.decay < 0.03f ? 0.03f : p.decay) * 4.0f;
+          v.ksGain = std::pow(10.0f, -3.0f / (f * t60));
+          if (!v.ksReady) {                          // pluck the string: a burst of noise one period long
+            Rng rng(0x9E37u + uint32_t(v.born) * 2654435761u);
+            const int len = int(v.ksDelay) + 2;
+            float lp = 0.0f;
+            const float a = 0.25f + 0.75f * bright;
+            for (int k = 0; k < kStringLen; ++k) str[k] = 0.0f;
+            for (int k = 0; k < len; ++k) { lp += a * (rng.next() - lp); str[k] = lp; }
+            v.ksPos = len; v.ksLast = 0.0f; v.ksReady = true;
+          }
+        }
         v.inc2 = (p.mode == SynthMode::Fm) ? (v.inc1 * p.fmRatio) : (v.inc1 * detuneMul);
         v.ampStep = (ampT - v.amp) / 16.0f;
       }
@@ -150,15 +198,38 @@ void Synth::process(float* out, int n, const SynthParams& p) {
         v.lastMod = mod;
         x = std::sin(2.0f * float(kPi) * v.ph1 + p.fmIndex * v.modEnv * mod);
         v.modEnv *= modDecMul;
+      } else if (pluck) {
+        float rp = float(v.ksPos) - v.ksDelay;
+        if (rp < 0.0f) rp += float(kStringLen);
+        const int i0 = int(rp);
+        const float fr = rp - float(i0);
+        const float y0 = str[i0 & (kStringLen - 1)], y1 = str[(i0 + 1) & (kStringLen - 1)];
+        x = y0 + fr * (y1 - y0);
+        str[v.ksPos & (kStringLen - 1)] = v.ksGain * ((1.0f - ksBlend) * x + ksBlend * v.ksLast);
+        v.ksLast = x;
+        v.ksPos = (v.ksPos + 1) & (kStringLen - 1);
+      } else if (vector) {
+        const float mod = std::sin(2.0f * float(kPi) * v.ph3 + p.fmFeedback * 2.5f * v.lastMod);
+        v.lastMod = mod;
+        const float a = osc(p.wave1, v.ph1, v.inc1), b = osc(p.wave2, v.ph2, v.inc2);
+        const float c = std::sin(2.0f * float(kPi) * v.ph1 + p.fmIndex * v.modEnv * mod);
+        const float d = osc(Wave::Square, v.ph4, v.inc4);
+        v.modEnv *= modDecMul;
+        x = 0.8f * ((1.0f - v.vx) * ((1.0f - v.vy) * a + v.vy * c) + v.vx * ((1.0f - v.vy) * b + v.vy * d));
+        v.ph3 += v.inc3; if (v.ph3 >= 1.0f) v.ph3 -= std::floor(v.ph3);
+        v.ph4 += v.inc4; if (v.ph4 >= 1.0f) v.ph4 -= std::floor(v.ph4);
       } else {
         x = 0.5f * (osc(p.wave1, v.ph1, v.inc1) + osc(p.wave2, v.ph2, v.inc2));
       }
+      if (foldGain > 1.0f) x = std::sin(x * foldGain * 0.5f * float(kPi));   // wavefolder: louder input wraps round
       v.ph1 += v.inc1; if (v.ph1 >= 1.0f) v.ph1 -= std::floor(v.ph1);
       v.ph2 += v.inc2; if (v.ph2 >= 1.0f) v.ph2 -= std::floor(v.ph2);
       float y = v.flt.low(x);
       if (p.feelWarmth > 0.55f) { const float g = 1.0f + (p.feelWarmth - 0.55f) * 3.5f; y = std::tanh(y * g) / std::tanh(g); }
 
-      if (v.stage == Attack) { v.env += attInc; if (v.env >= 1.0f) { v.env = 1.0f; v.stage = Decay; } }
+      if (v.stage == Attack && pluck) { v.env = 1.0f; v.stage = Decay; }
+      else if (v.stage == Attack) { v.env += attInc; if (v.env >= 1.0f) { v.env = 1.0f; v.stage = Decay; } }
+      else if (v.stage == Decay && pluck) { if ((v.age & 1023u) == 0 && float(v.age) > (p.decay * 4.0f + 0.5f) * 1.6f * sr) { v.stage = Off; break; } }
       else if (v.stage == Decay) { v.env = sus + (v.env - sus) * decMul; if (sus <= 0.0f && v.env < 1e-4f) { v.stage = Off; break; } }
       else { v.env *= relMul; if (v.env < 1e-4f) { v.stage = Off; break; } }
       if (v.gate > 0 && v.stage != Release && --v.gate == 0) v.stage = Release;

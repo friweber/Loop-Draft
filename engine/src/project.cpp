@@ -46,6 +46,7 @@ bool addNote(SynthPattern& p, int step, int degree, int len, int vel) {
     }
   Note& n = p.notes[p.count++];
   n.step = uint16_t(step); n.degree = int8_t(degree); n.len = uint8_t(len < 1 ? 1 : len); n.vel = uint8_t(vel);
+  n.flags = 0;
   return true;
 }
 

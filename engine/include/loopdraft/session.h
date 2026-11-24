@@ -41,7 +41,7 @@ class Session {
   // Each of these makes its own undo entry.
   int  toggleDrumStep(int scene, int pad, int step, bool accent);   // returns the new value 0/1/2
   void setDrumStep(int scene, int pad, int step, int value);        // 0=off, 1=norm, 2=acc, 3=2x, 4=3x, 5=4x roll
-  void setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal);
+  void setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal, bool undoStep = true);
   void setFxSlot(int track, int slot, int type, float amount, float rate, bool bypass, bool undoStep = true);
   void applyInstrument(int synth, int preset);
   void setActiveSynths(int count);
@@ -54,7 +54,8 @@ class Session {
   bool resampleSceneToJungle(int scene);   // renders the scene's drums (with their effects) and slices that
   std::shared_ptr<const Sample> activeBreak() const;   // the user's break if the project plays one, else null
   void writeBreakPattern(int scene);   // fills the scene's drums with the 8 slices in their original order
-  bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1);   // true if the note now exists
+  // true if the note now exists. slide: adds the note as a slide note, or switches slide on/off on an existing one.
+  bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1, bool slide = false);
   void setSceneBars(int scene, int bars);
   void copyScene(int from, int to);
   void clearScene(int scene);
@@ -72,6 +73,8 @@ class Session {
 
   bool dirty() const { return dirty_; }
   bool save(const char* path);     // atomic: writes a temp file, then renames
+  bool openProject(const char* path);      // loads a named project as one undo step: UNDO goes back to what was open
+  bool saveCopy(const char* path) const;   // a second copy somewhere else (a named project); the autosave state is untouched
   bool load(const char* path);     // false if the file is missing or not a project. Files from build 5 (version 1) are converted.
 
  private:

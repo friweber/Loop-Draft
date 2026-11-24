@@ -20,7 +20,7 @@ namespace ld {
 namespace {
 
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 6;   // 5 was the same without the closing "end" record
+constexpr uint32_t kFileVersion = 7;   // 5: no closing "end" record. 6: before notes had flags (that byte was padding)
 
 // ------------------------------------------------------------------ frozen layouts of versions 1 and 4
 
@@ -81,10 +81,16 @@ static_assert(sizeof(Project) == 18728, "version 4 layout changed");
 // Its sub-structs are the same as today's; if one of them ever changes size, the assert below says so and
 // this needs frozen copies like v1 and v4 have.
 namespace v5raw {
+struct SynthParams {                               // as it was then; today's struct starts with the same fields
+  Wave wave1, wave2; float detune, cutoff, res, attack, decay, sustain, release, level, lfoRate, lfoDepth;
+  LfoTarget lfoTarget; int8_t octaveShift; bool chord; SynthMode mode; float fmRatio, fmIndex, fmModDecay, fmFeedback;
+  InstrumentPreset instrument; float feelWarmth, feelMotion;
+};
+static_assert(sizeof(SynthParams) == 76 && sizeof(SynthParams) <= sizeof(ld::SynthParams), "raw version 5 synth layout");
 struct Project {
   float bpm, swing; int32_t root; Scale scale; int32_t octave; int32_t activeSynths;
   DrumEngine drumEngine; float junglePitch, jungleTight, jungleCrunch;
-  ld::PadParams pads[kNumPads]; ld::SynthParams synths[4]; ld::TrackFx fx[5];
+  ld::PadParams pads[kNumPads]; SynthParams synths[4]; ld::TrackFx fx[5];
   float delayFeedback, master; ld::Scene scenes[kNumScenes]; int32_t chain[kMaxChain];
   ld::ChainAuto chainAuto[kMaxChain]; int32_t chainLen;
 };
@@ -96,7 +102,7 @@ ld::Project upgrade(const v5raw::Project& o) {
   p.bpm = o.bpm; p.swing = o.swing; p.root = o.root; p.scale = o.scale; p.octave = o.octave; p.activeSynths = o.activeSynths;
   p.drumEngine = o.drumEngine; p.junglePitch = o.junglePitch; p.jungleTight = o.jungleTight; p.jungleCrunch = o.jungleCrunch;
   std::memcpy(static_cast<void*>(p.pads), o.pads, sizeof(p.pads));
-  std::memcpy(static_cast<void*>(p.synths), o.synths, sizeof(p.synths));
+  for (int i = 0; i < 4; ++i) std::memcpy(static_cast<void*>(&p.synths[i]), &o.synths[i], sizeof(v5raw::SynthParams));   // newer fields keep their defaults
   std::memcpy(static_cast<void*>(p.fx), o.fx, sizeof(p.fx));
   p.delayFeedback = o.delayFeedback; p.master = o.master;
   std::memcpy(static_cast<void*>(p.scenes), o.scenes, sizeof(p.scenes));
@@ -201,6 +207,7 @@ template <class V> void fields(V& v, Project& p) {
     LD_F(pre, s, decay); LD_F(pre, s, sustain); LD_F(pre, s, release); LD_F(pre, s, level); LD_F(pre, s, lfoRate); LD_F(pre, s, lfoDepth);
     LD_F(pre, s, lfoTarget); LD_F(pre, s, octaveShift); LD_F(pre, s, chord); LD_F(pre, s, mode); LD_F(pre, s, fmRatio); LD_F(pre, s, fmIndex);
     LD_F(pre, s, fmModDecay); LD_F(pre, s, fmFeedback); LD_F(pre, s, instrument); LD_F(pre, s, feelWarmth); LD_F(pre, s, feelMotion);
+    LD_F(pre, s, fold); LD_F(pre, s, slideTime); LD_F(pre, s, pluckBright); LD_F(pre, s, vecX); LD_F(pre, s, vecY);
   }
   for (int t = 0; t < kNumTracks; ++t) {
     std::snprintf(pre, sizeof(pre), "fx%d", t);
@@ -303,16 +310,19 @@ static bool readProjectStream(FILE* f, Project& out, bool* converted) {
   uint32_t head[2] = {0, 0};
   bool ok = std::fread(magic, 1, 8, f) == 8 && std::memcmp(magic, kMagic, 8) == 0 && std::fread(head, sizeof(uint32_t), 2, f) == 2;
   bool conv = false;
+  bool clearNoteFlags = false;                     // older files: that byte was never written on purpose
   auto p = std::make_unique<Project>();
   const auto rawStruct = [&](auto& old) {
     std::vector<char> raw(sizeof(old));
     if (std::fread(raw.data(), raw.size(), 1, f) != 1) return false;
     std::memcpy(static_cast<void*>(&old), raw.data(), raw.size());
     conv = true;
+    clearNoteFlags = true;
     return true;
   };
-  if (ok && (head[0] == kFileVersion || head[0] == 5) && head[1] == 0) {
+  if (ok && head[0] >= 5 && head[0] <= kFileVersion && head[1] == 0) {
     ok = readRecords(f, *p, head[0] >= 6);
+    if (head[0] < 7) clearNoteFlags = true;
   } else if (ok && head[0] == 5 && head[1] == sizeof(legacy::v5raw::Project)) {
     auto old = std::make_unique<legacy::v5raw::Project>();
     ok = rawStruct(*old);
@@ -329,6 +339,8 @@ static bool readProjectStream(FILE* f, Project& out, bool* converted) {
     ok = false;
   }
   if (!ok) return false;
+  if (clearNoteFlags)
+    for (auto& sc : p->scenes) for (auto& pat : sc.synth) for (auto& nt : pat.notes) nt.flags = 0;
   sanitize(*p);
   out = *p;
   if (converted) *converted = conv;

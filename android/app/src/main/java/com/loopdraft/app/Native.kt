@@ -45,7 +45,8 @@ object Native {
     // patterns
     external fun toggleStep(scene: Int, pad: Int, step: Int, accent: Boolean): Int
     external fun drumGrid(scene: Int): ByteArray
-    external fun toggleNote(scene: Int, synth: Int, step: Int, degree: Int, accent: Boolean): Boolean
+    /** slide: adds the note as a slide note, or switches slide on/off on an existing one. */
+    external fun toggleNote(scene: Int, synth: Int, step: Int, degree: Int, accent: Boolean, slide: Boolean): Boolean
     external fun notes(scene: Int, synth: Int): IntArray
     external fun degreeMidi(synth: Int, degree: Int): Int
 
@@ -63,6 +64,10 @@ object Native {
     external fun loadJungleKit()
     external fun loadStandardKit()
     external fun setChainAuto(pos: Int, track: Int, lane: Int, paramId: Int, startVal: Float, endVal: Float)
+    /** Same without its own undo entry: call beginEdit() once before a drag. */
+    external fun setChainAutoLive(pos: Int, track: Int, lane: Int, paramId: Int, startVal: Float, endVal: Float)
+    external fun saveProjectCopy(path: String): Boolean
+    external fun openProject(path: String): Boolean    // one undo step
     external fun chainAuto(pos: Int, track: Int): FloatArray
     external fun setFxSlot(track: Int, slot: Int, type: Int, amount: Float, rate: Float, bypass: Boolean)
     /** Same as setFxSlot but without its own undo entry: call beginEdit() once before a drag. */
@@ -126,6 +131,11 @@ object P {
     const val SYN_INSTRUMENT = 50
     const val SYN_WARMTH = 51
     const val SYN_MOTION = 52
+    const val SYN_FOLD = 57
+    const val SYN_SLIDE_TIME = 58
+    const val SYN_PLUCK_BRIGHT = 59
+    const val SYN_VEC_X = 60
+    const val SYN_VEC_Y = 61
     const val DRUM_ENGINE = 53
     const val JUNGLE_PITCH = 54
     const val JUNGLE_TIGHT = 55

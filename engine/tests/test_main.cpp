@@ -939,6 +939,152 @@ static void testStartPreset() {
   CHECK(ses.undo()); CHECK(ses.project().bpm == 122.0f); CHECK(ses.project().drumEngine == DrumEngine::Classic808);
 }
 
+static std::vector<float> renderSynthNotes(ld::SynthParams sp, bool slide, bool accent, int seconds = 1) {
+  using namespace ld;
+  auto p = std::make_unique<Project>(makeDemoProject());
+  p->bpm = 120; p->swing = 0;
+  for (auto& sc : p->scenes) { sc.drums = DrumPattern{}; for (auto& pat : sc.synth) pat.count = 0; sc.bars = 1; }
+  for (auto& f : p->fx) { f.delaySend = 0; f.revSend = 0; f.drive = 0; f.eqLow = 0; f.eqHigh = 0; for (auto& sl : f.slots) sl.type = FxType::Off; }
+  sp.chord = false; sp.lfoTarget = LfoTarget::Off; sp.feelMotion = 0.3f; sp.feelWarmth = 0.5f;
+  p->synths[0] = sp;
+  SynthPattern& pat = p->scenes[0].synth[0];
+  addNote(pat, 0, 0, 4, accent ? 2 : 1);
+  addNote(pat, 4, 7, 4, 1);                        // an octave up in a 7-note scale
+  if (slide) pat.notes[1].flags = kNoteSlide;
+  RenderOptions o; o.scene = 0; o.soloTrack = 1; o.tailSeconds = double(seconds); o.sampleRate = 48000;
+  return renderOffline(*p, o).l;
+}
+static double zeroCrossHz(const std::vector<float>& x, size_t a, size_t b) {
+  int n = 0; for (size_t i = a + 1; i < b && i < x.size(); ++i) if (x[i - 1] < 0 && x[i] >= 0) ++n;
+  return double(n) * 48000.0 / double(b - a);
+}
+// Pitch of a tone with many overtones: the lag near the expected period where the signal matches itself best.
+static double pitchNear(const std::vector<float>& x, size_t a, size_t n, double expectHz) {
+  const int lo = int(48000.0 / expectHz * 0.9), hi = int(48000.0 / expectHz * 1.1) + 1;
+  double best = -1e30; int bestLag = lo;
+  for (int lag = lo; lag <= hi; ++lag) {
+    double c = 0; for (size_t i = a; i < a + n; ++i) c += double(x[i]) * x[i + size_t(lag)];
+    if (c > best) { best = c; bestLag = lag; }
+  }
+  return 48000.0 / double(bestLag);
+}
+static float rmsOf(const std::vector<float>& x, size_t a, size_t b) {
+  double s = 0; for (size_t i = a; i < b && i < x.size(); ++i) s += double(x[i]) * x[i];
+  return float(std::sqrt(s / double(b - a)));
+}
+
+static void testSlideAccentFold() {
+  using namespace ld;
+  SynthParams sp; sp.mode = SynthMode::Subtractive; sp.wave1 = Wave::Sine; sp.wave2 = Wave::Sine; sp.detune = 0;
+  sp.cutoff = 9000; sp.res = 0.7f; sp.attack = 0.002f; sp.decay = 0.6f; sp.sustain = 0.8f; sp.release = 0.05f; sp.slideTime = 0.08f;
+  // step 4 starts at 0.5 s (120 BPM). Without slide the second note is at its pitch at once and has a new attack.
+  const auto plain = renderSynthNotes(sp, false, false), slid = renderSynthNotes(sp, true, false);
+  const double f1 = zeroCrossHz(plain, 4800, 19200), f2 = zeroCrossHz(plain, 28800, 43200);
+  CHECK(std::fabs(f2 / f1 - 2.0) < 0.05);
+  const double early = zeroCrossHz(slid, 24000 + 240, 24000 + 1680), late = zeroCrossHz(slid, 36000, 43200);
+  CHECK(early > f1 * 1.03 && early < f2 * 0.93);   // on its way
+  CHECK(std::fabs(late / f2 - 1.0) < 0.03);        // arrived
+  // no gap and no new attack at the slide: the level right at the note change stays up
+  CHECK(rmsOf(slid, 23900, 24100) > 0.6f * rmsOf(slid, 20000, 22000));
+  CHECK(rmsOf(plain, 23900, 24100) < 0.6f * rmsOf(plain, 20000, 22000));
+
+  // accent: louder, and brighter through a low filter
+  SynthParams saw = sp; saw.wave1 = Wave::Saw; saw.wave2 = Wave::Saw; saw.cutoff = 500; saw.res = 2.0f;
+  const auto soft = renderSynthNotes(saw, false, false), acc = renderSynthNotes(saw, false, true);
+  const auto hf = [](const std::vector<float>& x, size_t a, size_t b) { double s = 0; for (size_t i = a + 1; i < b; ++i) { const double d = x[i] - x[i - 1]; s += d * d; } return std::sqrt(s); };
+  CHECK(rmsOf(acc, 480, 4800) > 1.15f * rmsOf(soft, 480, 4800));
+  CHECK(hf(acc, 480, 4800) / rmsOf(acc, 480, 4800) > 1.25 * hf(soft, 480, 4800) / rmsOf(soft, 480, 4800));
+
+  // fold adds overtones to a sine, and 0 leaves the sound untouched
+  SynthParams fo = sp; fo.fold = 0.8f;
+  const auto folded = renderSynthNotes(fo, false, false);
+  CHECK(hf(folded, 4800, 19200) / rmsOf(folded, 4800, 19200) > 2.0 * hf(plain, 4800, 19200) / rmsOf(plain, 4800, 19200));
+  for (float x : folded) CHECK(x == x && std::fabs(x) <= 1.0f);
+
+  // slide flag: set through the session, survives save/load, old files never show one
+  Session a(48000.0);
+  a.clearScene(0);
+  CHECK(a.toggleNote(0, 0, 0, 0, false)); CHECK(a.toggleNote(0, 0, 4, 2, false, 1, true));
+  CHECK_EQ(a.project().scenes[0].synth[0].count, 2);
+  CHECK_EQ(int(a.project().scenes[0].synth[0].notes[1].flags), int(kNoteSlide));
+  CHECK(a.toggleNote(0, 0, 0, 0, false, 1, true)); CHECK_EQ(int(a.project().scenes[0].synth[0].notes[0].flags), int(kNoteSlide));
+  CHECK(a.toggleNote(0, 0, 0, 0, false, 1, true)); CHECK_EQ(int(a.project().scenes[0].synth[0].notes[0].flags), 0);
+  CHECK(a.toggleNote(0, 0, 4, 2, true)); CHECK_EQ(int(a.project().scenes[0].synth[0].notes[1].flags), int(kNoteSlide));   // accent keeps the slide
+  CHECK(a.save("/tmp/ld_slide.ldp"));
+  Session b(48000.0); CHECK(b.load("/tmp/ld_slide.ldp"));
+  CHECK_EQ(int(b.project().scenes[0].synth[0].notes[1].flags), int(kNoteSlide));
+  auto old = std::make_unique<Project>();
+  CHECK(readProjectFile((std::string(LD_FIXTURES) + "/project_v5raw_warehouse303.ldp").c_str(), *old, nullptr));
+  for (auto& sc : old->scenes) for (auto& pat : sc.synth) for (auto& nt : pat.notes) CHECK_EQ(int(nt.flags), 0);
+  const Project start = makeStartProject();
+  for (auto& sc : start.scenes) for (auto& pat : sc.synth) for (auto& nt : pat.notes) CHECK_EQ(int(nt.flags), 0);
+}
+
+static void testPluckAndVector() {
+  using namespace ld;
+  SynthParams sp; sp.mode = SynthMode::Pluck; sp.cutoff = 12000; sp.res = 0.7f; sp.decay = 0.5f; sp.release = 0.3f; sp.pluckBright = 0.7f;
+  const auto pl = renderSynthNotes(sp, false, false, 3);
+  bool finite = true; float pk = 0; for (float x : pl) { finite = finite && x == x; pk = std::fmax(pk, std::fabs(x)); }
+  CHECK(finite); CHECK(pk > 0.05f); CHECK(pk <= 1.0f);
+  // in tune: the demo project is in a minor key, degree 0 and degree 7 are an octave apart
+  SynthParams ref; ref.mode = SynthMode::Subtractive; ref.wave1 = Wave::Sine; ref.wave2 = Wave::Sine; ref.detune = 0; ref.cutoff = 9000; ref.sustain = 1;
+  const auto rs = renderSynthNotes(ref, false, false);
+  const double r1 = zeroCrossHz(rs, 4800, 19200);
+  const double f1 = pitchNear(pl, 4800, 9600, r1), f2 = pitchNear(pl, 26400, 9600, 2.0 * r1);
+  CHECK(std::fabs(f1 / r1 - 1.0) < 0.012); CHECK(std::fabs(f2 / (2.0 * r1) - 1.0) < 0.012);
+  // a string rings out by itself and then the voice ends: silence at the end of the tail
+  CHECK(rmsOf(pl, 1200, 6000) > 4.0f * rmsOf(pl, 16800, 21600) || rmsOf(pl, 1200, 6000) > 0.02f);
+  CHECK(rmsOf(pl, pl.size() - 4800, pl.size()) < 1e-3f);
+  // brightness changes the tone
+  SynthParams dull = sp; dull.pluckBright = 0.0f;
+  const auto dl = renderSynthNotes(dull, false, false, 3);
+  const auto hf = [](const std::vector<float>& x, size_t a, size_t b) { double s = 0; for (size_t i = a + 1; i < b; ++i) { const double d = x[i] - x[i - 1]; s += d * d; } return std::sqrt(s); };
+  CHECK(hf(pl, 480, 9600) / rmsOf(pl, 480, 9600) > 1.3 * hf(dl, 480, 9600) / rmsOf(dl, 480, 9600));
+
+  // Vector: each corner is its own sound; the middle is a mix; the same at any block size is covered by the engine tests
+  SynthParams vp; vp.mode = SynthMode::Vector; vp.wave1 = Wave::Saw; vp.wave2 = Wave::Triangle; vp.detune = 0; vp.cutoff = 12000; vp.res = 0.7f;
+  vp.sustain = 1.0f; vp.fmIndex = 3.0f; vp.fmModDecay = 2.0f; vp.fmRatio = 3.0f;
+  std::vector<std::vector<float>> corner;
+  for (int c = 0; c < 4; ++c) { vp.vecX = float(c & 1); vp.vecY = float(c >> 1); corner.push_back(renderSynthNotes(vp, false, false)); }
+  for (int a = 0; a < 4; ++a) {
+    CHECK(rmsOf(corner[a], 4800, 19200) > 0.02f);
+    for (int b = a + 1; b < 4; ++b) {
+      double d = 0; for (size_t i = 4800; i < 19200; ++i) d += std::fabs(double(corner[a][i]) - corner[b][i]);
+      CHECK(d / 14400.0 > 0.01);
+    }
+  }
+  // the sub corner sounds an octave below the note
+  CHECK(std::fabs(zeroCrossHz(corner[3], 4800, 19200) / r1 - 0.5) < 0.03);
+  // song automation can move the position
+  auto p = std::make_unique<Project>(makeDemoProject());
+  Session ses(48000.0);
+  ses.setChainAuto(0, 1, 0, P_SYN_VEC_X, 0.0f, 1.0f);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[1][0].paramId, P_SYN_VEC_X);
+  ses.setParam(P_SYN_MODE, 0, 3); CHECK(ses.project().synths[0].mode == SynthMode::Vector);
+  ses.setParam(P_SYN_VEC_Y, 0, 2.0f); CHECK(ses.project().synths[0].vecY == 1.0f);
+
+  // a named copy: saved next to the autosave, with its break, and loads back the same
+  CHECK(ses.resampleSceneToJungle(0));
+  CHECK(ses.saveCopy("/tmp/ld_named.ldp"));
+  Session other(48000.0); CHECK(other.load("/tmp/ld_named.ldp"));
+  CHECK(other.activeBreak() != nullptr); CHECK(other.project().synths[0].mode == SynthMode::Vector);
+  CHECK(ses.dirty());                              // the copy does not count as the autosave
+  // opening a named project is one undo step
+  Session third(48000.0);
+  const float bpmBefore = third.project().bpm;
+  third.setParam(P_BPM, 0, 99.0f);
+  CHECK(!third.openProject("/tmp/ld_missing.ldp")); CHECK(third.project().bpm == 99.0f);
+  CHECK(third.openProject("/tmp/ld_named.ldp"));
+  CHECK(third.activeBreak() != nullptr); CHECK(third.project().synths[0].mode == SynthMode::Vector); CHECK(padPeak(third, 0) > 0.02f);
+  CHECK(third.undo()); CHECK(third.project().bpm == 99.0f); CHECK(third.activeBreak() == nullptr); CHECK(bpmBefore != 99.0f);
+  // automation: moving a point while dragging is not an undo step of its own
+  Session au(48000.0);
+  au.setChainAuto(0, 1, 0, P_SYN_CUTOFF, 500.0f, 4000.0f);
+  au.setChainAuto(0, 1, 0, P_SYN_CUTOFF, 600.0f, 4000.0f, false); au.setChainAuto(0, 1, 0, P_SYN_CUTOFF, 700.0f, 4000.0f, false);
+  CHECK(au.project().chainAuto[0].tracks[1][0].startVal == 700.0f);
+  CHECK(au.undo()); CHECK_EQ(au.project().chainAuto[0].tracks[1][0].paramId, -1);
+}
+
 // Leaving the break slicer and coming back, in the same session or after a restart, loses nothing.
 static void testSlicerSurvivesLeaving() {
   using namespace ld;
@@ -1027,6 +1173,8 @@ int main() {
     {"own break: save, load, undo, export", testOwnBreakPersistsAndUndoes},
     {"start preset Warehouse 303", testStartPreset},
     {"break slicer survives leaving and restarting", testSlicerSurvivesLeaving},
+    {"slide, accent, fold", testSlideAccentFold},
+    {"pluck and vector engines, named project copy", testPluckAndVector},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

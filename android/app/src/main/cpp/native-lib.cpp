@@ -194,20 +194,21 @@ JNI(jbyteArray, drumGrid)(JNIEnv* env, jobject, jint scene) {
     env->SetByteArrayRegion(arr, 0, n, reinterpret_cast<const jbyte*>(S()->project().scenes[scene].drums.steps));
   return arr;
 }
-JNI(jboolean, toggleNote)(JNIEnv*, jobject, jint scene, jint synth, jint step, jint degree, jboolean accent) {
-  return S() && S()->toggleNote(scene, synth, step, degree, accent == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+JNI(jboolean, toggleNote)(JNIEnv*, jobject, jint scene, jint synth, jint step, jint degree, jboolean accent, jboolean slide) {
+  return S() && S()->toggleNote(scene, synth, step, degree, accent == JNI_TRUE, 1, slide == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
 }
-// Flat list: step, degree, length, velocity for every note.
+// Flat list: step, degree, length, velocity, flags (1 = slide) for every note.
 JNI(jintArray, notes)(JNIEnv* env, jobject, jint scene, jint synth) {
   if (!S() || !sceneOk(scene) || synth < 0 || synth >= ld::kNumSynths) return env->NewIntArray(0);
   const ld::SynthPattern& p = S()->project().scenes[scene].synth[synth];
-  const jsize n = p.count * 4;
+  const jsize n = p.count * 5;
   jintArray arr = env->NewIntArray(n);
   if (!arr || n == 0) return arr;
   jint* d = env->GetIntArrayElements(arr, nullptr);
   if (!d) return arr;
   for (int i = 0; i < p.count; ++i) {
-    d[i * 4] = p.notes[i].step; d[i * 4 + 1] = p.notes[i].degree; d[i * 4 + 2] = p.notes[i].len; d[i * 4 + 3] = p.notes[i].vel;
+    d[i * 5] = p.notes[i].step; d[i * 5 + 1] = p.notes[i].degree; d[i * 5 + 2] = p.notes[i].len; d[i * 5 + 3] = p.notes[i].vel;
+    d[i * 5 + 4] = p.notes[i].flags;
   }
   env->ReleaseIntArrayElements(arr, d, 0);
   return arr;
@@ -241,6 +242,24 @@ JNI(void, loadJungleKit)(JNIEnv*, jobject) { if (S()) S()->loadJungleKit(); }
 JNI(void, loadStandardKit)(JNIEnv*, jobject) { if (S()) S()->loadStandardKit(); }
 JNI(void, setChainAuto)(JNIEnv*, jobject, jint pos, jint track, jint lane, jint paramId, jfloat startVal, jfloat endVal) {
   if (S()) S()->setChainAuto(pos, track, lane, paramId, startVal, endVal);
+}
+JNI(void, setChainAutoLive)(JNIEnv*, jobject, jint pos, jint track, jint lane, jint paramId, jfloat startVal, jfloat endVal) {
+  if (S()) S()->setChainAuto(pos, track, lane, paramId, startVal, endVal, false);
+}
+// Named projects: plain files the app keeps in its own folder.
+JNI(jboolean, saveProjectCopy)(JNIEnv* env, jobject, jstring path) {
+  if (!S() || !path) return JNI_FALSE;
+  const char* c = env->GetStringUTFChars(path, nullptr);
+  const bool ok = c && S()->saveCopy(c);
+  if (c) env->ReleaseStringUTFChars(path, c);
+  return ok ? JNI_TRUE : JNI_FALSE;
+}
+JNI(jboolean, openProject)(JNIEnv* env, jobject, jstring path) {
+  if (!S() || !path) return JNI_FALSE;
+  const char* c = env->GetStringUTFChars(path, nullptr);
+  const bool ok = c && S()->openProject(c);
+  if (c) env->ReleaseStringUTFChars(path, c);
+  return ok ? JNI_TRUE : JNI_FALSE;
 }
 JNI(jfloatArray, chainAuto)(JNIEnv* env, jobject, jint pos, jint track) {
   jfloatArray arr = env->NewFloatArray(9);

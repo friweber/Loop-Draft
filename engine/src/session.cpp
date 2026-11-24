@@ -50,7 +50,10 @@ void sanitize(Project& p) {
     s.release = clampT(fin(s.release, 0.08f), 0.01f, 3.0f); s.level = clampT(fin(s.level, 0.8f), 0.0f, 1.0f);
     s.lfoRate = clampT(fin(s.lfoRate, 3), 0.05f, 20.0f); s.lfoDepth = clampT(fin(s.lfoDepth, 0), 0.0f, 1.0f);
     s.octaveShift = int8_t(clampT<int>(s.octaveShift, -2, 2));
-    if (uint8_t(s.mode) > uint8_t(SynthMode::Fm)) s.mode = SynthMode::Subtractive;
+    if (uint8_t(s.mode) > uint8_t(SynthMode::Vector)) s.mode = SynthMode::Subtractive;
+    s.fold = clampT(fin(s.fold, 0.0f), 0.0f, 1.0f); s.slideTime = clampT(fin(s.slideTime, 0.06f), 0.005f, 0.5f);
+    s.pluckBright = clampT(fin(s.pluckBright, 0.6f), 0.0f, 1.0f);
+    s.vecX = clampT(fin(s.vecX, 0.5f), 0.0f, 1.0f); s.vecY = clampT(fin(s.vecY, 0.5f), 0.0f, 1.0f);
     s.fmRatio = clampT(fin(s.fmRatio, 2.0f), 0.5f, 8.0f);
     s.fmIndex = clampT(fin(s.fmIndex, 2.5f), 0.0f, 8.0f);
     s.fmModDecay = clampT(fin(s.fmModDecay, 0.25f), 0.01f, 3.0f);
@@ -196,6 +199,11 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_SYN_INSTRUMENT: kind = 2; return reinterpret_cast<float*>(&syn().instrument);
     case P_SYN_WARMTH: return &syn().feelWarmth;
     case P_SYN_MOTION: return &syn().feelMotion;
+    case P_SYN_FOLD: return &syn().fold;
+    case P_SYN_SLIDE_TIME: return &syn().slideTime;
+    case P_SYN_PLUCK_BRIGHT: return &syn().pluckBright;
+    case P_SYN_VEC_X: return &syn().vecX;
+    case P_SYN_VEC_Y: return &syn().vecY;
     case P_FX_LEVEL: return &fx().level;
     case P_FX_DRIVE: return &fx().drive;
     case P_FX_EQ_LOW: return &fx().eqLow;
@@ -250,14 +258,22 @@ int Session::toggleDrumStep(int scene, int pad, int step, bool accent) {
   return out;
 }
 
-bool Session::toggleNote(int scene, int synth, int step, int degree, bool accent, int len) {
+bool Session::toggleNote(int scene, int synth, int step, int degree, bool accent, int len, bool slide) {
   if (!sceneOk(scene) || synth < 0 || synth >= kNumSynths || step < 0 || step >= kMaxSteps) return false;
   beginEdit();
   SynthPattern& pat = proj_.scenes[scene].synth[synth];
   bool exists = false; int vel = 0;
   for (int i = 0; i < pat.count; ++i) if (pat.notes[i].step == step && pat.notes[i].degree == degree) { exists = true; vel = pat.notes[i].vel; }
   bool now;
-  if (accent) { addNote(pat, step, degree, len, (exists && vel == 2) ? 1 : 2); now = true; }
+  if (slide) {
+    if (!exists) addNote(pat, step, degree, len, accent ? 2 : 1);
+    now = false;
+    for (int i = 0; i < pat.count; ++i) if (pat.notes[i].step == step && pat.notes[i].degree == degree) {
+      pat.notes[i].flags = exists ? uint8_t(pat.notes[i].flags ^ kNoteSlide) : kNoteSlide;
+      now = true;
+    }
+  }
+  else if (accent) { addNote(pat, step, degree, len, (exists && vel == 2) ? 1 : 2); now = true; }
   else if (exists) { removeNote(pat, step, degree); now = false; }
   else now = addNote(pat, step, degree, len, 1);
   commit();
@@ -282,9 +298,9 @@ void Session::setDrumStep(int scene, int pad, int step, int value) {
   proj_.scenes[scene].drums.steps[pad][step] = uint8_t(clampT(value, 0, 5));
   commit();
 }
-void Session::setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal) {
+void Session::setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal, bool undoStep) {
   if (pos < 0 || pos >= proj_.chainLen || track < 0 || track >= kNumTracks || lane < 0 || lane >= kAutoPerTrack) return;
-  beginEdit();
+  if (undoStep) beginEdit();
   auto& al = proj_.chainAuto[pos].tracks[track][lane];
   al.paramId = int16_t(paramId);
   al.startVal = startVal; al.endVal = endVal;
@@ -591,6 +607,33 @@ bool Session::save(const char* path) {
   if (!writeProjectFile(path, proj_)) return false;
   dirty_ = false;
   return true;
+}
+
+bool Session::openProject(const char* path) {
+  Project p;
+  if (!readProjectFile(path, p, nullptr)) return false;
+  std::shared_ptr<const Sample> brk;
+  if (p.breakId != 0) {
+    brk = loadWav(breakPath(path).c_str());
+    if (!brk || brk->frames() < 16) { brk.reset(); p.breakId = 0; }
+  }
+  beginEdit();
+  proj_ = p;
+  if (brk) useBreak(std::move(brk));               // gets a fresh id, so it cannot be mixed up with a break of this session
+  appliedEngine_ = -1;
+  waveEngine_ = -1;
+  commit();
+  return true;
+}
+
+bool Session::saveCopy(const char* path) const {
+  if (const std::shared_ptr<const Sample> brk = findBreak(proj_.breakId)) {
+    const float* r = brk->r.size() == brk->l.size() ? brk->r.data() : brk->l.data();
+    if (!writeWav16(breakPath(path).c_str(), brk->l.data(), r, brk->frames(), brk->rate)) return false;
+  } else {
+    std::remove(breakPath(path).c_str());          // no stale audio from an earlier save under this name
+  }
+  return writeProjectFile(path, proj_);
 }
 
 bool Session::load(const char* path) {

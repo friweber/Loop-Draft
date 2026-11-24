@@ -45,6 +45,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.roundToInt
 
 val PAD_NAMES = listOf("Kick", "Snare", "Clap", "CH", "OH", "Rim", "Tom", "Perc")
@@ -70,6 +76,14 @@ class AppState {
     var rollPage by mutableIntStateOf(0)     // half bars
     var rollMode by mutableStateOf(false)
     var accent by mutableStateOf(false)
+    var slide by mutableStateOf(false)     // piano roll: taps set or clear a slide
+    val projects = mutableStateListOf<String>()
+    var projectName by mutableStateOf("My loop")
+    var projectMsg by mutableStateOf("")
+    var confirmDelete by mutableStateOf("")
+    var onSaveProject: (String) -> Unit = {}
+    var onOpenProject: (String) -> Unit = {}
+    var onDeleteProject: (String) -> Unit = {}
     var rec by mutableStateOf(false)
     var songMode by mutableStateOf(false)
     var playing by mutableStateOf(false)
@@ -211,7 +225,7 @@ fun Choice(s: AppState, label: String, id: Int, index: Int, options: List<String
 }
 
 @Composable
-fun RollCell(v: Int, playhead: Boolean, beat: Boolean, color: Color, modifier: Modifier, onTap: () -> Unit) {
+fun RollCell(v: Int, playhead: Boolean, beat: Boolean, color: Color, modifier: Modifier, slide: Boolean = false, onTap: () -> Unit) {
     val shape = RoundedCornerShape(5.dp)
     Box(
         modifier
@@ -223,8 +237,71 @@ fun RollCell(v: Int, playhead: Boolean, beat: Boolean, color: Color, modifier: M
                 shape
             )
             .clickable(onClick = onTap)
-    )
+    ) {
+        // a slide note carries a bar on its left edge: it is glided into from the note before
+        if (slide && v > 0) Box(Modifier.align(Alignment.CenterStart).width(5.dp).fillMaxHeight().background(HwYellow))
+    }
 }
+
+/**
+ * The Vector engine's X/Y pad: one finger mixes the four sources in the corners.
+ * Touching it counts as one undo step. It swallows the drag, so the page does not scroll under the finger.
+ */
+@Composable
+fun VectorPad(s: AppState, synth: Int, corners: List<String>) {
+    val px = remember { mutableFloatStateOf(0.5f) }
+    val py = remember { mutableFloatStateOf(0.5f) }
+    var dragging by remember { mutableStateOf(false) }
+    val x0 = remember(s.rev, synth) { Native.getParam(P.SYN_VEC_X, synth) }
+    val y0 = remember(s.rev, synth) { Native.getParam(P.SYN_VEC_Y, synth) }
+    LaunchedEffect(x0, y0, synth) { if (!dragging) { px.floatValue = x0; py.floatValue = y0 } }
+    val shape = RoundedCornerShape(8.dp)
+    Box(
+        Modifier.fillMaxWidth().height(170.dp).clip(shape).background(Color(0xFF07130F))
+            .border(1.dp, if (dragging) HwGreen else HwLine, shape)
+            .pointerInput(synth) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val put: (Offset) -> Unit = { o ->
+                        val nx = (o.x / size.width).coerceIn(0f, 1f)
+                        val ny = (o.y / size.height).coerceIn(0f, 1f)
+                        px.floatValue = nx; py.floatValue = ny
+                        Native.setParam(P.SYN_VEC_X, synth, nx); Native.setParam(P.SYN_VEC_Y, synth, ny)
+                    }
+                    dragging = true
+                    Native.beginEdit()
+                    put(down.position)
+                    down.consume()
+                    while (true) {
+                        val ch = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        if (!ch.pressed) break
+                        put(ch.position)
+                        ch.consume()
+                    }
+                    dragging = false
+                    s.rev++
+                }
+            }
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val grid = HwGreen.copy(alpha = 0.13f)
+            for (i in 1..3) {
+                drawLine(grid, Offset(size.width * i / 4f, 0f), Offset(size.width * i / 4f, size.height), 1.dp.toPx())
+                drawLine(grid, Offset(0f, size.height * i / 4f), Offset(size.width, size.height * i / 4f), 1.dp.toPx())
+            }
+            val c = Offset(px.floatValue * size.width, py.floatValue * size.height)
+            val beam = HwGreen.copy(alpha = 0.55f)
+            drawLine(beam, Offset(c.x, 0f), Offset(c.x, size.height), 1.dp.toPx())
+            drawLine(beam, Offset(0f, c.y), Offset(size.width, c.y), 1.dp.toPx())
+            drawCircle(HwGreen.copy(alpha = 0.25f), 16.dp.toPx(), c)
+            drawCircle(HwGreen, 7.dp.toPx(), c)
+            drawCircle(Color.White, 7.dp.toPx(), c, style = Stroke(1.5.dp.toPx()))
+        }
+        val al = listOf(Alignment.TopStart, Alignment.TopEnd, Alignment.BottomStart, Alignment.BottomEnd)
+        for (i in 0 until 4) SilkLabel(corners[i], color = HwGreen.copy(alpha = 0.8f), size = 9, modifier = Modifier.align(al[i]).padding(6.dp))
+    }
+}
+
 
 fun pct(v: Float) = "${(v * 100).roundToInt()}%"
 fun signed(v: Float, unit: String) = (if (v >= 0) "+" else "") + v.roundToInt() + unit
@@ -581,7 +658,8 @@ fun SynthTab(s: AppState) {
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
     val notes = remember(s.rev, s.scene, s.synth) { Native.notes(s.scene, s.synth) }
     val page = s.rollPage.coerceIn(0, bars * 2 - 1)
-    val isFm = remember(s.rev, s.synth) { Native.getParam(P.SYN_MODE, s.synth).roundToInt() == 1 }
+    val mode = remember(s.rev, s.synth) { Native.getParam(P.SYN_MODE, s.synth).roundToInt().coerceIn(0, 3) }
+    val isFm = mode == 1
     val wave1 = remember(s.rev, s.synth) { Native.getParam(P.SYN_WAVE1, s.synth).roundToInt() }
     val cutoff = remember(s.rev, s.synth) { Native.getParam(P.SYN_CUTOFF, s.synth) }
     val fmIndex = remember(s.rev, s.synth) { Native.getParam(P.SYN_FM_INDEX, s.synth) }
@@ -596,7 +674,7 @@ fun SynthTab(s: AppState) {
 
     Panes(s, left = {
     ModulePanel(
-        title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${if (isFm) "FM" else "SUB"})",
+        title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${listOf("SUB", "FM", "PLUCK", "VECTOR")[mode]})",
         accent = HwCyan,
         trailing = {
             for (idx in 0 until activeSynths) {
@@ -632,11 +710,34 @@ fun SynthTab(s: AppState) {
             fmRatio = fmRatio
         )
 
-        // Engine Switch: Subtractive vs FM
-        Choice(s, "Engine", P.SYN_MODE, s.synth, listOf("Subtractive", "FM 2-Op"), accent = HwCyan)
+        Choice(s, "Engine", P.SYN_MODE, s.synth, listOf("Subtractive", "FM 2-Op", "Pluck", "Vector"), accent = HwCyan)
 
-        if (!isFm) {
-            val waves = listOf("Saw", "Sqr", "Tri", "Sin")
+        val waves = listOf("Saw", "Sqr", "Tri", "Sin")
+        if (mode == 2) {
+            // a plucked string: Ring is how long it sounds, Bright how hard it is plucked
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "Bright", P.SYN_PLUCK_BRIGHT, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
+                RotaryKnob(s, "Ring", P.SYN_DECAY, s.synth, 0.03f, 1.5f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { secs(it * 4f) }
+                RotaryKnob(s, "Cutoff", P.SYN_CUTOFF, s.synth, 80f, 8000f, Modifier.weight(1f), modulated = lfoTarget == 1) { "${it.roundToInt()}" }
+                RotaryKnob(s, "Level", P.SYN_LEVEL, s.synth, 0f, 1f, Modifier.weight(1f), modulated = lfoTarget == 3) { pct(it) }
+            }
+        } else if (mode == 3) {
+            val w1 = waves[wave1.coerceIn(0, 3)]
+            val w2 = waves[remember(s.rev, s.synth) { Native.getParam(P.SYN_WAVE2, s.synth).roundToInt() }.coerceIn(0, 3)]
+            VectorPad(s, s.synth, listOf("OSC 1 $w1", "OSC 2 $w2", "FM", "SUB"))
+            Choice(s, "Osc 1", P.SYN_WAVE1, s.synth, waves, accent = HwCyan)
+            Choice(s, "Osc 2", P.SYN_WAVE2, s.synth, waves, accent = HwCyan)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "FM Ratio", P.SYN_FM_RATIO, s.synth, 0.5f, 8f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { "${(it * 2).roundToInt() / 2f}x" }
+                RotaryKnob(s, "FM Index", P.SYN_FM_INDEX, s.synth, 0f, 8f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { "${(it * 10).roundToInt() / 10f}" }
+                RotaryKnob(s, "Detune", P.SYN_DETUNE, s.synth, -30f, 30f, Modifier.weight(1f), modulated = lfoTarget == 2) { signed(it, "c") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "Cutoff", P.SYN_CUTOFF, s.synth, 80f, 8000f, Modifier.weight(1f), modulated = lfoTarget == 1) { "${it.roundToInt()}" }
+                RotaryKnob(s, "Res", P.SYN_RES, s.synth, 0.5f, 15f, Modifier.weight(1f)) { "${(it * 10).roundToInt() / 10f}" }
+                RotaryKnob(s, "Level", P.SYN_LEVEL, s.synth, 0f, 1f, Modifier.weight(1f), modulated = lfoTarget == 3) { pct(it) }
+            }
+        } else if (mode == 0) {
             Choice(s, "Osc 1", P.SYN_WAVE1, s.synth, waves, accent = HwCyan)
             Choice(s, "Osc 2", P.SYN_WAVE2, s.synth, waves, accent = HwCyan)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -670,6 +771,9 @@ fun SynthTab(s: AppState) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             RotaryKnob(s, "LFO Hz", P.SYN_LFO_RATE, s.synth, 0.1f, 12f, Modifier.weight(1f)) { "${(it * 10).roundToInt() / 10f}" }
             RotaryKnob(s, "LFO Dep", P.SYN_LFO_DEPTH, s.synth, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+            // Fold bends the wave back on itself before the filter. Slide is how long a slide note glides.
+            RotaryKnob(s, "Fold", P.SYN_FOLD, s.synth, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { pct(it) }
+            RotaryKnob(s, "Slide", P.SYN_SLIDE_TIME, s.synth, 0.01f, 0.4f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { "${(it * 1000).roundToInt()}ms" }
         }
         Choice(s, "LFO ->", P.SYN_LFO_TARGET, s.synth, listOf("Off", "Cutoff", "Pitch", "Amp"), accent = HwCyan)
     }
@@ -693,8 +797,9 @@ fun SynthTab(s: AppState) {
             HwButton(if (chord) "CHORD ON" else "CHORD", Modifier.weight(1f), on = chord, ledColor = HwYellow, height = 30.dp) {
                 Native.beginEdit(); Native.setParam(P.SYN_CHORD, s.synth, if (chord) 0f else 1f); s.rev++
             }
-            HwButton("ACCENT", Modifier.weight(1f), on = s.accent, ledColor = HwOrange, height = 30.dp) { s.accent = !s.accent }
-            HwButton(if (s.rollMode) "PADS" else "ROLL", Modifier.weight(1f), on = s.rollMode, ledColor = HwCyan, height = 30.dp) { s.rollMode = !s.rollMode }
+            HwButton("ACCENT", Modifier.weight(1f), on = s.accent, ledColor = HwOrange, height = 30.dp, pad = 2.dp) { s.accent = !s.accent }
+            HwButton("SLIDE", Modifier.weight(1f), on = s.slide, ledColor = HwYellow, height = 30.dp, pad = 2.dp) { s.slide = !s.slide; if (s.slide) s.rollMode = true }
+            HwButton(if (s.rollMode) "PADS" else "ROLL", Modifier.weight(1f), on = s.rollMode, ledColor = HwCyan, height = 30.dp, pad = 2.dp) { s.rollMode = !s.rollMode }
         }
         if (!s.rollMode) {
             for (row in 1 downTo 0) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -715,10 +820,11 @@ fun SynthTab(s: AppState) {
                     for (col in 0 until 8) {
                         val st = page * 8 + col
                         var v = 0
+                        var sl = false
                         var k = 0
-                        while (k + 3 < notes.size) { if (notes[k] == st && notes[k + 1] == deg) v = notes[k + 3]; k += 4 }
-                        RollCell(v, s.playing && s.step == st, col % 4 == 0, HwCyan, Modifier.weight(1f).height(28.dp)) {
-                            if (Native.toggleNote(s.scene, s.synth, st, deg, s.accent)) {
+                        while (k + 4 < notes.size) { if (notes[k] == st && notes[k + 1] == deg) { v = notes[k + 3]; sl = (notes[k + 4] and 1) != 0 }; k += 5 }
+                        RollCell(v, s.playing && s.step == st, col % 4 == 0, HwCyan, Modifier.weight(1f).height(28.dp), slide = sl) {
+                            if (Native.toggleNote(s.scene, s.synth, st, deg, s.accent, s.slide) && !s.slide) {
                                 Native.noteOn(s.synth, deg, s.vel()); Native.noteOff(s.synth, deg)
                             }
                             s.rev++
@@ -727,7 +833,7 @@ fun SynthTab(s: AppState) {
                 }
             }
         }
-        SilkLabel("OCT-/+ shifts only new/edited notes for ${TRACK_NAMES[s.synth + 1]} without changing other scenes.", color = HwMuted, size = 9, bold = false)
+        SilkLabel(if (s.slide) "SLIDE is on: tap a note to make it glide in from the note before (yellow bar). Tap again to undo it." else "OCT-/+ shifts only new/edited notes for ${TRACK_NAMES[s.synth + 1]} without changing other scenes.", color = if (s.slide) HwYellow else HwMuted, size = 9, bold = false)
     }
     })
 }
@@ -856,12 +962,20 @@ fun SongTab(s: AppState) {
             AutoChoice(P.SYN_WARMTH, "Warmth", 0f, 1f),
             AutoChoice(P.SYN_MOTION, "Motion", 0f, 1f),
             AutoChoice(P.SYN_LFO_DEPTH, "LFO Dep", 0f, 1f),
+            AutoChoice(P.SYN_FOLD, "Fold", 0f, 1f),
+            AutoChoice(P.SYN_VEC_X, "Vector X", 0f, 1f),
+            AutoChoice(P.SYN_VEC_Y, "Vector Y", 0f, 1f),
+            AutoChoice(P.SYN_PLUCK_BRIGHT, "Pluck Brt", 0f, 1f),
             AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
             AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
             AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f),
             AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f)
         )
     }
+
+    // What the control is set to right now: synth controls belong to the synth, the rest to the track's channel.
+    fun nowValue(ch: AutoChoice): Float =
+        Native.getParam(ch.id, if (ch.id in 20..39 || ch.id >= 50) autoTrk - 1 else autoTrk).coerceIn(ch.lo, ch.hi)
 
     Panes(s, left = {
     ModulePanel(
@@ -925,29 +1039,43 @@ fun SongTab(s: AppState) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             paramChoices.forEach { ch ->
                 HwButton(ch.label, on = curPid == ch.id, ledColor = HwYellow, height = 28.dp, pad = 7.dp) {
-                    Native.setChainAuto(selPos, autoTrk, autoLn, ch.id, ch.lo, ch.hi); s.rev++
+                    if (ch.id < 0) {
+                        Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f)
+                    } else {
+                        // starts where the control stands now and moves to the far end of its range
+                        val start = nowValue(ch)
+                        val end = if (start - ch.lo < (ch.hi - ch.lo) * 0.5f) ch.hi else ch.lo
+                        Native.setChainAuto(selPos, autoTrk, autoLn, ch.id, start, end)
+                    }
+                    s.rev++
                 }
             }
         }
         val activeChoice = paramChoices.firstOrNull { it.id == curPid }
         if (activeChoice != null && curPid >= 0) {
-            SilkLabel("SWEEP: ${"%.2f".format(curStart)} → ${"%.2f".format(curEnd)}", color = HwSilk, size = 10, mono = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                HwButton("RISE ↑", Modifier.weight(1f), ledColor = HwOrange, height = 30.dp) {
-                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.lo, activeChoice.hi); s.rev++
-                }
-                HwButton("DROP ↓", Modifier.weight(1f), ledColor = HwCyan, height = 30.dp) {
-                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, activeChoice.hi, activeChoice.lo); s.rev++
-                }
-                HwButton("MID ↑", Modifier.weight(1f), ledColor = HwYellow, height = 30.dp) {
-                    val m0 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.25f
-                    val m1 = activeChoice.lo + (activeChoice.hi - activeChoice.lo) * 0.75f
-                    Native.setChainAuto(selPos, autoTrk, autoLn, curPid, m0, m1); s.rev++
-                }
-                HwButton("CLEAR", Modifier.weight(1f), height = 30.dp) {
-                    Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.rev++
+            val show: (Float) -> String = { v -> if (activeChoice.hi - activeChoice.lo > 50f) "${v.roundToInt()}" else "%.2f".format(v) }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Knob("Start", curStart, activeChoice.lo, activeChoice.hi, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = show,
+                    onStart = { Native.beginEdit() },
+                    onChange = { Native.setChainAutoLive(selPos, autoTrk, autoLn, curPid, it, curEnd) },
+                    onEnd = { s.rev++ })
+                Knob("End", curEnd, activeChoice.lo, activeChoice.hi, Modifier.weight(1f), capColor = Color(0xFF422A1A), fmt = show,
+                    onStart = { Native.beginEdit() },
+                    onChange = { Native.setChainAutoLive(selPos, autoTrk, autoLn, curPid, curStart, it) },
+                    onEnd = { s.rev++ })
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    HwButton("START = NOW", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 28.dp, pad = 2.dp) {
+                        Native.setChainAuto(selPos, autoTrk, autoLn, curPid, nowValue(activeChoice), curEnd); s.rev++
+                    }
+                    HwButton("SWAP", Modifier.fillMaxWidth(), ledColor = HwYellow, height = 28.dp, pad = 2.dp) {
+                        Native.setChainAuto(selPos, autoTrk, autoLn, curPid, curEnd, curStart); s.rev++
+                    }
+                    HwButton("CLEAR", Modifier.fillMaxWidth(), height = 28.dp, pad = 2.dp) {
+                        Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.rev++
+                    }
                 }
             }
+            SilkLabel("While slot #${selPos + 1} plays, ${activeChoice.label} moves from Start to End.", color = HwMuted, size = 9, bold = false)
         } else {
             SilkLabel("Pick any parameter above to automate on ${TRACK_NAMES[autoTrk]} (Lane ${autoLn + 1}).", color = HwMuted, size = 9, bold = false)
         }
@@ -966,6 +1094,32 @@ fun SongTab(s: AppState) {
                 }
             }
             RotaryKnob(s, "Master", P.MASTER, 0, 0f, 1f, Modifier.width(74.dp)) { pct(it) }
+        }
+    }
+
+    ModulePanel("Projects", accent = HwCyan) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = s.projectName,
+                onValueChange = { s.projectName = it.take(32).filter { c -> c.isLetterOrDigit() || c in " -_" } },
+                singleLine = true,
+                textStyle = TextStyle(color = HwSilk, fontSize = 14.sp),
+                cursorBrush = SolidColor(HwCyan),
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(6.dp)).background(HwRecess).border(1.dp, HwLine, RoundedCornerShape(6.dp)).padding(horizontal = 10.dp, vertical = 9.dp)
+            )
+            HwButton("SAVE", ledColor = HwGreen, height = 34.dp, pad = 12.dp) { s.onSaveProject(s.projectName) }
+        }
+        if (s.projectMsg.isNotEmpty()) SilkLabel(s.projectMsg, color = HwYellow, size = 10, bold = false)
+        if (s.projects.isEmpty()) SilkLabel("Nothing saved yet. The open project is also kept automatically when you leave the app.", color = HwMuted, size = 9, bold = false)
+        for (nm in s.projects) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel(nm, color = HwSilk, size = 12, modifier = Modifier.weight(1f))
+                HwButton("OPEN", ledColor = HwCyan, height = 30.dp, pad = 9.dp) { s.onOpenProject(nm) }
+                val sure = s.confirmDelete == nm
+                HwButton(if (sure) "SURE?" else "DEL", on = sure, ledColor = HwRed, height = 30.dp, pad = 9.dp) {
+                    if (sure) { s.confirmDelete = ""; s.onDeleteProject(nm) } else s.confirmDelete = nm
+                }
+            }
         }
     }
 

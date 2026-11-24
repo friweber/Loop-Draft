@@ -24,6 +24,41 @@ class MainActivity : ComponentActivity() {
     // "LOAD WAV" in the break slicer: the system file picker, then a private copy the engine can open by path.
     private val pickBreak = registerForActivityResult(ActivityResultContracts.GetContent()) { uri -> if (uri != null) loadBreak(uri) }
 
+    // Named projects live as files in the app's own folder: <name>.ldp, plus <name>.ldp.break.wav for an own break.
+    private fun projectDir() = File(filesDir, "projects").apply { mkdirs() }
+    private fun projectFile(name: String) = File(projectDir(), "$name.ldp")
+    private fun cleanName(name: String) = name.trim().filter { it.isLetterOrDigit() || it in " -_" }.take(32)
+
+    private fun refreshProjects() {
+        val names = (projectDir().listFiles() ?: emptyArray()).filter { it.isFile && it.name.endsWith(".ldp") }
+            .sortedByDescending { it.lastModified() }.map { it.name.removeSuffix(".ldp") }
+        state.projects.clear()
+        state.projects.addAll(names)
+    }
+
+    private fun saveProject(raw: String) {
+        val name = cleanName(raw)
+        if (name.isEmpty()) { state.projectMsg = "Give the project a name first."; return }
+        val existed = projectFile(name).exists()
+        val ok = Native.saveProjectCopy(projectFile(name).absolutePath)
+        state.projectMsg = if (!ok) "Could not save." else if (existed) "Saved over \"$name\"." else "Saved as \"$name\"."
+        refreshProjects()
+    }
+
+    private fun openProject(name: String) {
+        val ok = Native.openProject(projectFile(name).absolutePath)
+        state.projectMsg = if (ok) "Opened \"$name\". UNDO goes back to what was open before." else "Could not open \"$name\"."
+        if (ok) { state.projectName = name; state.scene = 0; state.drumBar = 0; state.rollPage = 0; state.selChainPos = 0 }
+        state.rev++
+    }
+
+    private fun deleteProject(name: String) {
+        projectFile(name).delete()
+        File(projectDir(), "$name.ldp.break.wav").delete()
+        state.projectMsg = "Deleted \"$name\"."
+        refreshProjects()
+    }
+
     private fun loadBreak(uri: Uri) {
         val tmp = File(cacheDir, "break_in.wav")
         val ok = try {
@@ -62,6 +97,10 @@ class MainActivity : ComponentActivity() {
         jungleShot = intent?.getBooleanExtra("jungle", false) == true
         fourShot = intent?.getBooleanExtra("four", false) == true
         state.onExport = { kind -> export(kind) }
+        state.onSaveProject = { name -> saveProject(name) }
+        state.onOpenProject = { name -> openProject(name) }
+        state.onDeleteProject = { name -> deleteProject(name) }
+        refreshProjects()
         state.onLoadBreak = { try { pickBreak.launch("audio/*") } catch (e: Exception) { state.drumMsg = "No file picker on this device." } }
 
         setContent { App(state) }
@@ -79,6 +118,15 @@ class MainActivity : ComponentActivity() {
         when (intent?.getStringExtra("kit")) {     // test options: bounce the loop into the slicer, leave the slicer, come back
             "bounce" -> Log.i("LoopDraft", "kit bounce ok=${Native.resampleSceneToJungle(0)}")
             "909" -> Native.setDrumEngine(1)
+            "project" -> {
+                Native.setParam(P.SYN_MODE, 0, 3f); Native.setParam(P.SYN_VEC_X, 0, 0.8f); Native.setParam(P.SYN_VEC_Y, 0, 0.3f)
+                Native.toggleNote(0, 0, 4, 2, false, true)
+                saveProject("CI test")
+                Native.resetToDemo()
+                openProject("CI test")
+                Log.i("LoopDraft", "project reopened mode=${Native.getParam(P.SYN_MODE, 0).toInt()} list=${state.projects.size} msg=${state.projectMsg}")
+                state.synth = 0; state.rollMode = true
+            }
             "slicer" -> { Native.setDrumEngine(4); Log.i("LoopDraft", "kit back in slicer ownBreak=${Native.hasOwnBreak()}") }
         }
         intent?.removeExtra("kit")

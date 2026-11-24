@@ -222,8 +222,11 @@ void Engine::fireStep() {
       int m[3];
       const int n = chordMidis(p, p.synths[s], nt.degree, m);
       int64_t gate = std::llround(double(nt.len) * sl * 0.92);
+      // A note that a slide note follows directly is held right into it, so there is no gap to glide across.
+      for (int j = 0; j < count; ++j)
+        if (int(pat.notes[j].step) == int(nt.step) + int(nt.len) && (pat.notes[j].flags & kNoteSlide)) gate = std::llround((double(nt.len) + 0.25) * sl);
       if (gate < 1) gate = 1;
-      for (int i = 0; i < n; ++i) synth_[s].noteOn(m[i], nt.vel, gate, n, nt.degree);
+      for (int i = 0; i < n; ++i) synth_[s].noteOn(m[i], nt.vel, gate, n, nt.degree, (nt.flags & kNoteSlide) != 0);
     }
   }
 
@@ -295,6 +298,10 @@ void Engine::renderAudio(float* l, float* r, int n) {
             case P_SYN_FM_FB: sp.fmFeedback = clampF(lin, 0.0f, 1.0f); break;
             case P_SYN_WARMTH: sp.feelWarmth = clampF(lin, 0.0f, 1.0f); break;
             case P_SYN_MOTION: sp.feelMotion = clampF(lin, 0.0f, 1.0f); break;
+            case P_SYN_FOLD: sp.fold = clampF(lin, 0.0f, 1.0f); break;
+            case P_SYN_VEC_X: sp.vecX = clampF(lin, 0.0f, 1.0f); break;
+            case P_SYN_VEC_Y: sp.vecY = clampF(lin, 0.0f, 1.0f); break;
+            case P_SYN_PLUCK_BRIGHT: sp.pluckBright = clampF(lin, 0.0f, 1.0f); break;
             default: break;
           }
         }

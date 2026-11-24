@@ -23,7 +23,7 @@ constexpr int kSynthVoices  = 8;
 enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
-enum class SynthMode : uint8_t { Subtractive, Fm };
+enum class SynthMode : uint8_t { Subtractive, Fm, Pluck, Vector };
 enum class FxType     : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
 enum class DrumEngine : uint8_t { Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer };
 enum class InstrumentPreset : uint8_t {
@@ -41,6 +41,7 @@ enum Param : int {
   P_SYN_RELEASE, P_SYN_LEVEL, P_SYN_LFO_RATE, P_SYN_LFO_DEPTH, P_SYN_LFO_TARGET, P_SYN_OCTAVE, P_SYN_CHORD,
   P_SYN_MODE, P_SYN_FM_RATIO, P_SYN_FM_INDEX, P_SYN_FM_DECAY, P_SYN_FM_FB,
   P_SYN_INSTRUMENT = 50, P_SYN_WARMTH = 51, P_SYN_MOTION = 52,
+  P_SYN_FOLD = 57, P_SYN_SLIDE_TIME = 58, P_SYN_PLUCK_BRIGHT = 59, P_SYN_VEC_X = 60, P_SYN_VEC_Y = 61,
   P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
 };
 
@@ -81,6 +82,11 @@ struct SynthParams {
   InstrumentPreset instrument = InstrumentPreset::Custom;
   float feelWarmth = 0.5f;   // 0 (bright/crisp) .. 1 (warm/saturated)
   float feelMotion = 0.3f;   // 0 (static) .. 1 (animated detune/LFO)
+  float fold = 0.0f;         // wavefolder before the filter, 0 (off) .. 1
+  float slideTime = 0.06f;   // seconds a slide note takes to reach its pitch
+  float pluckBright = 0.6f;  // Pluck: 0 (soft, felt) .. 1 (bright, metallic)
+  float vecX = 0.5f;         // Vector: position between the four sources. x: Osc 1 / FM  ->  Osc 2 / Sub
+  float vecY = 0.5f;         //         y: Osc 1 / Osc 2 (0)  ->  FM / Sub (1)
 };
 
 struct FxSlot {
@@ -105,8 +111,11 @@ struct Note {
   uint16_t step = 0;         // start, in 16th notes from the start of the scene
   int8_t degree = 0;         // scale degree, 0 = root; may go below 0 or above one octave
   uint8_t len = 1;           // length in 16th notes
-  uint8_t vel = 1;
+  uint8_t vel = 1;           // 1 = normal, 2 = accent (louder, and the filter opens for a moment)
+  uint8_t flags = 0;         // kNoteSlide: glide into this note from the one before, without a new attack
 };
+constexpr uint8_t kNoteSlide = 1;
+static_assert(sizeof(Note) == 6, "Note is stored in project files as it is");
 
 struct DrumPattern  { uint8_t steps[kNumPads][kMaxSteps] = {}; };
 struct SynthPattern { Note notes[kMaxNotes] = {}; int32_t count = 0; };
