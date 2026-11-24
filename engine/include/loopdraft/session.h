@@ -11,7 +11,9 @@ namespace ld {
 // Parameter ids for getParam / setParam. `index` is the pad, synth or track number where it applies.
 enum Param : int {
   P_BPM = 0, P_SWING, P_MASTER, P_DELAY_FB, P_ROOT, P_SCALE, P_OCTAVE, P_ACTIVE_SYNTHS,
-  P_DRUM_ENGINE = 53, P_JUNGLE_PITCH = 54, P_JUNGLE_TIGHT = 55, P_JUNGLE_CRUNCH = 56,
+  P_DRUM_ENGINE = 53, P_JUNGLE_PITCH = 54, P_JUNGLE_TIGHT = 55, P_JUNGLE_CRUNCH = 56, P_KIT_HARDNESS = 57,
+  P_DSYN_FREQ = 60, P_DSYN_DROP, P_DSYN_PDEC, P_DSYN_TONE, P_DSYN_NOISE, P_DSYN_NFREQ,
+  P_DSYN_FM, P_DSYN_FMRATIO, P_DSYN_DRIVE, P_DSYN_CLICK, P_DSYN_LEN,
   P_PAD_VOL = 10, P_PAD_PAN, P_PAD_PITCH, P_PAD_DECAY, P_PAD_CHOKE, P_PAD_SLICE_START, P_PAD_SLICE_END, P_PAD_REVERSE,
   P_SYN_WAVE1 = 20, P_SYN_WAVE2, P_SYN_DETUNE, P_SYN_CUTOFF, P_SYN_RES, P_SYN_ATTACK, P_SYN_DECAY, P_SYN_SUSTAIN,
   P_SYN_RELEASE, P_SYN_LEVEL, P_SYN_LFO_RATE, P_SYN_LFO_DEPTH, P_SYN_LFO_TARGET, P_SYN_OCTAVE, P_SYN_CHORD,
@@ -53,6 +55,9 @@ class Session {
   void applyJungleTuning(float pitch, float tight, float crunch);
   bool loadJungleBreakWav(const char* path);
   void resampleSceneToJungle(int scene);
+  void setKitHardness(float hardness);
+  void synthesizeCustomPad(int pad, bool audition = true);
+  void applyDrumSynthTemplate(int pad, int tmpl);
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1);   // true if the note now exists
   void setSceneBars(int scene, int bars);
   void copyScene(int from, int to);

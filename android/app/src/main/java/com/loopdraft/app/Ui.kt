@@ -53,7 +53,8 @@ val SCENE_LABELS = listOf("A: INTRO", "B: VERSE", "C: CHORUS", "D: BRIDGE")
 val TRACK_NAMES = listOf("Drums", "Bass", "Lead", "Syn 3", "Syn 4")
 val INSTRUMENT_NAMES = listOf("Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead")
 val FX_SLOT_NAMES = listOf("Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp")
-val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break")
+val DRUM_ENGINE_NAMES = listOf("808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break", "Hardcore Gabber", "Warehouse Rumble", "Neuro Techstep", "EBM Electro", "Glitch Breakcore")
+val DSYN_TEMPLATES = listOf("Kick", "Snare", "Hat", "Gabber", "Zap", "Clang")
 val NOTE_NAMES = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 fun noteName(midi: Int): String = NOTE_NAMES[((midi % 12) + 12) % 12] + (midi / 12 - 1)
 
@@ -86,6 +87,9 @@ class AppState {
     var jungleMode by mutableStateOf(false)
     var drumRollMode by mutableIntStateOf(0) // 0=normal, 3=2x, 4=3x, 5=4x ratchet roll
     var selChainPos by mutableIntStateOf(0)
+    var showSettings by mutableStateOf(false)
+    var showExpertMenu by mutableStateOf(true)
+    var expertPad by mutableIntStateOf(0)
     private var frames = 0
 
     /** Runs once per screen frame. */
@@ -144,7 +148,9 @@ fun App(s: AppState) {
                         .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    when (s.tab) {
+                    if (s.showSettings) {
+                        SettingsExpertView(s)
+                    } else when (s.tab) {
                         0 -> DrumsTab(s)
                         1 -> SynthTab(s)
                         2 -> MixTab(s)
@@ -212,6 +218,7 @@ fun TopBar(s: AppState) {
             }
             HwButton("UNDO", enabled = canUndo, height = 28.dp, pad = 6.dp) { if (Native.undo()) s.rev++ }
             HwButton("REDO", enabled = canRedo, height = 28.dp, pad = 6.dp) { if (Native.redo()) s.rev++ }
+            HwButton(if (s.showSettings) "BACK" else "SET ⚙", on = s.showSettings, ledColor = HwCyan, height = 28.dp, pad = 6.dp) { s.showSettings = !s.showSettings }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             HwButton(if (s.playing) "STOP" else "PLAY", Modifier.weight(1.1f), on = s.playing, ledColor = HwGreen, showLed = true, height = 38.dp) {
@@ -341,7 +348,8 @@ fun DrumsTab(s: AppState) {
     val bar = s.drumBar.coerceIn(0, bars - 1)
 
     val revOn = remember(s.rev, s.selPad) { Native.getParam(P.PAD_REVERSE, s.selPad) > 0.5f }
-    val curDrumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, 4) }
+    val curDrumEng = remember(s.rev) { Native.getParam(P.DRUM_ENGINE, 0).roundToInt().coerceIn(0, 9) }
+    val kitHard = remember(s.rev) { Native.getParam(P.KIT_HARDNESS, 0) }
     val isJungle = curDrumEng == 4
     s.jungleMode = isJungle
     val jPitch = remember(s.rev) { Native.getParam(P.JUNGLE_PITCH, 0) }
@@ -386,9 +394,18 @@ fun DrumsTab(s: AppState) {
                 HwButton("RAW", on = jCrunch > 0.45f, ledColor = HwRed, height = 24.dp, pad = 6.dp) { Native.applyJungleTuning(jPitch, jTight, 0.75f); s.rev++ }
             }
         } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel("HARDNESS", color = HwSilk, size = 9, modifier = Modifier.width(56.dp))
+                HwButton("CLEAN", Modifier.weight(1f), on = kitHard < 0.15f, ledColor = HwGreen, height = 24.dp, pad = 4.dp) { Native.setKitHardness(0.0f); s.rev++ }
+                HwButton("PUNCH", Modifier.weight(1f), on = kitHard in 0.15f..0.55f, ledColor = HwYellow, height = 24.dp, pad = 4.dp) { Native.setKitHardness(0.35f); s.rev++ }
+                HwButton("BRUTAL", Modifier.weight(1f), on = kitHard > 0.55f, ledColor = HwRed, height = 24.dp, pad = 4.dp) { Native.setKitHardness(0.80f); s.rev++ }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                HwButton("BOUNCE THIS LOOP → JUNGLE SLICER", Modifier.weight(1f), ledColor = HwCyan, height = 28.dp) {
+                HwButton("BOUNCE → JUNGLE", Modifier.weight(1f), ledColor = HwCyan, height = 28.dp) {
                     Native.resampleSceneToJungle(s.scene); s.rev++
+                }
+                HwButton("DRUM SYNTH ⚙", Modifier.weight(1f), ledColor = HwYellow, height = 28.dp) {
+                    s.expertPad = s.selPad; s.showExpertMenu = true; s.showSettings = true
                 }
             }
         }
@@ -872,5 +889,85 @@ fun SongTab(s: AppState) {
         Choice(s, "Root", P.ROOT, 0, NOTE_NAMES, accent = HwYellow)
         Choice(s, "Scale", P.SCALE, 0, listOf("Minor", "Major", "Dorian", "Penta"), accent = HwYellow)
         Choice(s, "Base Oct", P.OCTAVE, 0, listOf("Low", "Mid", "High"), offset = 2, accent = HwYellow)
+    }
+}
+
+// ------------------------------------------------------------------ SETTINGS & EXPERT MENU
+
+@Composable
+fun SettingsExpertView(s: AppState) {
+    val kitHard = remember(s.rev) { Native.getParam(P.KIT_HARDNESS, 0) }
+    val p = s.expertPad.coerceIn(0, 7)
+
+    ModulePanel(
+        title = "Settings & System",
+        accent = HwCyan,
+        trailing = {
+            HwButton("CLOSE", ledColor = HwOrange, height = 26.dp, pad = 8.dp) { s.showSettings = false }
+        }
+    ) {
+        SilkLabel("AUDIO: ${if (s.audioOk) s.info else "NO AUDIO"} • FORMAT v6", color = HwSilk, size = 9, mono = true)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("KIT DRIVE", size = 9, modifier = Modifier.width(56.dp))
+            HwButton("CLEAN", Modifier.weight(1f), on = kitHard < 0.15f, ledColor = HwGreen, height = 28.dp) { Native.setKitHardness(0.0f); s.rev++ }
+            HwButton("PUNCH", Modifier.weight(1f), on = kitHard in 0.15f..0.55f, ledColor = HwYellow, height = 28.dp) { Native.setKitHardness(0.35f); s.rev++ }
+            HwButton("BRUTAL", Modifier.weight(1f), on = kitHard > 0.55f, ledColor = HwRed, height = 28.dp) { Native.setKitHardness(0.80f); s.rev++ }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            HwButton(
+                text = if (s.showExpertMenu) "EXPERT MENU: OPEN" else "OPEN EXPERT MENU",
+                modifier = Modifier.weight(1.3f),
+                on = s.showExpertMenu,
+                ledColor = HwYellow,
+                showLed = true,
+                height = 34.dp
+            ) { s.showExpertMenu = !s.showExpertMenu }
+            HwButton("RESET DEMO", Modifier.weight(0.9f), height = 34.dp) { Native.resetToDemo(); s.rev++ }
+        }
+    }
+
+    if (s.showExpertMenu) {
+        ModulePanel(
+            title = "Expert: Custom Drum Synthesizer (Pad ${p + 1}: ${PAD_NAMES[p]})",
+            accent = HwYellow,
+            trailing = {
+                HwButton("PLAY PAD", ledColor = HwGreen, height = 26.dp, pad = 8.dp) { Native.triggerPad(p, 2) }
+            }
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                PAD_SHORT.forEachIndexed { i, nm ->
+                    HwButton(nm, Modifier.weight(1f), on = p == i, ledColor = HwYellow, height = 28.dp, pad = 1.dp) { s.expertPad = i }
+                }
+            }
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                SilkLabel("TMPL", size = 9, modifier = Modifier.width(34.dp))
+                DSYN_TEMPLATES.forEachIndexed { idx, nm ->
+                    HwButton(nm, ledColor = HwOrange, height = 26.dp, pad = 7.dp) {
+                        Native.applyDrumSynthTemplate(p, idx); s.rev++
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "Base Hz", P.DSYN_FREQ, p, 25f, 1200f, Modifier.weight(1f)) { "${it.roundToInt()}" }
+                RotaryKnob(s, "P.Drop", P.DSYN_DROP, p, 0f, 600f, Modifier.weight(1f)) { "${it.roundToInt()}" }
+                RotaryKnob(s, "P.Dec", P.DSYN_PDEC, p, 0.005f, 0.30f, Modifier.weight(1f)) { "${(it * 1000).roundToInt()}ms" }
+                RotaryKnob(s, "Length", P.DSYN_LEN, p, 0.05f, 1.5f, Modifier.weight(1f)) { secs(it) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "Tone", P.DSYN_TONE, p, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+                RotaryKnob(s, "Noise", P.DSYN_NOISE, p, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+                RotaryKnob(s, "N.Freq", P.DSYN_NFREQ, p, 300f, 10000f, Modifier.weight(1f)) { "${it.roundToInt()}" }
+                RotaryKnob(s, "Click", P.DSYN_CLICK, p, 0f, 1f, Modifier.weight(1f)) { pct(it) }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                RotaryKnob(s, "FM Amt", P.DSYN_FM, p, 0f, 8f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { "${(it * 10).roundToInt() / 10f}" }
+                RotaryKnob(s, "FM Rat", P.DSYN_FMRATIO, p, 0.5f, 8f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { "${(it * 10).roundToInt() / 10f}x" }
+                RotaryKnob(s, "Drive", P.DSYN_DRIVE, p, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF422A1A)) { pct(it) }
+            }
+            HwButton("SYNTHESIZE & APPLY TO PAD ${p + 1}", Modifier.fillMaxWidth(), on = true, ledColor = HwGreen, showLed = true, height = 40.dp) {
+                Native.synthesizeCustomPad(p, true); s.rev++
+            }
+            SilkLabel("Synthesizes a 100% copyright-free procedural drum directly into Pad ${p + 1} RAM.", color = HwMuted, size = 9, bold = false)
+        }
     }
 }

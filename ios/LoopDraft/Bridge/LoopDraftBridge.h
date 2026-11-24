@@ -48,6 +48,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)applyJungleTuningPitch:(float)pitch tight:(float)tight crunch:(float)crunch;
 - (BOOL)loadJungleBreakWav:(NSString *)path;
 - (void)resampleSceneToJungle:(int)scene;
+- (void)setKitHardness:(float)hardness;
+- (void)synthesizeCustomPad:(int)pad audition:(BOOL)audition;
+- (void)applyDrumSynthTemplatePad:(int)pad tmpl:(int)tmpl;
 
 - (int)sceneBars:(int)scene;
 - (void)setSceneBars:(int)scene bars:(int)bars;

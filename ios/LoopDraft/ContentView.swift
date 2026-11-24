@@ -4,7 +4,8 @@ private let PAD_NAMES = ["Kick", "Snare", "Clap", "CH", "OH", "Rim", "Tom", "Per
 private let PAD_SHORT = ["Kik", "Snr", "Clp", "CH", "OH", "Rim", "Tom", "Prc"]
 private let SCENE_NAMES = ["A", "B", "C", "D"]
 private let TRACK_NAMES = ["Drums", "Bass", "Lead", "Syn 3", "Syn 4"]
-private let DRUM_ENGINES = ["808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break"]
+private let DRUM_ENGINES = ["808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break", "Hardcore Gabber", "Warehouse Rumble", "Neuro Techstep", "EBM Electro", "Glitch Breakcore"]
+private let DSYN_TEMPLATES = ["Kick", "Snare", "Hat", "Gabber", "Zap", "Clang"]
 private let INSTRUMENTS = ["Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead"]
 private let FX_SLOTS = ["Off", "Drive", "Crush", "Chorus", "Phaser", "Filter", "Comp"]
 private let NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -28,11 +29,15 @@ struct ContentView: View {
                 sceneStrip
                 ScrollView {
                     VStack(spacing: 8) {
-                        switch state.tab {
-                        case 0: drumsTab
-                        case 1: synthTab
-                        case 2: fxTab
-                        default: songTab
+                        if state.showSettings {
+                            settingsExpertView
+                        } else {
+                            switch state.tab {
+                            case 0: drumsTab
+                            case 1: synthTab
+                            case 2: fxTab
+                            default: songTab
+                            }
                         }
                     }
                     .padding(8)
@@ -60,7 +65,10 @@ struct ContentView: View {
                 }.frame(width: 58)
                 HwButton(text: "REDO", enabled: state.bridge.canRedo(), height: 28) {
                     if state.bridge.redo() { state.rev += 1 }
-                }.frame(width: 58)
+                }.frame(width: 52)
+                HwButton(text: state.showSettings ? "BACK" : "SET ⚙", on: state.showSettings, ledColor: HwColor.cyan, height: 28) {
+                    state.showSettings.toggle()
+                }.frame(width: 56)
             }
             HStack(spacing: 6) {
                 HwButton(text: state.playing ? "STOP" : "PLAY", on: state.playing, ledColor: HwColor.green, height: 36, showLed: true) {
@@ -120,7 +128,8 @@ struct ContentView: View {
 
     // ---- DRUMS TAB ----
     private var drumsTab: some View {
-        let curEng = min(max(Int(state.bridge.getParam(ParamId.DRUM_ENGINE, index: 0).rounded()), 0), 4)
+        let curEng = min(max(Int(state.bridge.getParam(ParamId.DRUM_ENGINE, index: 0).rounded()), 0), 9)
+        let kitHard = state.bridge.getParam(ParamId.KIT_HARDNESS, index: 0)
         let isJungle = curEng == 4
         let jPitch = state.bridge.getParam(ParamId.JUNGLE_PITCH, index: 0)
         let jTight = state.bridge.getParam(ParamId.JUNGLE_TIGHT, index: 0)
@@ -169,8 +178,19 @@ struct ContentView: View {
                         HwButton(text: "RAW", on: jCrunch > 0.45, ledColor: HwColor.red, height: 24) { state.bridge.applyJungleTuningPitch(jPitch, tight: jTight, crunch: 0.75); state.rev += 1 }.frame(width: 50)
                     }
                 } else {
-                    HwButton(text: "BOUNCE THIS LOOP → JUNGLE SLICER", ledColor: HwColor.cyan, height: 28) {
-                        state.bridge.resampleScene(toJungle: state.scene); state.rev += 1
+                    HStack(spacing: 4) {
+                        SilkLabel(text: "HARDNESS", color: HwColor.silk, size: 9)
+                        HwButton(text: "CLEAN", on: kitHard < 0.15, ledColor: HwColor.green, height: 24) { state.bridge.setKitHardness(0.0); state.rev += 1 }
+                        HwButton(text: "PUNCH", on: kitHard >= 0.15 && kitHard <= 0.55, ledColor: HwColor.yellow, height: 24) { state.bridge.setKitHardness(0.35); state.rev += 1 }
+                        HwButton(text: "BRUTAL", on: kitHard > 0.55, ledColor: HwColor.red, height: 24) { state.bridge.setKitHardness(0.80); state.rev += 1 }
+                    }
+                    HStack(spacing: 5) {
+                        HwButton(text: "BOUNCE → JUNGLE", ledColor: HwColor.cyan, height: 28) {
+                            state.bridge.resampleScene(toJungle: state.scene); state.rev += 1
+                        }
+                        HwButton(text: "DRUM SYNTH ⚙", ledColor: HwColor.yellow, height: 28) {
+                            state.expertPad = state.selPad; state.showExpertMenu = true; state.showSettings = true
+                        }
                     }
                 }
                 HStack(spacing: 6) {
@@ -529,6 +549,74 @@ struct ContentView: View {
                         HwButton(text: "CLEAR", height: 28) {
                             state.bridge.setChainAutoPos(Int32(selPos), track: Int32(autoTrk), lane: Int32(autoLn), paramId: -1, startVal: 0, endVal: 0); state.rev += 1
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- SETTINGS & EXPERT MENU ----
+    private var settingsExpertView: some View {
+        let kitHard = state.bridge.getParam(ParamId.KIT_HARDNESS, index: 0)
+        let p = min(max(state.expertPad, 0), 7)
+
+        return VStack(spacing: 8) {
+            ModulePanel("Settings & System", accent: HwColor.cyan, trailing: {
+                HwButton(text: "CLOSE", ledColor: HwColor.orange, height: 26) { state.showSettings = false }.frame(width: 64)
+            }) {
+                SilkLabel(text: "AUDIO: \(state.audioInfo) • FORMAT v6", color: HwColor.silk, size: 9, mono: true)
+                HStack(spacing: 4) {
+                    SilkLabel(text: "KIT DRIVE", size: 9)
+                    HwButton(text: "CLEAN", on: kitHard < 0.15, ledColor: HwColor.green, height: 26) { state.bridge.setKitHardness(0.0); state.rev += 1 }
+                    HwButton(text: "PUNCH", on: kitHard >= 0.15 && kitHard <= 0.55, ledColor: HwColor.yellow, height: 26) { state.bridge.setKitHardness(0.35); state.rev += 1 }
+                    HwButton(text: "BRUTAL", on: kitHard > 0.55, ledColor: HwColor.red, height: 26) { state.bridge.setKitHardness(0.80); state.rev += 1 }
+                }
+                HStack(spacing: 6) {
+                    HwButton(text: state.showExpertMenu ? "EXPERT MENU: OPEN" : "OPEN EXPERT MENU", on: state.showExpertMenu, ledColor: HwColor.yellow, height: 32, showLed: true) {
+                        state.showExpertMenu.toggle()
+                    }
+                    HwButton(text: "RESET DEMO", height: 32) { state.bridge.resetToDemo(); state.rev += 1 }
+                }
+            }
+
+            if state.showExpertMenu {
+                ModulePanel("Expert: Custom Drum Synth (Pad \(p + 1): \(PAD_NAMES[Int(p)]))", accent: HwColor.yellow, trailing: {
+                    HwButton(text: "PLAY PAD", ledColor: HwColor.green, height: 26) { state.bridge.triggerPad(p, vel: 2) }.frame(width: 78)
+                }) {
+                    HStack(spacing: 3) {
+                        ForEach(0..<8, id: \.self) { i in
+                            HwButton(text: PAD_SHORT[i], on: p == Int32(i), ledColor: HwColor.yellow, height: 26) { state.expertPad = Int32(i) }
+                        }
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            SilkLabel(text: "TMPL", size: 9)
+                            ForEach(0..<DSYN_TEMPLATES.count, id: \.self) { idx in
+                                HwButton(text: DSYN_TEMPLATES[idx], ledColor: HwColor.orange, height: 26) {
+                                    state.bridge.applyDrumSynthTemplatePad(p, tmpl: Int32(idx)); state.rev += 1
+                                }.fixedSize(horizontal: true, vertical: false)
+                            }
+                        }
+                    }
+                    HStack(spacing: 6) {
+                        RotaryKnob(state: state, label: "Base Hz", paramId: ParamId.DSYN_FREQ, index: p, minVal: 25, maxVal: 1200) { "\(Int($0.rounded()))" }
+                        RotaryKnob(state: state, label: "P.Drop", paramId: ParamId.DSYN_DROP, index: p, minVal: 0, maxVal: 600) { "\(Int($0.rounded()))" }
+                        RotaryKnob(state: state, label: "P.Dec", paramId: ParamId.DSYN_PDEC, index: p, minVal: 0.005, maxVal: 0.30) { "\(Int(($0 * 1000).rounded()))ms" }
+                        RotaryKnob(state: state, label: "Length", paramId: ParamId.DSYN_LEN, index: p, minVal: 0.05, maxVal: 1.5, fmt: secs)
+                    }
+                    HStack(spacing: 6) {
+                        RotaryKnob(state: state, label: "Tone", paramId: ParamId.DSYN_TONE, index: p, minVal: 0, maxVal: 1, fmt: pct)
+                        RotaryKnob(state: state, label: "Noise", paramId: ParamId.DSYN_NOISE, index: p, minVal: 0, maxVal: 1, fmt: pct)
+                        RotaryKnob(state: state, label: "N.Freq", paramId: ParamId.DSYN_NFREQ, index: p, minVal: 300, maxVal: 10000) { "\(Int($0.rounded()))" }
+                        RotaryKnob(state: state, label: "Click", paramId: ParamId.DSYN_CLICK, index: p, minVal: 0, maxVal: 1, fmt: pct)
+                    }
+                    HStack(spacing: 6) {
+                        RotaryKnob(state: state, label: "FM Amt", paramId: ParamId.DSYN_FM, index: p, minVal: 0, maxVal: 8, capColor: Color(red: 0.12, green: 0.22, blue: 0.28)) { String(format: "%.1f", $0) }
+                        RotaryKnob(state: state, label: "FM Rat", paramId: ParamId.DSYN_FMRATIO, index: p, minVal: 0.5, maxVal: 8, capColor: Color(red: 0.12, green: 0.22, blue: 0.28)) { String(format: "%.1fx", $0) }
+                        RotaryKnob(state: state, label: "Drive", paramId: ParamId.DSYN_DRIVE, index: p, minVal: 0, maxVal: 1, capColor: Color(red: 0.26, green: 0.16, blue: 0.10), fmt: pct)
+                    }
+                    HwButton(text: "SYNTHESIZE & APPLY TO PAD \(p + 1)", on: true, ledColor: HwColor.green, height: 38, showLed: true) {
+                        state.bridge.synthesizeCustomPad(p, audition: true); state.rev += 1
                     }
                 }
             }

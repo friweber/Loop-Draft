@@ -177,6 +177,9 @@ inline void flushDenormalsToZero() {
   return _session && path && _session->loadJungleBreakWav(path.UTF8String);
 }
 - (void)resampleSceneToJungle:(int)scene { if (_session) _session->resampleSceneToJungle(scene); }
+- (void)setKitHardness:(float)hardness { if (_session) _session->setKitHardness(hardness); }
+- (void)synthesizeCustomPad:(int)pad audition:(BOOL)audition { if (_session) _session->synthesizeCustomPad(pad, audition); }
+- (void)applyDrumSynthTemplatePad:(int)pad tmpl:(int)tmpl { if (_session) _session->applyDrumSynthTemplate(pad, tmpl); }
 
 - (int)sceneBars:(int)scene {
   return (_session && scene >= 0 && scene < ld::kNumScenes) ? _session->project().scenes[scene].bars : 1;

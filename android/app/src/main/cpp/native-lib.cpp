@@ -278,3 +278,13 @@ JNI(jboolean, loadJungleBreakWav)(JNIEnv* env, jobject, jstring path) {
 JNI(void, resampleSceneToJungle)(JNIEnv*, jobject, jint scene) {
   if (S()) S()->resampleSceneToJungle(scene);
 }
+
+JNI(void, setKitHardness)(JNIEnv*, jobject, jfloat hardness) {
+  if (S()) S()->setKitHardness(hardness);
+}
+JNI(void, synthesizeCustomPad)(JNIEnv*, jobject, jint pad, jboolean audition) {
+  if (S()) S()->synthesizeCustomPad(pad, audition == JNI_TRUE);
+}
+JNI(void, applyDrumSynthTemplate)(JNIEnv*, jobject, jint pad, jint tmpl) {
+  if (S()) S()->applyDrumSynthTemplate(pad, tmpl);
+}

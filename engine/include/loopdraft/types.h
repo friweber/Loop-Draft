@@ -25,12 +25,30 @@ enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
 enum class SynthMode : uint8_t { Subtractive, Fm };
 enum class FxType     : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
-enum class DrumEngine : uint8_t { Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer };
+enum class DrumEngine : uint8_t {
+  Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer,
+  HardcoreGabber, WarehouseRumble, NeuroTechstep, EbmElectro, GlitchBreakcore
+};
 enum class InstrumentPreset : uint8_t {
   Custom, AnalogBass, Acid303, ReeseDnB, FmBell, FmEPiano, SuperPad, PluckLead
 };
 
 // Step and note velocity: 0 = off, 1 = normal, 2 = accent, 3..5 = 2x/3x/4x ratchet roll.
+struct DrumSynthParams {
+  float baseFreq   = 52.0f;   // 25 .. 1200 Hz
+  float pitchDrop  = 140.0f;  // 0 .. 600 Hz
+  float pitchDecay = 0.035f;  // 0.005 .. 0.30 s
+  float toneMix    = 0.85f;   // 0 .. 1
+  float noiseMix   = 0.15f;   // 0 .. 1
+  float noiseFreq  = 2800.0f; // 300 .. 10000 Hz
+  float fmAmt      = 0.0f;    // 0 .. 8
+  float fmRatio    = 2.3f;    // 0.5 .. 8.0
+  float drive      = 0.25f;   // 0 .. 1 (multi-stage soft/hard clip)
+  float click      = 0.25f;   // 0 .. 1 (transient click)
+  float length     = 0.45f;   // 0.05 .. 1.5 s
+  bool  enabled    = false;   // true when pad uses custom synthesized drum
+};
+
 struct PadParams {
   float vol = 0.9f;
   float pan = 0.0f;        // -1 left .. +1 right
@@ -124,6 +142,8 @@ struct Project {
   float junglePitch = 0.0f;  // global repitch (-12 .. +12 st) for Jungle Slicer
   float jungleTight = 0.65f; // global slice decay (0.08 .. 1.5 s) for Jungle Slicer
   float jungleCrunch = 0.25f;// vintage Akai/E-mu crunch (0 .. 1) for Jungle Slicer
+  float kitHardness = 0.0f;  // global drum kit hardness/drive macro (0 .. 1)
+  DrumSynthParams customDrums[kNumPads];
   PadParams pads[kNumPads];
   SynthParams synths[kNumSynths];
   TrackFx fx[kNumTracks];

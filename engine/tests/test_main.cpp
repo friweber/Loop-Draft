@@ -601,6 +601,47 @@ static void testDrumEnginesAndJungleResample() {
   CHECK(pk > 0.01f && pk <= 1.0f);
 }
 
+
+static void testHardDrumEnginesAndCustomDrumSynth() {
+  ld::Session ses(48000.0);
+  // 1. Verify all 5 new hard drum engines (5..9) render clean, distinct, bounded audio
+  for (int eng = int(ld::DrumEngine::HardcoreGabber); eng <= int(ld::DrumEngine::GlitchBreakcore); ++eng) {
+    ses.setDrumEngine(eng);
+    CHECK_EQ(int(ses.project().drumEngine), eng);
+    ses.engine().triggerPad(0, 2);
+    ses.engine().triggerPad(1, 2);
+    float l[512] = {}, r[512] = {};
+    ses.engine().render(l, r, 512);
+    float pk = 0.0f;
+    for (int i = 0; i < 512; ++i) { CHECK(std::isfinite(l[i])); pk = std::fmax(pk, std::fabs(l[i])); }
+    CHECK(pk > 0.05f && pk <= 1.0f);
+  }
+  // 2. Kit Hardness macro
+  ses.setKitHardness(0.80f);
+  CHECK(std::fabs(ses.getParam(ld::P_KIT_HARDNESS, 0) - 0.80f) < 0.01f);
+  CHECK(std::fabs(ses.getParam(ld::P_FX_DRIVE, 0) - 0.80f) < 0.01f);
+
+  // 3. Expert Menu Custom Drum Synthesizer: template + custom tweak + save/load v6
+  ses.applyDrumSynthTemplate(0, 3); // Gabber Kick template on Pad 0
+  CHECK(ses.project().customDrums[0].enabled);
+  ses.setParam(ld::P_DSYN_FREQ, 0, 58.0f);
+  ses.setParam(ld::P_DSYN_DRIVE, 0, 0.90f);
+  ses.synthesizeCustomPad(0, true);
+  float l[512] = {}, r[512] = {};
+  ses.engine().render(l, r, 512);
+  float pk = 0.0f;
+  for (int i = 0; i < 512; ++i) pk = std::fmax(pk, std::fabs(l[i]));
+  CHECK(pk > 0.05f && pk <= 1.0f);
+
+  const char* pth = "/tmp/ld_v6_custom_drum.ldp";
+  CHECK(ses.save(pth));
+  ld::Session ses2(48000.0);
+  CHECK(ses2.load(pth));
+  CHECK(ses2.project().customDrums[0].enabled);
+  CHECK(std::fabs(ses2.getParam(ld::P_DSYN_FREQ, 0) - 58.0f) < 0.1f);
+  std::remove(pth);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -627,6 +668,7 @@ int main() {
     {"jungle breakbeat slicer and ratchet rolls", testJungleSlicerAndRatchets},
     {"4 synth tracks, instrument engine and Vital FX chain", testFourTracksInstrumentsAndFxChain},
     {"drum engines, jungle tuning and resample-to-break", testDrumEnginesAndJungleResample},
+    {"5 hard drum engines and expert custom drum synthesizer", testHardDrumEnginesAndCustomDrumSynth},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

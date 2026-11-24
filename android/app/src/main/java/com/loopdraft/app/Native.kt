@@ -71,6 +71,9 @@ object Native {
     external fun applyJungleTuning(pitch: Float, tight: Float, crunch: Float)
     external fun loadJungleBreakWav(path: String): Boolean
     external fun resampleSceneToJungle(scene: Int)
+    external fun setKitHardness(hardness: Float)
+    external fun synthesizeCustomPad(pad: Int, audition: Boolean)
+    external fun applyDrumSynthTemplate(pad: Int, tmpl: Int)
 }
 
 /** Parameter ids. Must match enum Param in engine/include/loopdraft/session.h. */
@@ -118,6 +121,18 @@ object P {
     const val JUNGLE_PITCH = 54
     const val JUNGLE_TIGHT = 55
     const val JUNGLE_CRUNCH = 56
+    const val KIT_HARDNESS = 57
+    const val DSYN_FREQ = 60
+    const val DSYN_DROP = 61
+    const val DSYN_PDEC = 62
+    const val DSYN_TONE = 63
+    const val DSYN_NOISE = 64
+    const val DSYN_NFREQ = 65
+    const val DSYN_FM = 66
+    const val DSYN_FMRATIO = 67
+    const val DSYN_DRIVE = 68
+    const val DSYN_CLICK = 69
+    const val DSYN_LEN = 70
     const val FX_LEVEL = 40
     const val FX_DRIVE = 41
     const val FX_EQ_LOW = 42

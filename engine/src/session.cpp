@@ -10,7 +10,7 @@ namespace ld {
 namespace {
 constexpr size_t kMaxUndo = 64;
 constexpr char kMagic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
-constexpr uint32_t kFileVersion = 5;
+constexpr uint32_t kFileVersion = 6;
 template <typename T> T clampT(T v, T lo, T hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float fin(float v, float fallback) { return v == v && v > -1e30f && v < 1e30f ? v : fallback; }
 bool sceneOk(int s) { return s >= 0 && s < kNumScenes; }
@@ -23,7 +23,21 @@ void sanitize(Project& p) {
   if (uint8_t(p.scale) > uint8_t(Scale::Pentatonic)) p.scale = Scale::Minor;
   p.octave = clampT(p.octave, 1, 5);
   p.activeSynths = clampT(p.activeSynths, 2, kNumSynths);
-  if (uint8_t(p.drumEngine) > uint8_t(DrumEngine::JungleSlicer)) p.drumEngine = DrumEngine::Classic808;
+  if (uint8_t(p.drumEngine) > uint8_t(DrumEngine::GlitchBreakcore)) p.drumEngine = DrumEngine::Classic808;
+  p.kitHardness = clampT(fin(p.kitHardness, 0.0f), 0.0f, 1.0f);
+  for (auto& ds : p.customDrums) {
+    ds.baseFreq   = clampT(fin(ds.baseFreq, 52.0f), 25.0f, 1200.0f);
+    ds.pitchDrop  = clampT(fin(ds.pitchDrop, 140.0f), 0.0f, 600.0f);
+    ds.pitchDecay = clampT(fin(ds.pitchDecay, 0.035f), 0.005f, 0.30f);
+    ds.toneMix    = clampT(fin(ds.toneMix, 0.85f), 0.0f, 1.0f);
+    ds.noiseMix   = clampT(fin(ds.noiseMix, 0.15f), 0.0f, 1.0f);
+    ds.noiseFreq  = clampT(fin(ds.noiseFreq, 2800.0f), 300.0f, 10000.0f);
+    ds.fmAmt      = clampT(fin(ds.fmAmt, 0.0f), 0.0f, 8.0f);
+    ds.fmRatio    = clampT(fin(ds.fmRatio, 2.3f), 0.5f, 8.0f);
+    ds.drive      = clampT(fin(ds.drive, 0.25f), 0.0f, 1.0f);
+    ds.click      = clampT(fin(ds.click, 0.25f), 0.0f, 1.0f);
+    ds.length     = clampT(fin(ds.length, 0.45f), 0.05f, 1.5f);
+  }
   p.junglePitch = clampT(fin(p.junglePitch, 0.0f), -12.0f, 12.0f);
   p.jungleTight = clampT(fin(p.jungleTight, 0.65f), 0.08f, 1.5f);
   p.jungleCrunch = clampT(fin(p.jungleCrunch, 0.25f), 0.0f, 1.0f);
@@ -127,6 +141,7 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
   static float scratch;
   isInt = false; kind = 0;
   const auto pad = [&]() -> PadParams& { return p.pads[clampT(index, 0, kNumPads - 1)]; };
+  const auto dsyn = [&]() -> DrumSynthParams& { return p.customDrums[clampT(index, 0, kNumPads - 1)]; };
   const auto syn = [&]() -> SynthParams& { return p.synths[clampT(index, 0, kNumSynths - 1)]; };
   const auto fx = [&]() -> TrackFx& { return p.fx[clampT(index, 0, kNumTracks - 1)]; };
   switch (id) {
@@ -142,6 +157,18 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_JUNGLE_PITCH: return &p.junglePitch;
     case P_JUNGLE_TIGHT: return &p.jungleTight;
     case P_JUNGLE_CRUNCH: return &p.jungleCrunch;
+    case P_KIT_HARDNESS: return &p.kitHardness;
+    case P_DSYN_FREQ: return &dsyn().baseFreq;
+    case P_DSYN_DROP: return &dsyn().pitchDrop;
+    case P_DSYN_PDEC: return &dsyn().pitchDecay;
+    case P_DSYN_TONE: return &dsyn().toneMix;
+    case P_DSYN_NOISE: return &dsyn().noiseMix;
+    case P_DSYN_NFREQ: return &dsyn().noiseFreq;
+    case P_DSYN_FM: return &dsyn().fmAmt;
+    case P_DSYN_FMRATIO: return &dsyn().fmRatio;
+    case P_DSYN_DRIVE: return &dsyn().drive;
+    case P_DSYN_CLICK: return &dsyn().click;
+    case P_DSYN_LEN: return &dsyn().length;
     case P_PAD_VOL: return &pad().vol;
     case P_PAD_PAN: return &pad().pan;
     case P_PAD_PITCH: return &pad().pitch;
@@ -330,7 +357,7 @@ void Session::loadStandardKit() {
 }
 void Session::setDrumEngine(int engine) {
   beginEdit();
-  const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::JungleSlicer)));
+  const auto de = DrumEngine(clampT(engine, 0, int(DrumEngine::GlitchBreakcore)));
   proj_.drumEngine = de;
   if (de == DrumEngine::JungleSlicer) {
     auto masterBreak = makeJungleBreakSample(engine_.sampleRate());
@@ -351,6 +378,7 @@ void Session::setDrumEngine(int engine) {
       if (de == DrumEngine::Classic808) engine_.setPadSample(i, nullptr);
       else engine_.setPadSample(i, makeDrumKitSample(de, i, engine_.sampleRate()));
       proj_.pads[i] = def.pads[i];
+      proj_.customDrums[i].enabled = false;
     }
   }
   commit();
@@ -419,6 +447,59 @@ void Session::resampleSceneToJungle(int scene) {
   }
   commit();
 }
+
+void Session::setKitHardness(float hardness) {
+  beginEdit();
+  proj_.kitHardness = clampT(hardness, 0.0f, 1.0f);
+  proj_.fx[0].drive = proj_.kitHardness;
+  commit();
+}
+
+void Session::synthesizeCustomPad(int pad, bool audition) {
+  if (pad < 0 || pad >= kNumPads) return;
+  beginEdit();
+  sanitize(proj_);
+  proj_.customDrums[pad].enabled = true;
+  proj_.pads[pad].sliceStart = 0.0f;
+  proj_.pads[pad].sliceEnd = 1.0f;
+  proj_.pads[pad].reverse = false;
+  engine_.setPadSample(pad, makeCustomDrumSample(proj_.customDrums[pad], engine_.sampleRate()));
+  commit();
+  if (audition) engine_.triggerPad(pad, 2);
+}
+
+void Session::applyDrumSynthTemplate(int pad, int tmpl) {
+  if (pad < 0 || pad >= kNumPads) return;
+  beginEdit();
+  DrumSynthParams& d = proj_.customDrums[pad];
+  switch (tmpl) {
+    case 0: // Deep Kick
+      d = DrumSynthParams{48.0f, 180.0f, 0.025f, 0.95f, 0.05f, 2200.0f, 0.0f, 1.5f, 0.30f, 0.35f, 0.48f, true};
+      break;
+    case 1: // Crisp Snare
+      d = DrumSynthParams{195.0f, 80.0f, 0.015f, 0.45f, 0.85f, 5200.0f, 0.8f, 2.3f, 0.35f, 0.40f, 0.30f, true};
+      break;
+    case 2: // Metallic Hat
+      d = DrumSynthParams{620.0f, 0.0f, 0.010f, 0.35f, 0.85f, 8800.0f, 5.5f, 3.71f, 0.20f, 0.15f, 0.16f, true};
+      break;
+    case 3: // Gabber Kick
+      d = DrumSynthParams{46.0f, 320.0f, 0.012f, 1.0f, 0.08f, 3500.0f, 0.4f, 2.0f, 0.92f, 0.85f, 0.52f, true};
+      break;
+    case 4: // Electro Zap
+      d = DrumSynthParams{95.0f, 580.0f, 0.030f, 0.95f, 0.0f, 4000.0f, 1.2f, 2.0f, 0.25f, 0.20f, 0.32f, true};
+      break;
+    default: // Industrial Clang
+      d = DrumSynthParams{260.0f, 40.0f, 0.020f, 0.85f, 0.20f, 6000.0f, 6.8f, 2.71f, 0.55f, 0.30f, 0.50f, true};
+      break;
+  }
+  proj_.pads[pad].sliceStart = 0.0f;
+  proj_.pads[pad].sliceEnd = 1.0f;
+  proj_.pads[pad].reverse = false;
+  engine_.setPadSample(pad, makeCustomDrumSample(d, engine_.sampleRate()));
+  commit();
+  engine_.triggerPad(pad, 2);
+}
+
 void Session::chainAdd(int scene) {
   if (!sceneOk(scene) || proj_.chainLen >= kMaxChain) return;
   beginEdit();
@@ -489,6 +570,20 @@ bool Session::load(const char* path) {
   if (!ok) return false;
   sanitize(p);
   proj_ = p; undo_.clear(); redo_.clear();
+  if (proj_.drumEngine == DrumEngine::JungleSlicer) {
+    auto brk = makeJungleBreakSample(engine_.sampleRate());
+    for (int i = 0; i < kNumPads; ++i) engine_.setPadSample(i, std::make_unique<Sample>(*brk));
+  } else {
+    for (int i = 0; i < kNumPads; ++i) {
+      if (proj_.customDrums[i].enabled) {
+        engine_.setPadSample(i, makeCustomDrumSample(proj_.customDrums[i], engine_.sampleRate()));
+      } else if (proj_.drumEngine == DrumEngine::Classic808) {
+        engine_.setPadSample(i, nullptr);
+      } else {
+        engine_.setPadSample(i, makeDrumKitSample(proj_.drumEngine, i, engine_.sampleRate()));
+      }
+    }
+  }
   engine_.setProject(proj_);
   dirty_ = false;
   return true;

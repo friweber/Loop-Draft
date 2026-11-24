@@ -51,6 +51,18 @@ enum ParamId {
     static let JUNGLE_PITCH: Int32 = 54
     static let JUNGLE_TIGHT: Int32 = 55
     static let JUNGLE_CRUNCH: Int32 = 56
+    static let KIT_HARDNESS: Int32 = 57
+    static let DSYN_FREQ: Int32 = 60
+    static let DSYN_DROP: Int32 = 61
+    static let DSYN_PDEC: Int32 = 62
+    static let DSYN_TONE: Int32 = 63
+    static let DSYN_NOISE: Int32 = 64
+    static let DSYN_NFREQ: Int32 = 65
+    static let DSYN_FM: Int32 = 66
+    static let DSYN_FMRATIO: Int32 = 67
+    static let DSYN_DRIVE: Int32 = 68
+    static let DSYN_CLICK: Int32 = 69
+    static let DSYN_LEN: Int32 = 70
 }
 
 final class EngineState: ObservableObject {
@@ -79,6 +91,9 @@ final class EngineState: ObservableObject {
     @Published var selChainPos: Int32 = 0
     @Published var selAutoTrack: Int32 = 2
     @Published var selAutoLane: Int32 = 0
+    @Published var showSettings: Bool = false
+    @Published var showExpertMenu: Bool = true
+    @Published var expertPad: Int32 = 0
 
     private var timer: AnyCancellable?
     private var frames: Int = 0
