@@ -311,10 +311,16 @@ fun SkinStudioModal(s: AppState, onDismiss: () -> Unit) {
                 row("VIBRATE", listOf("OFF", "ON TAP"), if (pr.haptics) 1 else 0) { s.updatePrefs(pr.copy(haptics = it == 1)) }
                 row("SIDEWAYS", listOf("RAIL LEFT", "RAIL RIGHT"), if (pr.leftHanded) 1 else 0) { s.updatePrefs(pr.copy(leftHanded = it == 1)) }
                 row("AUDIO", listOf("FAST", "BALANCED", "SAFE"), pr.audio) { Native.setAudioMode(it); s.updatePrefs(pr.copy(audio = it)) }
-                SilkLabel("AUDIO: FAST reacts quickest to your fingers. If the sound crackles, go to BALANCED or SAFE.", color = skin.muted, size = 9, bold = false)
+                SilkLabel("AUDIO: FAST reacts quickest to your fingers.", color = skin.muted, size = 9, bold = false)
+                SilkLabel("If the sound crackles, go to BALANCED or SAFE.", color = skin.muted, size = 9, bold = false)
                 SilkLabel("Double-tap any slider or knob to set it back to its default.", color = skin.muted, size = 9, bold = false)
                 SilkLabel("SIDEWAYS: where the transport rail sits when the phone is turned.", color = skin.muted, size = 9, bold = false)
-                SilkLabel(if (s.audioOk) "Audio: ${s.info}" else "Audio could not be started.", color = skin.muted, size = 9, bold = false)
+                if (s.audioOk) {
+                    // "<device>, load .. peak .., dropouts .." on two lines: the second one is the health of the sound
+                    val cut = s.info.indexOf(", load")
+                    SilkLabel(if (cut > 0) s.info.substring(0, cut) else s.info, color = skin.muted, size = 9, bold = false)
+                    if (cut > 0) SilkLabel("Engine " + s.info.substring(cut + 2), color = skin.silk, size = 10)
+                } else SilkLabel("Audio could not be started.", color = skin.danger, size = 9)
             }
 
             // Live Interactive Preview
