@@ -17,6 +17,8 @@ A user can also add a single `.json` file on the phone with the FILE button of a
 
 Work from the repository's `main` branch. Do not send changed engine or app code together with content: content needs no code changes.
 
+**Older files:** packs, instruments and drum kits written in the earlier "v0.7" layout (`style_pack`, `drum_kit`, `synth`/`fx` blocks) are not loaded by the app. `content/tools/convert_v07.py <library folder> <files>` turns them into this format; check the result afterwards. New content should be written in this format directly.
+
 ## Rules for every file
 
 - Plain JSON, UTF-8, one object per file, at most 2 MB.
