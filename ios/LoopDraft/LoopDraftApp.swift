@@ -51,6 +51,9 @@ enum ParamId {
     static let JUNGLE_PITCH: Int32 = 54
     static let JUNGLE_TIGHT: Int32 = 55
     static let JUNGLE_CRUNCH: Int32 = 56
+    static let SYN_FOLD: Int32 = 57
+    static let SYN_SLIDE_TIME: Int32 = 58
+    static let FX_SLOT1_AMOUNT: Int32 = 81
 }
 
 final class EngineState: ObservableObject {
@@ -80,8 +83,22 @@ final class EngineState: ObservableObject {
     @Published var selAutoTrack: Int32 = 2
     @Published var selAutoLane: Int32 = 0
 
+    // Layered UI + Modular Skins + Piano Roll Ghost Overlay
+    @Published var drumLayer: Int = 0
+    @Published var synthLayer: Int = 0
+    @Published var showSkinStudio: Bool = false
+    @Published var skinConfig: SkinConfig = SkinConfig.decode(UserDefaults.standard.string(forKey: "loopdraft_skin"))
+    @Published var ghostDrums: Bool = true
+    @Published var ghostSynthMask: Int = 0b1111
+    @Published var ghostAlpha: Double = 0.60
+
     private var timer: AnyCancellable?
     private var frames: Int = 0
+
+    func setSkin(_ cfg: SkinConfig) {
+        skinConfig = cfg
+        UserDefaults.standard.set(cfg.encode(), forKey: "loopdraft_skin")
+    }
 
     func start() {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
@@ -127,9 +144,11 @@ struct LoopDraftApp: App {
     @Environment(\.scenePhase) private var phase
 
     var body: some Scene {
+        let theme = SkinTheme.resolve(state.skinConfig)
         WindowGroup {
             ContentView(state: state)
-                .preferredColorScheme(.dark)
+                .environment(\.skin, theme)
+                .preferredColorScheme(theme.isLight ? .light : .dark)
                 .onAppear { state.start() }
                 .onChange(of: phase) { newPhase in
                     if newPhase == .background { state.bridge.saveIfDirty() }

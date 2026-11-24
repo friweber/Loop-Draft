@@ -210,6 +210,9 @@ class MainActivity : ComponentActivity() {
         refreshLibrary()
         state.onLoadBreak = { try { pickBreak.launch("audio/*") } catch (e: Exception) { state.drumMsg = "No file picker on this device." } }
 
+        val skinPrefs = getSharedPreferences("loopdraft_skin", MODE_PRIVATE)
+        state.skin = SkinConfig.decode(skinPrefs.getString("config", null))
+        state.onSkinChanged = { cfg -> skinPrefs.edit().putString("config", cfg.encode()).apply() }
         setContent { App(state) }
     }
 

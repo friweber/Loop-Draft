@@ -1,16 +1,12 @@
 import SwiftUI
 
-// ---- 80s Analog Hardware Palette (TR-808 / Juno-106 inspired) ----
 enum HwColor {
     static let chassis    = Color(red: 0.09, green: 0.094, blue: 0.11)
     static let faceplate  = Color(red: 0.125, green: 0.133, blue: 0.153)
     static let recess     = Color(red: 0.075, green: 0.078, blue: 0.094)
     static let line       = Color(red: 0.208, green: 0.224, blue: 0.259)
-    static let woodLight  = Color(red: 0.42, green: 0.259, blue: 0.149)
-    static let woodDark   = Color(red: 0.227, green: 0.129, blue: 0.067)
     static let silk       = Color(red: 0.922, green: 0.898, blue: 0.835)
     static let muted      = Color(red: 0.588, green: 0.569, blue: 0.522)
-
     static let red        = Color(red: 0.898, green: 0.224, blue: 0.208)
     static let orange     = Color(red: 1.0, green: 0.427, blue: 0.122)
     static let yellow     = Color(red: 1.0, green: 0.792, blue: 0.157)
@@ -18,24 +14,24 @@ enum HwColor {
     static let cyan       = Color(red: 0.161, green: 0.827, blue: 0.91)
     static let green      = Color(red: 0.231, green: 0.878, blue: 0.514)
     static let ledOff     = Color(red: 0.20, green: 0.15, blue: 0.15)
-
     static let padSurface = Color(red: 0.835, green: 0.808, blue: 0.741)
-    static let padActive  = Color(red: 1.0, green: 0.957, blue: 0.863)
     static let padInk     = Color(red: 0.106, green: 0.11, blue: 0.125)
 }
 
 struct WalnutRail: View {
+    @Environment(\.skin) var skin
     var body: some View {
         Rectangle()
-            .fill(LinearGradient(colors: [HwColor.woodDark, HwColor.woodLight, HwColor.woodDark],
+            .fill(LinearGradient(colors: [skin.railDark, skin.railLight, skin.railDark],
                                  startPoint: .leading, endPoint: .trailing))
             .frame(width: 7)
     }
 }
 
 struct SilkLabel: View {
+    @Environment(\.skin) var skin
     let text: String
-    var color: Color = HwColor.muted
+    var color: Color? = nil
     var size: CGFloat = 10
     var mono: Bool = false
 
@@ -43,19 +39,47 @@ struct SilkLabel: View {
         Text(text)
             .font(mono ? .system(size: size, weight: .bold, design: .monospaced)
                        : .system(size: size, weight: .bold, design: .default))
-            .foregroundColor(color)
+            .foregroundColor(color ?? skin.muted)
             .lineLimit(1)
-            .minimumScaleFactor(0.75)
+            .minimumScaleFactor(0.72)
+    }
+}
+
+struct LayerSwitcher: View {
+    @Environment(\.skin) var skin
+    let layers: [String]
+    let selected: Int
+    let accent: Color
+    let onSelect: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(0..<layers.count, id: \.self) { idx in
+                let on = selected == idx
+                Button { onSelect(idx) } label: {
+                    SilkLabel(text: layers[idx], color: on ? skin.onAccentInk : skin.muted, size: 10)
+                        .frame(maxWidth: .infinity, minHeight: 30, maxHeight: 30)
+                        .background(on ? accent : Color.clear)
+                        .cornerRadius(max(3, skin.buttonRadius - 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(skin.recess)
+        .overlay(RoundedRectangle(cornerRadius: skin.panelRadius).stroke(skin.line, lineWidth: 1))
+        .cornerRadius(skin.panelRadius)
     }
 }
 
 struct ModulePanel<Trailing: View, Content: View>: View {
+    @Environment(\.skin) var skin
     let title: String
-    var accent: Color = HwColor.orange
+    var accent: Color? = nil
     @ViewBuilder let trailing: () -> Trailing
     @ViewBuilder let content: () -> Content
 
-    init(_ title: String, accent: Color = HwColor.orange,
+    init(_ title: String, accent: Color? = nil,
          @ViewBuilder trailing: @escaping () -> Trailing = { EmptyView() },
          @ViewBuilder content: @escaping () -> Content) {
         self.title = title
@@ -65,53 +89,58 @@ struct ModulePanel<Trailing: View, Content: View>: View {
     }
 
     var body: some View {
+        let acc = accent ?? skin.primary
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 2)
-                    .fill(accent)
+                    .fill(acc)
                     .frame(width: 4, height: 14)
-                SilkLabel(text: title.uppercased(), color: HwColor.silk, size: 11)
+                SilkLabel(text: title.uppercased(), color: skin.silk, size: 11)
                 Spacer(minLength: 4)
                 trailing()
             }
             Rectangle()
-                .fill(accent.opacity(0.25))
+                .fill(acc.opacity(0.25))
                 .frame(height: 1)
             content()
         }
         .padding(10)
-        .background(HwColor.faceplate)
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(accent.opacity(0.55), lineWidth: 1.2))
-        .cornerRadius(10)
+        .background(skin.faceplate)
+        .overlay(RoundedRectangle(cornerRadius: skin.panelRadius).stroke(acc.opacity(0.55), lineWidth: 1.2))
+        .cornerRadius(skin.panelRadius)
     }
 }
 
 struct HwButton: View {
+    @Environment(\.skin) var skin
     let text: String
     var on: Bool = false
-    var ledColor: Color = HwColor.orange
+    var ledColor: Color? = nil
     var enabled: Bool = true
     var height: CGFloat = 34
     var showLed: Bool = false
     let action: () -> Void
 
     var body: some View {
+        let activeCol = ledColor ?? skin.primary
+        let isGlass = skin.config.button == .glassNeon
+        let bg: Color = !enabled ? skin.recess : (isGlass ? (on ? activeCol.opacity(0.22) : skin.recess) : (on ? activeCol : skin.buttonOff))
+        let fg: Color = !enabled ? skin.muted.opacity(0.4) : (isGlass && on ? activeCol : (on ? skin.onAccentInk : skin.silk))
+
         Button(action: action) {
             HStack(spacing: 4) {
                 if showLed {
                     Circle()
-                        .fill(on ? Color.white : HwColor.ledOff)
+                        .fill(on ? (isGlass ? activeCol : Color.white) : skin.ledOff)
                         .frame(width: 6, height: 6)
                 }
-                SilkLabel(text: text,
-                          color: !enabled ? HwColor.muted.opacity(0.4) : (on ? HwColor.padInk : HwColor.silk),
-                          size: 10)
+                SilkLabel(text: text, color: fg, size: 10)
             }
             .padding(.horizontal, 7)
             .frame(maxWidth: .infinity, minHeight: height, maxHeight: height)
-            .background(!enabled ? HwColor.recess : (on ? ledColor : Color(red: 0.17, green: 0.18, blue: 0.21)))
-            .overlay(RoundedRectangle(cornerRadius: 7).stroke(on ? ledColor : HwColor.line, lineWidth: 1))
-            .cornerRadius(7)
+            .background(bg)
+            .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(on ? activeCol : skin.line, lineWidth: isGlass && on ? 1.5 : 1))
+            .cornerRadius(skin.buttonRadius)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
@@ -132,7 +161,10 @@ struct SevenSegmentBpm: View {
     }
 }
 
+/// Skin-aware control: renders Left-Right Horizontal Slider (`hSlider`), LED Bar (`ledBar`),
+/// or Rotary Knobs (`skirted80s`, `moogSilver`, `neonRing`, `bakelite`). All drag left <-> right!
 struct RotaryKnob: View {
+    @Environment(\.skin) var skin
     @ObservedObject var state: EngineState
     let label: String
     let paramId: Int32
@@ -147,63 +179,119 @@ struct RotaryKnob: View {
 
     var body: some View {
         let cur = state.bridge.getParam(paramId, index: index)
-        let norm = Double(min(max((cur - minVal) / (maxVal - minVal), 0), 1))
+        let span = max(maxVal - minVal, 1e-6)
+        let norm = Double(min(max((cur - minVal) / span, 0), 1))
+        let isBipolar = minVal < -1e-4 && maxVal > 1e-4
+        let zeroNorm = isBipolar ? Double((-minVal) / span) : 0.0
+        let ring = modulated ? skin.secondary : skin.primary
+        let isSlider = skin.config.knob == .hSlider || skin.config.knob == .ledBar
 
-        VStack(spacing: 3) {
-            SilkLabel(text: label.uppercased(), color: modulated ? HwColor.cyan : HwColor.muted, size: 9)
-            Canvas { ctx, size in
-                let c = CGPoint(x: size.width / 2, y: size.height / 2)
-                let r = min(size.width, size.height) / 2 - 4
-                let startDeg = 135.0
-                let sweepDeg = 270.0
-
-                var track = Path()
-                track.addArc(center: c, radius: r, startAngle: .degrees(startDeg), endAngle: .degrees(startDeg + sweepDeg), clockwise: false)
-                ctx.stroke(track, with: .color(HwColor.line), style: StrokeStyle(lineWidth: 3, lineCap: .round))
-
-                var active = Path()
-                active.addArc(center: c, radius: r, startAngle: .degrees(startDeg), endAngle: .degrees(startDeg + sweepDeg * norm), clockwise: false)
-                ctx.stroke(active, with: .color(modulated ? HwColor.cyan : HwColor.orange), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
-
-                let bodyR = r * 0.72
-                ctx.fill(Path(ellipseIn: CGRect(x: c.x - bodyR, y: c.y - bodyR, width: bodyR * 2, height: bodyR * 2)), with: .color(capColor))
-
-                let rad = (startDeg + sweepDeg * norm) * .pi / 180.0
-                var ptr = Path()
-                ptr.move(to: CGPoint(x: c.x + CGFloat(cos(rad)) * bodyR * 0.25, y: c.y + CGFloat(sin(rad)) * bodyR * 0.25))
-                ptr.addLine(to: CGPoint(x: c.x + CGFloat(cos(rad)) * bodyR * 0.88, y: c.y + CGFloat(sin(rad)) * bodyR * 0.88))
-                ctx.stroke(ptr, with: .color(HwColor.silk), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
-            }
-            .frame(width: 46, height: 46)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { g in
-                        if dragStartVal == nil {
-                            state.bridge.beginEdit()
-                            dragStartVal = state.bridge.getParam(paramId, index: index)
+        VStack(spacing: isSlider ? 4 : 3) {
+            if isSlider {
+                HStack {
+                    SilkLabel(text: label.uppercased(), color: modulated ? skin.secondary : skin.muted, size: 8)
+                    Spacer(minLength: 2)
+                    SilkLabel(text: fmt(cur), color: dragStartVal != nil ? ring : skin.silk, size: 9, mono: true)
+                }
+                if skin.config.knob == .hSlider {
+                    Canvas { ctx, size in
+                        let padX: CGFloat = 7
+                        let trackW = max(size.width - padX * 2, 8)
+                        let trackH: CGFloat = 7
+                        let cy = size.height / 2
+                        let trackRect = CGRect(x: padX, y: cy - trackH / 2, width: trackW, height: trackH)
+                        ctx.fill(Path(roundedRect: trackRect, cornerRadius: trackH / 2),
+                                 with: .color(skin.isLight ? Color(red: 0.74, green: 0.71, blue: 0.65) : Color(red: 0.04, green: 0.04, blue: 0.05)))
+                        let thumbX = padX + trackW * CGFloat(norm)
+                        let fStart = isBipolar ? padX + trackW * CGFloat(min(zeroNorm, norm)) : padX
+                        let fEnd = isBipolar ? padX + trackW * CGFloat(max(zeroNorm, norm)) : thumbX
+                        if fEnd - fStart > 1 {
+                            let fillRect = CGRect(x: fStart, y: cy - trackH / 2 + 1, width: fEnd - fStart, height: trackH - 2)
+                            ctx.fill(Path(roundedRect: fillRect, cornerRadius: trackH / 2), with: .color(ring))
                         }
-                        let start = dragStartVal ?? cur
-                        let delta = Float(-g.translation.height / 140.0) * (maxVal - minVal)
-                        let nv = min(max(start + delta, minVal), maxVal)
-                        state.bridge.setParam(paramId, index: index, value: nv)
-                        state.rev += 1
+                        let tw: CGFloat = 12, th: CGFloat = 19
+                        let capRect = CGRect(x: thumbX - tw / 2, y: cy - th / 2, width: tw, height: th)
+                        ctx.fill(Path(roundedRect: capRect, cornerRadius: 3), with: .color(skin.isLight ? Color(red: 0.2, green: 0.21, blue: 0.24) : Color(red: 0.86, green: 0.84, blue: 0.78)))
+                        var line = Path()
+                        line.move(to: CGPoint(x: thumbX, y: cy - th / 2 + 3))
+                        line.addLine(to: CGPoint(x: thumbX, y: cy + th / 2 - 3))
+                        ctx.stroke(line, with: .color(skin.isLight ? .white : .black), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                     }
-                    .onEnded { _ in
-                        dragStartVal = nil
-                        state.rev += 1
+                    .frame(height: 24)
+                } else {
+                    Canvas { ctx, size in
+                        let segs = 12
+                        let gap: CGFloat = 2
+                        let sw = max((size.width - gap * CGFloat(segs - 1)) / CGFloat(segs), 2)
+                        let bh: CGFloat = 13
+                        let topY = (size.height - bh) / 2
+                        let activeIdx = Int((norm * Double(segs)).rounded())
+                        let zeroIdx = Int((zeroNorm * Double(segs)).rounded())
+                        for i in 0..<segs {
+                            let lit = isBipolar ? (activeIdx >= zeroIdx ? (i >= zeroIdx && i < activeIdx) : (i >= activeIdx && i < zeroIdx)) : (i < activeIdx)
+                            let col = lit ? ring : (skin.isLight ? Color(red: 0.77, green: 0.75, blue: 0.69) : Color(red: 0.11, green: 0.12, blue: 0.16))
+                            ctx.fill(Path(roundedRect: CGRect(x: CGFloat(i) * (sw + gap), y: topY, width: sw, height: bh), cornerRadius: 2), with: .color(col))
+                        }
                     }
-            )
-            SilkLabel(text: fmt(cur), color: HwColor.silk, size: 9, mono: true)
+                    .frame(height: 24)
+                }
+            } else {
+                SilkLabel(text: label.uppercased(), color: modulated ? skin.secondary : skin.muted, size: 9)
+                Canvas { ctx, size in
+                    let c = CGPoint(x: size.width / 2, y: size.height / 2)
+                    let r = min(size.width, size.height) / 2 - 4
+                    let startDeg = 135.0
+                    let sweepDeg = 270.0
+                    var track = Path()
+                    track.addArc(center: c, radius: r, startAngle: .degrees(startDeg), endAngle: .degrees(startDeg + sweepDeg), clockwise: false)
+                    ctx.stroke(track, with: .color(skin.line), style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    var active = Path()
+                    active.addArc(center: c, radius: r, startAngle: .degrees(startDeg), endAngle: .degrees(startDeg + sweepDeg * norm), clockwise: false)
+                    ctx.stroke(active, with: .color(ring), style: StrokeStyle(lineWidth: 3.5, lineCap: .round))
+                    let bodyR = r * 0.72
+                    let fillCol: Color = skin.config.knob == .moogSilver ? Color(red: 0.76, green: 0.80, blue: 0.86) : (skin.config.knob == .bakelite ? Color(red: 0.23, green: 0.16, blue: 0.12) : capColor)
+                    ctx.fill(Path(ellipseIn: CGRect(x: c.x - bodyR, y: c.y - bodyR, width: bodyR * 2, height: bodyR * 2)), with: .color(fillCol))
+                    let rad = (startDeg + sweepDeg * norm) * .pi / 180.0
+                    var ptr = Path()
+                    ptr.move(to: CGPoint(x: c.x + CGFloat(cos(rad)) * bodyR * 0.22, y: c.y + CGFloat(sin(rad)) * bodyR * 0.22))
+                    ptr.addLine(to: CGPoint(x: c.x + CGFloat(cos(rad)) * bodyR * 0.88, y: c.y + CGFloat(sin(rad)) * bodyR * 0.88))
+                    let ptrCol: Color = skin.config.knob == .moogSilver ? .black : (skin.config.knob == .neonRing ? ring : Color(red: 0.92, green: 0.90, blue: 0.84))
+                    ctx.stroke(ptr, with: .color(ptrCol), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                }
+                .frame(width: 46, height: 46)
+                SilkLabel(text: fmt(cur), color: skin.silk, size: 9, mono: true)
+            }
         }
         .padding(.vertical, 5)
+        .padding(.horizontal, isSlider ? 6 : 2)
         .frame(maxWidth: .infinity)
-        .background(HwColor.recess)
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(modulated ? HwColor.cyan.opacity(0.7) : HwColor.line, lineWidth: 1))
-        .cornerRadius(8)
+        .background(skin.recess)
+        .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(dragStartVal != nil ? skin.silk : (modulated ? skin.secondary.opacity(0.75) : skin.line), lineWidth: 1))
+        .cornerRadius(skin.buttonRadius)
+        .gesture(
+            DragGesture(minimumDistance: 4)
+                .onChanged { g in
+                    if dragStartVal == nil {
+                        state.bridge.beginEdit()
+                        dragStartVal = state.bridge.getParam(paramId, index: index)
+                    }
+                    let start = dragStartVal ?? cur
+                    let travel: Float = isSlider ? 130.0 : 180.0
+                    let delta = Float(g.translation.width) / travel * span
+                    let nv = min(max(start + delta, minVal), maxVal)
+                    state.bridge.setParam(paramId, index: index, value: nv)
+                    state.rev += 1
+                }
+                .onEnded { _ in
+                    dragStartVal = nil
+                    state.rev += 1
+                }
+        )
     }
 }
 
 struct Tr808StepButton: View {
+    @Environment(\.skin) var skin
     let stepInBar: Int
     let vel: Int
     let playhead: Bool
@@ -212,36 +300,37 @@ struct Tr808StepButton: View {
     private var groupColor: Color {
         switch (stepInBar / 4) % 4 {
         case 0: return HwColor.red
-        case 1: return HwColor.orange
-        case 2: return HwColor.yellow
+        case 1: return skin.primary
+        case 2: return skin.tertiary
         default: return HwColor.cream
         }
     }
 
     var body: some View {
         let isRoll = vel >= 3
-        let bg: Color = isRoll ? HwColor.cyan : (vel == 2 ? groupColor : (vel == 1 ? groupColor.opacity(0.72) : Color(red: 0.16, green: 0.17, blue: 0.20)))
+        let bg: Color = isRoll ? skin.secondary : (vel == 2 ? groupColor : (vel == 1 ? groupColor.opacity(0.72) : skin.buttonOff))
         let lbl: String = vel == 3 ? "2x" : (vel == 4 ? "3x" : (vel == 5 ? "4x" : "\(stepInBar + 1)"))
 
         Button(action: onTap) {
             VStack {
                 Circle()
-                    .fill(playhead ? HwColor.green : (vel >= 2 ? Color.white : (vel == 1 ? HwColor.red : HwColor.ledOff)))
+                    .fill(playhead ? skin.positive : (vel >= 2 ? Color.white : (vel == 1 ? HwColor.red : skin.ledOff)))
                     .frame(width: 6, height: 6)
                 Spacer()
-                SilkLabel(text: lbl, color: vel > 0 ? HwColor.padInk : HwColor.muted, size: 9, mono: true)
+                SilkLabel(text: lbl, color: vel > 0 ? skin.onAccentInk : skin.muted, size: 9, mono: true)
             }
             .padding(.vertical, 4)
             .frame(maxWidth: .infinity, minHeight: 44, maxHeight: 44)
             .background(bg)
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(playhead ? HwColor.green : (vel >= 2 ? Color.white : HwColor.line), lineWidth: playhead ? 2 : 1))
-            .cornerRadius(6)
+            .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(playhead ? skin.positive : (vel >= 2 ? Color.white : skin.line), lineWidth: playhead ? 2 : 1))
+            .cornerRadius(skin.buttonRadius)
         }
         .buttonStyle(.plain)
     }
 }
 
 struct OledScopeDisplay: View {
+    @Environment(\.skin) var skin
     let isFm: Bool
     let wave: Int
     let cutoffNorm: Float
@@ -251,7 +340,7 @@ struct OledScopeDisplay: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Canvas { ctx, size in
-                let grid = Color(red: 0.08, green: 0.21, blue: 0.14)
+                let grid = skin.scopeTrace.opacity(0.18)
                 for i in 1...3 {
                     let y = size.height * CGFloat(i) / 4
                     var p = Path(); p.move(to: CGPoint(x: 0, y: y)); p.addLine(to: CGPoint(x: size.width, y: y))
@@ -280,20 +369,21 @@ struct OledScopeDisplay: View {
                     let pt = CGPoint(x: CGFloat(u) * size.width, y: midY - CGFloat(shaped) * amp)
                     if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
                 }
-                ctx.stroke(path, with: .color(HwColor.green), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                ctx.stroke(path, with: .color(skin.scopeTrace), style: StrokeStyle(lineWidth: 2, lineCap: .round))
             }
             SilkLabel(text: isFm ? "FM 2-OP" : (["SAW", "SQR", "TRI", "SIN"].indices.contains(wave) ? ["SAW", "SQR", "TRI", "SIN"][wave] : "SAW"),
-                      color: HwColor.green, size: 9, mono: true)
+                      color: skin.scopeTrace, size: 9, mono: true)
                 .padding(5)
         }
         .frame(height: 60)
-        .background(Color(red: 0.03, green: 0.08, blue: 0.05))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(red: 0.15, green: 0.27, blue: 0.20), lineWidth: 1.5))
+        .background(skin.scopeBg)
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(skin.scopeTrace.opacity(0.35), lineWidth: 1.5))
         .cornerRadius(8)
     }
 }
 
 struct AnalogVuMeter: View {
+    @Environment(\.skin) var skin
     let peakL: Float
     let peakR: Float
 
@@ -304,10 +394,10 @@ struct AnalogVuMeter: View {
             vuDial(label: "VU R", level: peakR)
             VStack(spacing: 4) {
                 Circle()
-                    .fill(limiting ? HwColor.red : HwColor.green)
+                    .fill(limiting ? skin.danger : skin.positive)
                     .frame(width: 14, height: 14)
-                SilkLabel(text: "LIMITER", color: HwColor.silk, size: 8)
-                SilkLabel(text: limiting ? "ACTIVE" : "READY", color: limiting ? HwColor.orange : HwColor.green, size: 8)
+                SilkLabel(text: "LIMITER", color: skin.silk, size: 8)
+                SilkLabel(text: limiting ? "ACTIVE" : "READY", color: limiting ? skin.primary : skin.positive, size: 8)
             }
             .frame(width: 52)
         }
@@ -322,7 +412,6 @@ struct AnalogVuMeter: View {
                 var arc = Path()
                 arc.addArc(center: pivot, radius: rad, startAngle: .degrees(228), endAngle: .degrees(312), clockwise: false)
                 ctx.stroke(arc, with: .color(Color(red: 0.24, green: 0.19, blue: 0.09)), lineWidth: 2)
-
                 let deg = (228.0 + 84.0 * f) * .pi / 180.0
                 var needle = Path()
                 needle.move(to: pivot)
