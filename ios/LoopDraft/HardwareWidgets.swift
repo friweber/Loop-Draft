@@ -127,7 +127,7 @@ struct HwButton: View {
         let bg: Color = !enabled ? skin.recess : (isGlass ? (on ? activeCol.opacity(0.22) : skin.recess) : (on ? activeCol : skin.buttonOff))
         let fg: Color = !enabled ? skin.muted.opacity(0.4) : (isGlass && on ? activeCol : (on ? skin.onAccentInk : skin.silk))
 
-        Button(action: action) {
+        Button(action: { Feel.tick(); action() }) {
             HStack(spacing: 4) {
                 if showLed {
                     Circle()
@@ -268,6 +268,14 @@ struct RotaryKnob: View {
         .background(skin.recess)
         .overlay(RoundedRectangle(cornerRadius: skin.buttonRadius).stroke(dragStartVal != nil ? skin.silk : (modulated ? skin.secondary.opacity(0.75) : skin.line), lineWidth: 1))
         .cornerRadius(skin.buttonRadius)
+        .contentShape(Rectangle())
+        .onTapGesture(count: 2) {
+            // double-tap: back to the value of a new project
+            state.bridge.beginEdit()
+            state.bridge.setParam(paramId, index: index, value: state.bridge.defaultParam(paramId, index: index))
+            Feel.tick()
+            state.rev += 1
+        }
         .gesture(
             DragGesture(minimumDistance: 4)
                 .onChanged { g in
@@ -276,7 +284,7 @@ struct RotaryKnob: View {
                         dragStartVal = state.bridge.getParam(paramId, index: index)
                     }
                     let start = dragStartVal ?? cur
-                    let travel: Float = isSlider ? 130.0 : 180.0
+                    let travel: Float = (isSlider ? 130.0 : 180.0) * Feel.travelFactor
                     let delta = Float(g.translation.width) / travel * span
                     let nv = min(max(start + delta, minVal), maxVal)
                     state.bridge.setParam(paramId, index: index, value: nv)

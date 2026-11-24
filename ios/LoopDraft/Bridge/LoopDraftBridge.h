@@ -65,6 +65,20 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)applyInstrumentSynth:(int)synth preset:(int)preset;
 - (void)setActiveSynths:(int)count;
 
+/// What a control is set to in a new project (double-tap reset).
+- (float)defaultParam:(int)paramId index:(int)index NS_SWIFT_NAME(defaultParam(_:index:));
+
+/// A preset, drum kit or groove file (docs/CONTENT_FORMAT.md). Returns "" when it was loaded, otherwise what is wrong with it.
+- (NSString *)importContent:(NSString *)json scene:(int)scene synth:(int)synth tempoKey:(BOOL)tempoKey NS_SWIFT_NAME(importContent(_:scene:synth:tempoKey:));
+/// [kind, name, style] of such a file, or an empty array when it is not valid.
+- (NSArray<NSString *> *)contentInfo:(NSString *)json NS_SWIFT_NAME(contentInfo(_:));
+
+- (BOOL)saveProjectCopy:(NSString *)path NS_SWIFT_NAME(saveProjectCopy(_:));
+- (BOOL)openProject:(NSString *)path NS_SWIFT_NAME(openProject(_:));
+
+/// Renders on a background queue from a copy of the project; `completion` runs on the main queue.
+- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene completion:(void (^)(BOOL ok))completion NS_SWIFT_NAME(export(to:midi:song:scene:completion:));
+
 @end
 
 NS_ASSUME_NONNULL_END

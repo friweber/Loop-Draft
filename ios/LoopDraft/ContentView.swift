@@ -22,7 +22,7 @@ private let SYNTH_COLORS: [Color] = [
     Color(red: 1.0, green: 0.30, blue: 0.65),
     Color(red: 0.37, green: 0.91, blue: 0.44)
 ]
-private let DRUM_ENGINES = ["808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break"]
+private let DRUM_ENGINES = ["808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break", "Hardcore Gabber", "Warehouse Rumble", "Neuro Techstep", "EBM Electro", "Glitch Breakcore"]
 private let INSTRUMENTS = ["Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead"]
 private let NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
@@ -58,6 +58,10 @@ struct ContentView: View {
                 bottomNav
             }
             .background(skin.chassis)
+            .sheet(isPresented: $state.showMenu) {
+                MenuSheet(state: state)
+                    .environment(\.skin, SkinTheme.resolve(state.skinConfig))
+            }
             WalnutRail()
         }
         .background(skin.chassis.ignoresSafeArea())
@@ -77,18 +81,20 @@ struct ContentView: View {
                         SilkLabel(text: "LOOP", color: skin.silk, size: 15)
                         SilkLabel(text: "DRAFT", color: skin.primary, size: 15)
                     }
-                    SilkLabel(text: state.audioInfo, color: skin.muted, size: 8)
                 }
                 Spacer()
-                HwButton(text: "SKIN", on: state.showSkinStudio, ledColor: skin.tertiary, height: 28) {
+                HwButton(text: "MENU", on: state.showMenu, ledColor: skin.primary, height: 28) {
+                    state.showMenu = true
+                }.frame(width: 50)
+                HwButton(text: "SETUP", on: state.showSkinStudio, ledColor: skin.tertiary, height: 28) {
                     state.showSkinStudio = true
-                }.frame(width: 54)
+                }.frame(width: 52)
                 HwButton(text: "UNDO", enabled: state.bridge.canUndo(), height: 28) {
                     if state.bridge.undo() { state.rev += 1 }
-                }.frame(width: 54)
+                }.frame(width: 50)
                 HwButton(text: "REDO", enabled: state.bridge.canRedo(), height: 28) {
                     if state.bridge.redo() { state.rev += 1 }
-                }.frame(width: 54)
+                }.frame(width: 50)
             }
             HStack(spacing: 6) {
                 HwButton(text: state.playing ? "STOP" : "PLAY", on: state.playing, ledColor: skin.positive, height: 36, showLed: true) {
@@ -176,6 +182,9 @@ struct ContentView: View {
                                 }.fixedSize(horizontal: true, vertical: false)
                             }
                         }
+                    }
+                    if curEng != 4 {
+                        RotaryKnob(state: state, label: "Hardness", paramId: ParamId.KIT_HARDNESS, index: 0, minVal: 0, maxVal: 1, fmt: pct)
                     }
                 }
 
@@ -334,7 +343,8 @@ struct ContentView: View {
     private var synthTab: some View {
         let activeSynths = min(max(Int(state.bridge.getParam(ParamId.ACTIVE_SYNTHS, index: 0).rounded()), 2), 4)
         let syn = min(state.synth, Int32(activeSynths - 1))
-        let isFm = Int(state.bridge.getParam(ParamId.SYN_MODE, index: syn).rounded()) == 1
+        let synMode = Int(state.bridge.getParam(ParamId.SYN_MODE, index: syn).rounded())
+        let isFm = synMode == 1
         let wave1 = Int(state.bridge.getParam(ParamId.SYN_WAVE1, index: syn).rounded())
         let cutoff = state.bridge.getParam(ParamId.SYN_CUTOFF, index: syn)
         let fmIndex = state.bridge.getParam(ParamId.SYN_FM_INDEX, index: syn)
@@ -424,15 +434,10 @@ struct ContentView: View {
             } else if state.synthLayer == 1 {
                 ModulePanel("Engine & Filter: \(TRACK_NAMES[Int(syn) + 1])", accent: skin.secondary) {
                     OledScopeDisplay(isFm: isFm, wave: wave1, cutoffNorm: min(max((cutoff - 80) / 7920, 0.08), 1), fmIndex: fmIndex, fmRatio: fmRatio)
-                    HStack(spacing: 6) {
-                        HwButton(text: "SUBTRACTIVE", on: !isFm, ledColor: skin.secondary, height: 28) {
-                            state.bridge.beginEdit(); state.bridge.setParam(ParamId.SYN_MODE, index: syn, value: 0); state.rev += 1
-                        }
-                        HwButton(text: "FM 2-OP", on: isFm, ledColor: skin.secondary, height: 28) {
-                            state.bridge.beginEdit(); state.bridge.setParam(ParamId.SYN_MODE, index: syn, value: 1); state.rev += 1
-                        }
-                    }
-                    if !isFm {
+                    engineButtons(syn: syn)
+                    if synMode >= 2 {
+                        extraEngineKnobs(syn: syn, mode: synMode)
+                    } else if !isFm {
                         HStack(spacing: 6) {
                             RotaryKnob(state: state, label: "Cutoff", paramId: ParamId.SYN_CUTOFF, index: syn, minVal: 80, maxVal: 8000) { "\(Int($0.rounded()))" }
                             RotaryKnob(state: state, label: "Res", paramId: ParamId.SYN_RES, index: syn, minVal: 0.5, maxVal: 15) { String(format: "%.1f", $0) }
@@ -471,6 +476,51 @@ struct ContentView: View {
                         RotaryKnob(state: state, label: "Slide", paramId: ParamId.SYN_SLIDE_TIME, index: syn, minVal: 0.01, maxVal: 0.4) { "\(Int(($0 * 1000).rounded()))ms" }
                     }
                 }
+            }
+        }
+    }
+
+    private func engineButtons(syn: Int32) -> some View {
+        let cur = Int(state.bridge.getParam(ParamId.SYN_MODE, index: syn).rounded())
+        let names = ["SUBTRACTIVE", "FM 2-OP", "PLUCK", "VECTOR"]
+        return HStack(spacing: 4) {
+            ForEach(0..<names.count, id: \.self) { m in
+                HwButton(text: names[m], on: cur == m, ledColor: skin.secondary, height: 28) {
+                    state.bridge.beginEdit(); state.bridge.setParam(ParamId.SYN_MODE, index: syn, value: Float(m)); state.rev += 1
+                }
+            }
+        }
+    }
+
+    /// The controls of the two newer engines: Pluck (a plucked string) and Vector (a blend of four sources).
+    @ViewBuilder
+    private func extraEngineKnobs(syn: Int32, mode: Int) -> some View {
+        if mode == 2 {
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "Bright", paramId: ParamId.SYN_PLUCK_BRIGHT, index: syn, minVal: 0, maxVal: 1, fmt: pct)
+                RotaryKnob(state: state, label: "Ring", paramId: ParamId.SYN_DECAY, index: syn, minVal: 0.03, maxVal: 1.5) { secs($0 * 4) }
+            }
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "Cutoff", paramId: ParamId.SYN_CUTOFF, index: syn, minVal: 80, maxVal: 8000) { "\(Int($0.rounded()))" }
+                RotaryKnob(state: state, label: "Level", paramId: ParamId.SYN_LEVEL, index: syn, minVal: 0, maxVal: 1, fmt: pct)
+            }
+        } else {
+            SilkLabel(text: "X and Y blend four sources: OSC 1, OSC 2, FM and SUB.", color: skin.muted, size: 9)
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "Vector X", paramId: ParamId.SYN_VEC_X, index: syn, minVal: 0, maxVal: 1, fmt: pct)
+                RotaryKnob(state: state, label: "Vector Y", paramId: ParamId.SYN_VEC_Y, index: syn, minVal: 0, maxVal: 1, fmt: pct)
+            }
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "FM Ratio", paramId: ParamId.SYN_FM_RATIO, index: syn, minVal: 0.5, maxVal: 8) { String(format: "%.1fx", $0) }
+                RotaryKnob(state: state, label: "FM Index", paramId: ParamId.SYN_FM_INDEX, index: syn, minVal: 0, maxVal: 8) { String(format: "%.1f", $0) }
+            }
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "Cutoff", paramId: ParamId.SYN_CUTOFF, index: syn, minVal: 80, maxVal: 8000) { "\(Int($0.rounded()))" }
+                RotaryKnob(state: state, label: "Res", paramId: ParamId.SYN_RES, index: syn, minVal: 0.5, maxVal: 15) { String(format: "%.1f", $0) }
+            }
+            HStack(spacing: 6) {
+                RotaryKnob(state: state, label: "Detune", paramId: ParamId.SYN_DETUNE, index: syn, minVal: -30, maxVal: 30) { signed($0, "c") }
+                RotaryKnob(state: state, label: "Level", paramId: ParamId.SYN_LEVEL, index: syn, minVal: 0, maxVal: 1, fmt: pct)
             }
         }
     }

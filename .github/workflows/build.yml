@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, ios-0.11]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -137,6 +137,9 @@ jobs:
           cp -R ios/build/Build/Products/Release-iphoneos/LoopDraft.app ios/Payload/
           (cd ios && zip -qr ../LoopDraft-iOS-unsigned.ipa Payload)
           ls -lh LoopDraft-iOS-unsigned.ipa
+          n=$(unzip -l LoopDraft-iOS-unsigned.ipa | grep -c 'LoopDraft.app/library/.*\.json')
+          echo "library files in the app: $n"
+          [ "$n" -ge 100 ] || { echo "the content library is missing from the app"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: LoopDraft-ipa

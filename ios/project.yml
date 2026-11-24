@@ -23,6 +23,10 @@ targets:
         excludes:
           - "**/*.h"
           - "**/*.inc"
+      # the presets, drum kits and grooves, as a folder "library" inside the app
+      - path: ../content/library
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.loopdraft.app
@@ -33,7 +37,8 @@ targets:
           - "$(PROJECT_DIR)/../engine/third_party"
           - "$(PROJECT_DIR)/LoopDraft/Bridge"
         OTHER_CPLUSPLUSFLAGS:
-          - "-O2"
+          - "-O3"
+          - "-fno-math-errno"
         CODE_SIGNING_ALLOWED: NO
         CODE_SIGNING_REQUIRED: NO
         CODE_SIGN_IDENTITY: ""

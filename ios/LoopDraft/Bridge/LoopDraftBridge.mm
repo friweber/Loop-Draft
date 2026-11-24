@@ -1,10 +1,17 @@
 #import "LoopDraftBridge.h"
 #import <AVFoundation/AVFoundation.h>
 
+#include <atomic>
+#include <cstdio>
+#include <ctime>
 #include <memory>
 #include <string>
 #include <cstring>
+#include <vector>
+#include "loopdraft/content.h"
+#include "loopdraft/engine.h"
 #include "loopdraft/session.h"
+#include "loopdraft/voices.h"
 
 namespace {
 inline void flushDenormalsToZero() {
@@ -16,6 +23,9 @@ inline void flushDenormalsToZero() {
 #endif
 }
 }
+
+// How much of the time between two callbacks the engine needs: a running mean, and the highest since the last look.
+static std::atomic<float> g_loadAvg{0.0f}, g_loadPeak{0.0f};
 
 @implementation LoopDraftBridge {
   AVAudioEngine *_audioEngine;
@@ -68,6 +78,7 @@ inline void flushDenormalsToZero() {
       AudioBufferList *outputData) {
     if (!denormalsOff) { flushDenormalsToZero(); denormalsOff = true; }
     if (!sesPtr || outputData->mNumberBuffers < 1) return noErr;
+    timespec t0; clock_gettime(CLOCK_MONOTONIC, &t0);
 
     if (outputData->mNumberBuffers >= 2) {
       float *outL = static_cast<float *>(outputData->mBuffers[0].mData);
@@ -77,6 +88,12 @@ inline void flushDenormalsToZero() {
       float *out = static_cast<float *>(outputData->mBuffers[0].mData);
       sesPtr->engine().renderInterleaved(out, int(frameCount));
     }
+    timespec t1; clock_gettime(CLOCK_MONOTONIC, &t1);
+    const double took = double(t1.tv_sec - t0.tv_sec) + double(t1.tv_nsec - t0.tv_nsec) * 1e-9;
+    const float load = float(took * sr / double(frameCount > 0 ? frameCount : 1));
+    const float avg = g_loadAvg.load(std::memory_order_relaxed);
+    g_loadAvg.store(avg + 0.02f * (load - avg), std::memory_order_relaxed);
+    if (load > g_loadPeak.load(std::memory_order_relaxed)) g_loadPeak.store(load, std::memory_order_relaxed);
     *isSilence = NO;
     return noErr;
   }];
@@ -107,7 +124,9 @@ inline void flushDenormalsToZero() {
   AVAudioSession *as = [AVAudioSession sharedInstance];
   int sr = (int)as.sampleRate;
   int ms = (int)(as.IOBufferDuration * 1000.0 + 0.5);
-  return [NSString stringWithFormat:@"CoreAudio %d Hz, %d ms", sr, ms];
+  const int peak = int(g_loadPeak.exchange(0.0f, std::memory_order_relaxed) * 100.0f + 0.5f);
+  return [NSString stringWithFormat:@"CoreAudio %d Hz, %d ms, load %d%% peak %d%%", sr, ms,
+          int(g_loadAvg.load(std::memory_order_relaxed) * 100.0f + 0.5f), peak];
 }
 
 - (void)saveIfDirty { if (_session && _session->dirty()) _session->save(_savePath.c_str()); }
@@ -223,5 +242,57 @@ inline void flushDenormalsToZero() {
 }
 - (void)applyInstrumentSynth:(int)synth preset:(int)preset { if (_session) _session->applyInstrument(synth, preset); }
 - (void)setActiveSynths:(int)count { if (_session) _session->setActiveSynths(count); }
+
+
+- (float)defaultParam:(int)paramId index:(int)index { return ld::Session::defaultParam(paramId, index); }
+
+- (NSString *)importContent:(NSString *)json scene:(int)scene synth:(int)synth tempoKey:(BOOL)tempoKey {
+  std::string err = "the audio engine is not running";
+  if (_session && json) {
+    ld::ContentTarget tg;
+    tg.scene = scene; tg.synth = synth; tg.tempoAndKey = tempoKey;
+    if (_session->importContent(std::string(json.UTF8String), tg, err)) err.clear();
+  }
+  return [NSString stringWithUTF8String:err.c_str()] ?: @"could not be loaded";
+}
+
+- (NSArray<NSString *> *)contentInfo:(NSString *)json {
+  if (!json) return @[];
+  std::string err;
+  ld::ContentInfo info;
+  if (!ld::checkContent(std::string(json.UTF8String), err, &info)) return @[];
+  return @[[NSString stringWithUTF8String:info.kind.c_str()] ?: @"",
+           [NSString stringWithUTF8String:info.name.c_str()] ?: @"",
+           [NSString stringWithUTF8String:info.style.c_str()] ?: @""];
+}
+
+- (BOOL)saveProjectCopy:(NSString *)path { return _session && path && _session->saveCopy(path.UTF8String); }
+- (BOOL)openProject:(NSString *)path { return _session && path && _session->openProject(path.UTF8String); }
+
+- (void)exportTo:(NSString *)path midi:(BOOL)midi song:(BOOL)song scene:(int)scene completion:(void (^)(BOOL ok))completion {
+  if (!_session || !path) { if (completion) completion(NO); return; }
+  // The copy is taken here, on the UI thread. The worker renders from it, so editing can go on meanwhile.
+  std::shared_ptr<ld::Project> proj = std::make_shared<ld::Project>(_session->project());
+  std::shared_ptr<const ld::Sample> brk = _session->activeBreak();
+  const std::string file = path.UTF8String;
+  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
+    bool ok = false;
+    if (midi) {
+      const std::vector<uint8_t> bytes = ld::buildMidi(*proj, song, scene);
+      FILE *f = std::fopen(file.c_str(), "wb");
+      if (f) {
+        ok = std::fwrite(bytes.data(), 1, bytes.size(), f) == bytes.size();
+        ok = (std::fclose(f) == 0) && ok;
+      }
+    } else {
+      ld::RenderOptions o;
+      o.songMode = song; o.scene = scene;
+      if (brk) for (int i = 0; i < ld::kNumPads; ++i) o.samples[i] = brk.get();
+      const ld::RenderResult r = ld::renderOffline(*proj, o);
+      ok = ld::writeWav16(file.c_str(), r.l.data(), r.r.data(), r.l.size(), r.sampleRate);
+    }
+    dispatch_async(dispatch_get_main_queue(), ^{ if (completion) completion(ok ? YES : NO); });
+  });
+}
 
 @end

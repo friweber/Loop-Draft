@@ -53,6 +53,10 @@ enum ParamId {
     static let JUNGLE_CRUNCH: Int32 = 56
     static let SYN_FOLD: Int32 = 57
     static let SYN_SLIDE_TIME: Int32 = 58
+    static let SYN_PLUCK_BRIGHT: Int32 = 59
+    static let SYN_VEC_X: Int32 = 60
+    static let SYN_VEC_Y: Int32 = 61
+    static let KIT_HARDNESS: Int32 = 62
     static let FX_SLOT1_AMOUNT: Int32 = 81
 }
 
@@ -87,6 +91,7 @@ final class EngineState: ObservableObject {
     @Published var drumLayer: Int = 0
     @Published var synthLayer: Int = 0
     @Published var showSkinStudio: Bool = false
+    @Published var showMenu: Bool = false
     @Published var skinConfig: SkinConfig = SkinConfig.decode(UserDefaults.standard.string(forKey: "loopdraft_skin"))
     @Published var ghostDrums: Bool = true
     @Published var ghostSynthMask: Int = 0b1111

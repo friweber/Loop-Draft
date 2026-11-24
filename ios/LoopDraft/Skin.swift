@@ -276,11 +276,27 @@ struct SkinStudioSheet: View {
         ScrollView {
             VStack(spacing: 10) {
                 HStack {
-                    SilkLabel(text: "SKIN STUDIO", color: skin.silk, size: 15)
+                    SilkLabel(text: "SETUP", color: skin.silk, size: 15)
                     Spacer()
                     HwButton(text: "DONE", on: true, ledColor: skin.positive, height: 30) {
                         dismiss()
                     }.frame(width: 74)
+                }
+
+                ModulePanel("Feel", accent: skin.positive) {
+                    HStack(spacing: 5) {
+                        SilkLabel(text: "CONTROLS", size: 9).frame(width: 62, alignment: .leading)
+                        HwButton(text: "FINE", on: Feel.speed == 0, ledColor: skin.positive, height: 30) { Feel.speed = 0; state.rev += 1 }
+                        HwButton(text: "NORMAL", on: Feel.speed == 1, ledColor: skin.positive, height: 30) { Feel.speed = 1; state.rev += 1 }
+                        HwButton(text: "FAST", on: Feel.speed == 2, ledColor: skin.positive, height: 30) { Feel.speed = 2; state.rev += 1 }
+                    }
+                    HStack(spacing: 5) {
+                        SilkLabel(text: "VIBRATE", size: 9).frame(width: 62, alignment: .leading)
+                        HwButton(text: "OFF", on: !Feel.haptics, ledColor: skin.positive, height: 30) { Feel.haptics = false; state.rev += 1 }
+                        HwButton(text: "ON TAP", on: Feel.haptics, ledColor: skin.positive, height: 30) { Feel.haptics = true; state.rev += 1 }
+                    }
+                    SilkLabel(text: "Double-tap any slider or knob to set it back to its default.", color: skin.muted, size: 9)
+                    SilkLabel(text: state.audioInfo, color: skin.silk, size: 10)
                 }
 
                 ModulePanel("Complete Rig Presets", accent: skin.secondary) {
