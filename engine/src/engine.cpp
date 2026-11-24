@@ -274,6 +274,13 @@ void Engine::renderAudio(float* l, float* r, int n) {
           case P_FX_EQ_HIGH: effFx[t].eqHigh    = clampF(lin, -12.0f, 12.0f); break;
           case P_FX_DELAY: effFx[t].delaySend = clampF(lin, 0.0f, 0.8f); break;
           case P_FX_REVERB: effFx[t].revSend   = clampF(lin, 0.0f, 0.8f); break;
+          case P_FX_SLOT1_AMOUNT: effFx[t].slots[0].amount = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT1_RATE: effFx[t].slots[0].rate = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT2_AMOUNT: effFx[t].slots[1].amount = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT2_RATE: effFx[t].slots[1].rate = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT3_AMOUNT: effFx[t].slots[2].amount = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT3_RATE: effFx[t].slots[2].rate = clampF(lin, 0.0f, 1.0f); break;
+          case P_KIT_HARDNESS: if (t == 0) effFx[0].drive = clampF(lin, 0.0f, 1.0f); break;   // hardness is the drum track's drive
           default: break;
         }
         // Synth parameters (when t >= 1)
@@ -289,6 +296,9 @@ void Engine::renderAudio(float* l, float* r, int n) {
             }
             case P_SYN_RES: sp.res        = clampF(lin, 0.5f, 15.0f); break;
             case P_SYN_DECAY: sp.decay      = clampF(lin, 0.02f, 3.0f); break;
+            case P_SYN_ATTACK: sp.attack    = clampF(lin, 0.001f, 1.0f); break;
+            case P_SYN_SUSTAIN: sp.sustain  = clampF(lin, 0.0f, 1.0f); break;
+            case P_SYN_RELEASE: sp.release  = clampF(lin, 0.01f, 3.0f); break;
             case P_SYN_LEVEL: sp.level      = clampF(lin, 0.0f, 1.0f); break;
             case P_SYN_LFO_RATE: sp.lfoRate    = clampF(lin, 0.05f, 20.0f); break;
             case P_SYN_LFO_DEPTH: sp.lfoDepth   = clampF(lin, 0.0f, 1.0f); break;

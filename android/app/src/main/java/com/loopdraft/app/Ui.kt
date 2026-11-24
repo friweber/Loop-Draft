@@ -109,6 +109,30 @@ class AppState {
     val inputOctave = mutableStateListOf(0, 0, 0, 0)
     var selAutoTrack by mutableIntStateOf(2)
     var selAutoLane by mutableIntStateOf(0)
+    var pickAuto by mutableStateOf(false)    // "tap a control": the next tap on a knob adds it to the song automation
+    var autoMsg by mutableStateOf("")
+
+    /** Adds one automation lane to the selected song slot: from where the control stands now to the far end of its range. */
+    fun addAutomation(id: Int, index: Int) {
+        val info = AUTO_PARAMS[id] ?: return
+        val track = autoTrackOf(id, index)
+        val pos = selChainPos.coerceIn(0, (Native.chain().size - 1).coerceAtLeast(0))
+        val data = Native.chainAuto(pos, track)
+        val ids = (0 until 3).map { data.getOrElse(it * 3) { -1f }.roundToInt() }
+        pickAuto = false
+        tab = 3
+        selAutoTrack = track
+        val have = ids.indexOf(id)
+        if (have >= 0) { selAutoLane = have; autoMsg = "${info.label} is already automated here."; return }
+        val lane = ids.indexOfFirst { it < 0 }
+        if (lane < 0) { autoMsg = "All 3 lanes of ${TRACK_NAMES[track]} are in use in this slot. Clear one first."; return }
+        val now = Native.getParam(id, index).coerceIn(info.lo, info.hi)
+        val end = if (now - info.lo < (info.hi - info.lo) * 0.5f) info.hi else info.lo
+        Native.setChainAuto(pos, track, lane, id, now, end)
+        selAutoLane = lane
+        autoMsg = "${info.label} added on ${TRACK_NAMES[track]}. Set where it starts and ends."
+        rev++
+    }
     var drumRollMode by mutableIntStateOf(0) // 0=normal, 3=2x, 4=3x, 5=4x ratchet roll
     var selChainPos by mutableIntStateOf(0)
     var wide by mutableStateOf(false)      // landscape: side rail and two panes
@@ -169,12 +193,23 @@ fun App(s: AppState) {
             if (s.wide != wide) s.wide = wide
             val frame = if (wide) RoundedCornerShape(8.dp) else RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
             val content: @Composable (Modifier) -> Unit = { m ->
-                Box(m.border(2.dp, sceneColor(s.scene), frame).padding(horizontal = 8.dp, vertical = 8.dp)) {
-                    when (s.tab) {
-                        0 -> DrumsTab(s)
-                        1 -> SynthTab(s)
-                        2 -> MixTab(s)
-                        else -> SongTab(s)
+                Column(m.border(2.dp, if (s.pickAuto) HwYellow else sceneColor(s.scene), frame).padding(horizontal = 8.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (s.pickAuto) {
+                        Row(
+                            Modifier.fillMaxWidth().clip(RoundedCornerShape(7.dp)).background(HwYellow).padding(horizontal = 10.dp, vertical = 5.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SilkLabel("TAP A YELLOW CONTROL TO AUTOMATE IT IN SLOT #${s.selChainPos + 1}", color = HwPadInk, size = 10, modifier = Modifier.weight(1f))
+                            HwButton("CANCEL", height = 26.dp, pad = 8.dp) { s.pickAuto = false; s.tab = 3 }
+                        }
+                    }
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when (s.tab) {
+                            0 -> DrumsTab(s)
+                            1 -> SynthTab(s)
+                            2 -> MixTab(s)
+                            else -> SongTab(s)
+                        }
                     }
                 }
             }
@@ -197,6 +232,37 @@ fun App(s: AppState) {
         }
     }
 }
+
+/** A control the song can move over time: its name and the range its Start and End knobs cover. */
+data class AutoInfo(val label: String, val lo: Float, val hi: Float)
+
+val AUTO_PARAMS: Map<Int, AutoInfo> = mapOf(
+    P.FX_LEVEL to AutoInfo("Level", 0f, 1f), P.FX_DRIVE to AutoInfo("Drive", 0f, 1f),
+    P.FX_EQ_LOW to AutoInfo("Low EQ", -12f, 12f), P.FX_EQ_HIGH to AutoInfo("High EQ", -12f, 12f),
+    P.FX_DELAY to AutoInfo("Delay send", 0f, 0.8f), P.FX_REVERB to AutoInfo("Reverb send", 0f, 0.8f),
+    P.FX_SLOT1_AMOUNT to AutoInfo("FX1 amount", 0f, 1f), P.FX_SLOT1_AMOUNT + 1 to AutoInfo("FX1 rate", 0f, 1f),
+    P.FX_SLOT1_AMOUNT + 2 to AutoInfo("FX2 amount", 0f, 1f), P.FX_SLOT1_AMOUNT + 3 to AutoInfo("FX2 rate", 0f, 1f),
+    P.FX_SLOT1_AMOUNT + 4 to AutoInfo("FX3 amount", 0f, 1f), P.FX_SLOT1_AMOUNT + 5 to AutoInfo("FX3 rate", 0f, 1f),
+    P.KIT_HARDNESS to AutoInfo("Hardness", 0f, 1f),
+    P.SYN_CUTOFF to AutoInfo("Cutoff", 80f, 8000f), P.SYN_RES to AutoInfo("Resonance", 0.5f, 15f),
+    P.SYN_DETUNE to AutoInfo("Detune", -30f, 30f),
+    P.SYN_ATTACK to AutoInfo("Attack", 0.001f, 1f), P.SYN_DECAY to AutoInfo("Decay", 0.02f, 3f),
+    P.SYN_SUSTAIN to AutoInfo("Sustain", 0f, 1f), P.SYN_RELEASE to AutoInfo("Release", 0.01f, 3f),
+    P.SYN_LEVEL to AutoInfo("Synth level", 0f, 1f),
+    P.SYN_LFO_RATE to AutoInfo("LFO rate", 0.05f, 20f), P.SYN_LFO_DEPTH to AutoInfo("LFO depth", 0f, 1f),
+    P.SYN_FM_RATIO to AutoInfo("FM ratio", 0.5f, 8f), P.SYN_FM_INDEX to AutoInfo("FM index", 0f, 8f),
+    P.SYN_FM_DECAY to AutoInfo("FM decay", 0.01f, 3f), P.SYN_FM_FB to AutoInfo("FM feedback", 0f, 1f),
+    P.SYN_WARMTH to AutoInfo("Warmth", 0f, 1f), P.SYN_MOTION to AutoInfo("Motion", 0f, 1f),
+    P.SYN_FOLD to AutoInfo("Fold", 0f, 1f), P.SYN_VEC_X to AutoInfo("Vector X", 0f, 1f), P.SYN_VEC_Y to AutoInfo("Vector Y", 0f, 1f),
+    P.SYN_PLUCK_BRIGHT to AutoInfo("Pluck bright", 0f, 1f)
+)
+fun autoIsSynth(id: Int) = id in 20..39 || id in 50..61
+/** Which track a control belongs to, from the index its knob uses (a synth number, or a track number). */
+fun autoTrackOf(id: Int, index: Int) = if (id == P.KIT_HARDNESS) 0 else if (autoIsSynth(id)) index + 1 else index
+fun autoIndexOf(id: Int, track: Int) = if (id == P.KIT_HARDNESS) 0 else if (autoIsSynth(id)) track - 1 else track
+/** The typical ones, offered as buttons. Everything else is picked by tapping the control itself. */
+val AUTO_QUICK_DRUMS = listOf(P.KIT_HARDNESS, P.FX_LEVEL, P.FX_REVERB, P.FX_DELAY, P.FX_EQ_HIGH)
+val AUTO_QUICK_SYNTH = listOf(P.SYN_CUTOFF, P.SYN_RES, P.SYN_FOLD, P.FX_DRIVE, P.FX_REVERB, P.FX_DELAY, P.FX_LEVEL)
 
 /** One preset or groove in the library. `user` ones are files the user saved or imported and can delete. */
 data class LibItem(val kind: String, val name: String, val style: String, val user: Boolean, val path: String)
@@ -1026,15 +1092,9 @@ fun MixTab(s: AppState) {
             if (fxType > 0) {
                 val rateName = when (fxType) { 2 -> "Rate"; 3, 4 -> "Speed"; 5 -> "Reso"; else -> "" }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Knob(if (fxType == 5) "Cutoff" else "Amount", fxAmt, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = { pct(it) },
-                        onStart = { Native.beginEdit() },
-                        onChange = { Native.setFxSlotLive(t, slot, fxType, it, fxRate, fxBypass) },
-                        onEnd = { s.rev++ })
+                    RotaryKnob(s, if (fxType == 5) "Cutoff" else "Amount", P.FX_SLOT1_AMOUNT + slot * 2, t, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
                     if (rateName.isNotEmpty()) {
-                        Knob(rateName, fxRate, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = { pct(it) },
-                            onStart = { Native.beginEdit() },
-                            onChange = { Native.setFxSlotLive(t, slot, fxType, fxAmt, it, fxBypass) },
-                            onEnd = { s.rev++ })
+                        RotaryKnob(s, rateName, P.FX_SLOT1_AMOUNT + slot * 2 + 1, t, 0f, 1f, Modifier.weight(1f), capColor = Color(0xFF1F3847)) { pct(it) }
                     } else {
                         Box(Modifier.weight(1f))
                     }
@@ -1073,40 +1133,8 @@ fun SongTab(s: AppState) {
     val curStart = autoData.getOrElse(autoLn * 3 + 1) { 0f }
     val curEnd = autoData.getOrElse(autoLn * 3 + 2) { 0f }
 
-    data class AutoChoice(val id: Int, val label: String, val lo: Float, val hi: Float)
-    val paramChoices = if (autoTrk == 0) {
-        listOf(
-            AutoChoice(-1, "Off", 0f, 0f),
-            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f),
-            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
-            AutoChoice(P.FX_EQ_LOW, "Low EQ", -10f, 10f),
-            AutoChoice(P.FX_EQ_HIGH, "High EQ", -10f, 10f),
-            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
-            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f)
-        )
-    } else {
-        listOf(
-            AutoChoice(-1, "Off", 0f, 0f),
-            AutoChoice(P.SYN_CUTOFF, "Cutoff", 140f, 7500f),
-            AutoChoice(P.SYN_RES, "Res", 0.8f, 12f),
-            AutoChoice(P.SYN_FM_INDEX, "FM Idx", 0.2f, 7.5f),
-            AutoChoice(P.SYN_WARMTH, "Warmth", 0f, 1f),
-            AutoChoice(P.SYN_MOTION, "Motion", 0f, 1f),
-            AutoChoice(P.SYN_LFO_DEPTH, "LFO Dep", 0f, 1f),
-            AutoChoice(P.SYN_FOLD, "Fold", 0f, 1f),
-            AutoChoice(P.SYN_VEC_X, "Vector X", 0f, 1f),
-            AutoChoice(P.SYN_VEC_Y, "Vector Y", 0f, 1f),
-            AutoChoice(P.SYN_PLUCK_BRIGHT, "Pluck Brt", 0f, 1f),
-            AutoChoice(P.FX_DRIVE, "Drive", 0f, 0.95f),
-            AutoChoice(P.FX_DELAY, "Delay", 0f, 0.75f),
-            AutoChoice(P.FX_REVERB, "Reverb", 0f, 0.75f),
-            AutoChoice(P.FX_LEVEL, "Level", 0.1f, 1f)
-        )
-    }
-
-    // What the control is set to right now: synth controls belong to the synth, the rest to the track's channel.
-    fun nowValue(ch: AutoChoice): Float =
-        Native.getParam(ch.id, if (ch.id in 20..39 || ch.id >= 50) autoTrk - 1 else autoTrk).coerceIn(ch.lo, ch.hi)
+    val quick = if (autoTrk == 0) AUTO_QUICK_DRUMS else AUTO_QUICK_SYNTH
+    val laneIds = (0 until 3).map { autoData.getOrElse(it * 3) { -1f }.roundToInt() }
 
     Panes(s, left = {
     LibraryPanel(s, "groove", "GROOVE LIBRARY", "Replaces the patterns of scene ${SCENE_NAMES[s.scene]}, brings its sounds.", HwGreen)
@@ -1146,70 +1174,66 @@ fun SongTab(s: AppState) {
         }
     }
 
-    // Free-Choice Song-Menu Automation (up to 3 lanes per track!)
+    // Song automation: in each chain slot, every track can move up to three controls from a start to an end value.
     ModulePanel(
-        title = "Slot #${selPos + 1} Free Automation (3 / Track)",
+        title = "Slot #${selPos + 1}: moves over time",
         accent = HwOrange
     ) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (t in 0 until activeTracks) {
-                HwButton(TRACK_NAMES[t].uppercase(), on = autoTrk == t, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.selAutoTrack = t }
+                HwButton(TRACK_NAMES[t].uppercase(), on = autoTrk == t, ledColor = HwCyan, height = 26.dp, pad = 6.dp) { s.selAutoTrack = t; s.autoMsg = "" }
             }
         }
+        // the three lanes of this track, by what they move
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             for (ln in 0 until 3) {
-                val activeLn = autoData.getOrElse(ln * 3) { -1f } >= 0f
-                HwButton(
-                    text = "LANE ${ln + 1}" + if (activeLn) " ●" else "",
-                    modifier = Modifier.weight(1f),
-                    on = autoLn == ln,
-                    ledColor = HwOrange,
-                    height = 28.dp
-                ) { s.selAutoLane = ln }
+                val name = AUTO_PARAMS[laneIds[ln]]?.label ?: if (laneIds[ln] >= 0) "Control" else "empty"
+                HwButton("${ln + 1}: $name", Modifier.weight(1f), on = autoLn == ln, ledColor = HwOrange, showLed = laneIds[ln] >= 0, height = 30.dp, pad = 2.dp) { s.selAutoLane = ln }
             }
         }
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            paramChoices.forEach { ch ->
-                HwButton(ch.label, on = curPid == ch.id, ledColor = HwYellow, height = 28.dp, pad = 7.dp) {
-                    if (ch.id < 0) {
-                        Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f)
-                    } else {
-                        // starts where the control stands now and moves to the far end of its range
-                        val start = nowValue(ch)
-                        val end = if (start - ch.lo < (ch.hi - ch.lo) * 0.5f) ch.hi else ch.lo
-                        Native.setChainAuto(selPos, autoTrk, autoLn, ch.id, start, end)
-                    }
-                    s.rev++
-                }
+        // add one: the typical ones directly, anything else by tapping the control itself
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            SilkLabel("ADD", size = 9, modifier = Modifier.width(28.dp))
+            HwButton("+ ANY CONTROL", on = s.pickAuto, ledColor = HwYellow, showLed = true, height = 30.dp, pad = 8.dp) {
+                // go to where this track's controls are; the user can switch screens freely while picking
+                s.pickAuto = true; s.autoMsg = ""
+                s.fxTrack = autoTrk
+                if (autoTrk > 0) { s.synth = autoTrk - 1; s.tab = 2 } else s.tab = 0
+            }
+            for (id in quick) {
+                val info = AUTO_PARAMS[id] ?: continue
+                HwButton(info.label, on = id in laneIds, ledColor = HwYellow, height = 30.dp, pad = 7.dp) { s.addAutomation(id, autoIndexOf(id, autoTrk)) }
             }
         }
-        val activeChoice = paramChoices.firstOrNull { it.id == curPid }
-        if (activeChoice != null && curPid >= 0) {
-            val show: (Float) -> String = { v -> if (activeChoice.hi - activeChoice.lo > 50f) "${v.roundToInt()}" else "%.2f".format(v) }
+        if (s.autoMsg.isNotEmpty()) SilkLabel(s.autoMsg, color = HwYellow, size = 10, bold = false)
+        if (curPid >= 0) {
+            val info = AUTO_PARAMS[curPid] ?: AutoInfo("Control", minOf(curStart, curEnd, 0f), maxOf(curStart, curEnd, 1f))
+            val show: (Float) -> String = { v -> if (info.hi - info.lo > 50f) "${v.roundToInt()}" else "%.2f".format(v) }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Knob("Start", curStart, activeChoice.lo, activeChoice.hi, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = show,
+                Knob("Start", curStart, info.lo, info.hi, Modifier.weight(1f), capColor = Color(0xFF1F3847), fmt = show,
                     onStart = { Native.beginEdit() },
                     onChange = { Native.setChainAutoLive(selPos, autoTrk, autoLn, curPid, it, curEnd) },
                     onEnd = { s.rev++ })
-                Knob("End", curEnd, activeChoice.lo, activeChoice.hi, Modifier.weight(1f), capColor = Color(0xFF422A1A), fmt = show,
+                Knob("End", curEnd, info.lo, info.hi, Modifier.weight(1f), capColor = Color(0xFF422A1A), fmt = show,
                     onStart = { Native.beginEdit() },
                     onChange = { Native.setChainAutoLive(selPos, autoTrk, autoLn, curPid, curStart, it) },
                     onEnd = { s.rev++ })
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                     HwButton("START = NOW", Modifier.fillMaxWidth(), ledColor = HwCyan, height = 28.dp, pad = 2.dp) {
-                        Native.setChainAuto(selPos, autoTrk, autoLn, curPid, nowValue(activeChoice), curEnd); s.rev++
+                        val now = Native.getParam(curPid, autoIndexOf(curPid, autoTrk)).coerceIn(info.lo, info.hi)
+                        Native.setChainAuto(selPos, autoTrk, autoLn, curPid, now, curEnd); s.rev++
                     }
                     HwButton("SWAP", Modifier.fillMaxWidth(), ledColor = HwYellow, height = 28.dp, pad = 2.dp) {
                         Native.setChainAuto(selPos, autoTrk, autoLn, curPid, curEnd, curStart); s.rev++
                     }
-                    HwButton("CLEAR", Modifier.fillMaxWidth(), height = 28.dp, pad = 2.dp) {
-                        Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.rev++
+                    HwButton("REMOVE", Modifier.fillMaxWidth(), ledColor = HwRed, height = 28.dp, pad = 2.dp) {
+                        Native.setChainAuto(selPos, autoTrk, autoLn, -1, 0f, 0f); s.autoMsg = ""; s.rev++
                     }
                 }
             }
-            SilkLabel("While slot #${selPos + 1} plays, ${activeChoice.label} moves from Start to End.", color = HwMuted, size = 9, bold = false)
+            SilkLabel("While slot #${selPos + 1} plays, ${info.label} of ${TRACK_NAMES[autoTrk]} moves from Start to End.", color = HwMuted, size = 9, bold = false)
         } else {
-            SilkLabel("Pick any parameter above to automate on ${TRACK_NAMES[autoTrk]} (Lane ${autoLn + 1}).", color = HwMuted, size = 9, bold = false)
+            SilkLabel("Lane ${autoLn + 1} of ${TRACK_NAMES[autoTrk]} is empty. Add a control above.", color = HwMuted, size = 9, bold = false)
         }
     }
 

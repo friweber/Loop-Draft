@@ -44,6 +44,9 @@ adb shell am start -W -S -n "$ACT" --ei tab 1 --es kit project; shot 14_vector_e
 adb shell am start -W -S -n "$ACT" --ei tab 3;                  shot 15_song_projects
 # the library: a built-in groove, then an own instrument saved and loaded again
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit lib;     shot 17_library
+# song automation: lanes added from controls, and the screen while a control is being picked
+adb shell am start -W -S -n "$ACT" --ei tab 3 --es kit autopick; shot 18_song_automation
+adb shell am start -W -S -n "$ACT" --ei tab 2 --es kit autopick --ez picking true; shot 19_pick_a_control
 # the new drum kits and the drum synth; after a restart the synthesized pad must still be there
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyn;    shot 16_drum_synth; sleep 7
 adb shell am start -W -S -n "$ACT" --ei tab 0 --es kit dsyncheck; sleep 2
@@ -68,5 +71,6 @@ grep -q "project reopened mode=3 list=1" "$OUT/selftest.txt" || { echo "FAIL: sa
 grep -q "dsyn after restart engine=5 pad0=true" "$OUT/selftest.txt" || { echo "FAIL: the synthesized drum pad was gone after a restart"; fail=1; }
 grep -q 'lib items=6 groove=\[Loaded "Dusty House 122"' "$OUT/selftest.txt" || { echo "FAIL: the built-in library did not load"; fail=1; }
 grep -q 'own=\[Loaded "CI bass"' "$OUT/selftest.txt" || { echo "FAIL: saving and loading an own instrument did not work"; fail=1; }
+grep -q "autopick bass=81,23 drums=62" "$OUT/selftest.txt" || { echo "FAIL: adding automation from a control did not work"; fail=1; }
 [ "$fail" = 0 ] && echo "SMOKE TEST PASSED"
 exit "$fail"

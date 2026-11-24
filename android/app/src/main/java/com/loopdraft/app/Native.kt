@@ -151,6 +151,7 @@ object P {
     const val JUNGLE_TIGHT = 55
     const val JUNGLE_CRUNCH = 56
     const val KIT_HARDNESS = 62
+    const val FX_SLOT1_AMOUNT = 81      // then SLOT1_RATE, SLOT2_AMOUNT, SLOT2_RATE, SLOT3_AMOUNT, SLOT3_RATE
     const val DSYN_FREQ = 70
     const val DSYN_DROP = 71
     const val DSYN_PDEC = 72

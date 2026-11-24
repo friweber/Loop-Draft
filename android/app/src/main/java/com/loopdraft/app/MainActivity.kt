@@ -225,6 +225,18 @@ class MainActivity : ComponentActivity() {
                 Log.i("LoopDraft", "project reopened mode=${Native.getParam(P.SYN_MODE, 0).toInt()} list=${state.projects.size} msg=${state.projectMsg}")
                 state.synth = 0; state.rollMode = true
             }
+            "autopick" -> {
+                // test option: automate an effect-slot control and the drum hardness the way the knobs do it, then show pick mode
+                Native.setFxSlot(1, 0, 5, 0.6f, 0.3f, false)
+                state.selChainPos = 0
+                state.addAutomation(P.FX_SLOT1_AMOUNT, 1)
+                state.addAutomation(P.KIT_HARDNESS, 0)
+                state.addAutomation(P.SYN_CUTOFF, 0)
+                val a = Native.chainAuto(0, 1); val d = Native.chainAuto(0, 0)
+                Log.i("LoopDraft", "autopick bass=${a[0].toInt()},${a[3].toInt()} drums=${d[0].toInt()} msg=${state.autoMsg}")
+                state.selAutoTrack = 1; state.selAutoLane = 0
+                if (intent?.getBooleanExtra("picking", false) == true) { state.pickAuto = true; state.fxTrack = 1; state.tab = 2 } else state.tab = 3
+            }
             "lib" -> {
                 // test option: load a built-in groove, save the bass as an own instrument and load that onto the lead
                 val g = state.library.firstOrNull { it.kind == "groove" }

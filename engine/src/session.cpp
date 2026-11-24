@@ -106,7 +106,7 @@ void sanitize(Project& p) {
     for (int t = 0; t < kNumTracks; ++t) {
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {
         auto& al = p.chainAuto[i].tracks[t][ln];
-        if (al.paramId < -1 || al.paramId > P_SYN_VEC_Y) al.paramId = -1;   // the highest id that can be automated
+        if (al.paramId < -1 || al.paramId > P_FX_SLOT3_RATE) al.paramId = -1;   // the highest id that can be automated
         al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
       }
     }
@@ -257,6 +257,12 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_FX_EQ_HIGH: return &fx().eqHigh;
     case P_FX_DELAY: return &fx().delaySend;
     case P_FX_REVERB: return &fx().revSend;
+    case P_FX_SLOT1_AMOUNT: return &fx().slots[0].amount;
+    case P_FX_SLOT1_RATE: return &fx().slots[0].rate;
+    case P_FX_SLOT2_AMOUNT: return &fx().slots[1].amount;
+    case P_FX_SLOT2_RATE: return &fx().slots[1].rate;
+    case P_FX_SLOT3_AMOUNT: return &fx().slots[2].amount;
+    case P_FX_SLOT3_RATE: return &fx().slots[2].rate;
     case P_FX_MUTE: kind = 4; return reinterpret_cast<float*>(&fx().mute);
     default: scratch = 0; return &scratch;
   }

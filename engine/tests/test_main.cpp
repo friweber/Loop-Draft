@@ -1363,6 +1363,46 @@ static void testContentJson() {
   CHECK_EQ(js.project().breakId, id); CHECK(js.activeBreak() != nullptr);
 }
 
+// Song automation reaches the effect slots and the drum hardness, and those ids work as ordinary parameters too.
+static void testAutomationOfFxSlotsAndHardness() {
+  using namespace ld;
+  Session ses(48000.0);
+  ses.setFxSlot(1, 1, int(FxType::Filter), 0.9f, 0.2f, false);
+  ses.setParam(P_FX_SLOT2_AMOUNT, 1, 0.25f);
+  CHECK(std::fabs(ses.project().fx[1].slots[1].amount - 0.25f) < 1e-6f); CHECK(std::fabs(ses.getParam(P_FX_SLOT2_RATE, 1) - 0.2f) < 1e-6f);
+  ses.setParam(P_FX_SLOT3_RATE, 0, 5.0f); CHECK(ses.project().fx[0].slots[2].rate == 1.0f);       // clamped
+  ses.setChainAuto(0, 1, 0, P_FX_SLOT2_AMOUNT, 0.05f, 1.0f); ses.setChainAuto(0, 0, 1, P_KIT_HARDNESS, 0.0f, 1.0f);
+  ses.setParam(P_BPM, 0, 120.0f);                                                                  // any later edit keeps the lanes
+  CHECK_EQ(ses.project().chainAuto[0].tracks[1][0].paramId, P_FX_SLOT2_AMOUNT);
+  CHECK_EQ(ses.project().chainAuto[0].tracks[0][1].paramId, P_KIT_HARDNESS);
+  // a filter slot on the bass, swept by the song: closed -> quiet and dull at the start, open at the end of the slot
+  auto p = std::make_unique<Project>(makeDemoProject());
+  p->bpm = 120; p->chainLen = 1; p->chain[0] = 0;
+  for (auto& sc : p->scenes) { sc.drums = DrumPattern{}; for (auto& pat : sc.synth) pat.count = 0; sc.bars = 1; }
+  for (auto& f : p->fx) { f.delaySend = 0; f.revSend = 0; }
+  SynthParams sp; sp.wave1 = Wave::Saw; sp.wave2 = Wave::Saw; sp.cutoff = 9000; sp.sustain = 1.0f; sp.lfoTarget = LfoTarget::Off;
+  p->synths[0] = sp;
+  for (int st = 0; st < 16; st += 2) addNote(p->scenes[0].synth[0], st, 0, 2, 1);
+  p->fx[1].slots[0].type = FxType::Filter; p->fx[1].slots[0].amount = 1.0f; p->fx[1].slots[0].rate = 0.1f;
+  RenderOptions o; o.songMode = true; o.soloTrack = 1; o.tailSeconds = 0; o.sampleRate = 48000;
+  const auto hf = [](const std::vector<float>& x, size_t a, size_t b) { double s2 = 0; for (size_t i = a + 1; i < b; ++i) { const double d = x[i] - x[i - 1]; s2 += d * d; } return std::sqrt(s2); };
+  const auto flat = renderOffline(*p, o).l;
+  p->chainAuto[0].tracks[1][0] = AutoLane{int16_t(P_FX_SLOT1_AMOUNT), 0.02f, 1.0f};
+  const auto swept = renderOffline(*p, o).l;
+  CHECK(hf(swept, 2400, 21600) < 0.5 * hf(flat, 2400, 21600));          // first quarter: filter nearly closed
+  CHECK(hf(swept, 76800, 93600) > 0.7 * hf(flat, 76800, 93600));        // last part: nearly as bright as without the sweep
+  // hardness on the drum track changes the drums while the slot plays
+  auto d = std::make_unique<Project>(makeDemoProject());
+  d->chainLen = 1; d->chain[0] = 0; d->fx[0].drive = 0.0f;
+  for (auto& f : d->fx) { f.delaySend = 0; f.revSend = 0; }
+  RenderOptions od; od.songMode = true; od.soloTrack = 0; od.tailSeconds = 0;
+  const auto clean = renderOffline(*d, od).l;
+  d->chainAuto[0].tracks[0][0] = AutoLane{int16_t(P_KIT_HARDNESS), 1.0f, 1.0f};
+  const auto hard = renderOffline(*d, od).l;
+  double diff = 0; for (size_t i = 0; i < clean.size(); ++i) diff += std::fabs(double(clean[i]) - hard[i]);
+  CHECK(diff / double(clean.size()) > 0.005);
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -1403,6 +1443,7 @@ int main() {
     {"hard drum kits and the drum synth", testHardDrumEnginesAndCustomDrumSynth},
     {"drum synth pads are project state", testDrumSynthIsProjectState},
     {"presets and grooves as JSON", testContentJson},
+    {"automation of effect slots and drum hardness", testAutomationOfFxSlotsAndHardness},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

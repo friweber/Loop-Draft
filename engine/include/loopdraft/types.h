@@ -49,6 +49,8 @@ enum Param : int {
   // the drum synth of one pad (index = pad). Changing one makes that pad a synthesized drum.
   P_DSYN_FREQ = 70, P_DSYN_DROP, P_DSYN_PDEC, P_DSYN_TONE, P_DSYN_NOISE, P_DSYN_NFREQ,
   P_DSYN_FM, P_DSYN_FMRATIO, P_DSYN_DRIVE, P_DSYN_CLICK, P_DSYN_LEN,
+  // the two controls of each effect slot of a track (index = track)
+  P_FX_SLOT1_AMOUNT = 81, P_FX_SLOT1_RATE, P_FX_SLOT2_AMOUNT, P_FX_SLOT2_RATE, P_FX_SLOT3_AMOUNT, P_FX_SLOT3_RATE,
   P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
 };
 

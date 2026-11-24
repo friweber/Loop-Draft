@@ -324,7 +324,11 @@ fun Knob(
     }
 }
 
-/** A knob bound to one engine parameter. One drag is one undo step. */
+/**
+ * A knob bound to one engine parameter. One drag is one undo step.
+ * While the user is picking a control for the song automation, a tap adds this control instead of turning it:
+ * controls the song can move are framed yellow, the others are dimmed.
+ */
 @Composable
 fun RotaryKnob(
     s: AppState,
@@ -339,12 +343,23 @@ fun RotaryKnob(
     fmt: (Float) -> String
 ) {
     val value = remember(s.rev, id, index) { Native.getParam(id, index) }
-    Knob(
-        label, value, min, max, modifier, capColor, modulated, fmt,
-        onStart = { Native.beginEdit() },
-        onChange = { Native.setParam(id, index, it) },
-        onEnd = { s.rev++ }
-    )
+    Box(modifier) {
+        Knob(
+            label, value, min, max, Modifier.fillMaxWidth(), capColor, modulated, fmt,
+            onStart = { Native.beginEdit() },
+            onChange = { Native.setParam(id, index, it) },
+            onEnd = { s.rev++ }
+        )
+        if (s.pickAuto) {
+            val shape = RoundedCornerShape(8.dp)
+            if (AUTO_PARAMS.containsKey(id)) {
+                Box(Modifier.matchParentSize().clip(shape).background(HwYellow.copy(alpha = 0.14f)).border(2.dp, HwYellow, shape)
+                    .clickable { s.addAutomation(id, index) })
+            } else {
+                Box(Modifier.matchParentSize().clip(shape).background(Color.Black.copy(alpha = 0.5f)).clickable { })   // swallows the touch: nothing turns while picking
+            }
+        }
+    }
 }
 
 /** The two-colour logo from the design sheets. */
