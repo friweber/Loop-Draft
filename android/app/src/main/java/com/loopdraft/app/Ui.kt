@@ -252,7 +252,8 @@ fun LibraryPanel(s: AppState, kind: String, title: String, what: String, accent:
             HwButton("SAVE MINE", ledColor = HwGreen, height = 34.dp, pad = 8.dp) { s.onLibSave(kind, s.libName) }
             HwButton("FILE", ledColor = HwCyan, height = 34.dp, pad = 8.dp) { s.onLibImport() }
         }
-        SilkLabel("SAVE MINE keeps what is set right now under that name. FILE adds a preset or groove file (.json) from the phone.", color = HwMuted, size = 9, bold = false)
+        SilkLabel("SAVE MINE: keeps the current one under that name.", color = HwMuted, size = 9, bold = false)
+        SilkLabel("FILE: adds a .json preset or groove from the phone.", color = HwMuted, size = 9, bold = false)
     }
 }
 
@@ -587,8 +588,8 @@ fun DrumsTab(s: AppState) {
 
     val rollLabel = when (s.drumRollMode) { 3 -> "ROLL 2X"; 4 -> "ROLL 3X"; 5 -> "ROLL 4X"; else -> "ROLL" }
     Panes(s, left = {
-    LibraryPanel(s, "groove", "GROOVE LIBRARY", "A groove replaces the patterns of scene ${SCENE_NAMES[s.scene]} and brings its sounds. UNDO takes it back.", HwGreen)
-    LibraryPanel(s, "drumkit", "DRUM KIT LIBRARY", "A kit sets the kit, all eight pads and the drum track's effects. Patterns stay.", HwOrange)
+    LibraryPanel(s, "groove", "GROOVE LIBRARY", "Replaces the patterns of scene ${SCENE_NAMES[s.scene]}, brings its sounds.", HwGreen)
+    LibraryPanel(s, "drumkit", "DRUM KIT LIBRARY", "Sets kit, pads and drum effects. Patterns stay.", HwOrange)
     ModulePanel(
         title = if (jungle) "Break slicer: ${padLabel(s.selPad)}" else "${DRUM_ENGINE_NAMES[drumEng]}: ${padLabel(s.selPad)}",
         accent = accent
@@ -802,7 +803,7 @@ fun SynthTab(s: AppState) {
     val curInst = remember(s.rev, s.synth) { Native.getParam(P.SYN_INSTRUMENT, s.synth).roundToInt() }
 
     Panes(s, left = {
-    LibraryPanel(s, "instrument", "INSTRUMENT LIBRARY", "An instrument replaces the sound of ${TRACK_NAMES[s.synth + 1]} and its effects. Notes stay.", HwCyan)
+    LibraryPanel(s, "instrument", "INSTRUMENT LIBRARY", "Replaces the sound of ${TRACK_NAMES[s.synth + 1]}. Notes stay.", HwCyan)
     ModulePanel(
         title = "Synth: ${TRACK_NAMES[s.synth + 1]} (${listOf("SUB", "FM", "PLUCK", "VECTOR")[mode]})",
         accent = HwCyan,
@@ -1108,7 +1109,7 @@ fun SongTab(s: AppState) {
         Native.getParam(ch.id, if (ch.id in 20..39 || ch.id >= 50) autoTrk - 1 else autoTrk).coerceIn(ch.lo, ch.hi)
 
     Panes(s, left = {
-    LibraryPanel(s, "groove", "GROOVE LIBRARY", "A groove replaces the patterns of scene ${SCENE_NAMES[s.scene]} and brings its sounds. UNDO takes it back.", HwGreen)
+    LibraryPanel(s, "groove", "GROOVE LIBRARY", "Replaces the patterns of scene ${SCENE_NAMES[s.scene]}, brings its sounds.", HwGreen)
     ModulePanel(
         title = "Arrangement Chain",
         accent = HwGreen,
