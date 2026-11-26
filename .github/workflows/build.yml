@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main, techno]
+    branches: [main]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', 'plugin/**', '.github/workflows/build.yml']
   workflow_dispatch:
 

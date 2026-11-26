@@ -143,3 +143,17 @@ The Resonator is tuned to the project's key and scale. Mix can be moved by REC K
 Linux needs the usual JUCE packages (ALSA, X11, FreeType, Fontconfig development files).
 
 JUCE is fetched while configuring. It is dual-licensed under the AGPLv3 and the JUCE licence.
+
+## New in 0.8
+
+- **Techno database** (`content/techno`, packed by `content/techno/make_pack.py`): ten genres, each with a drum pattern for
+  every part of a song (intro, groove, peak, break, fill, outro) and synth patterns for every role (bass, lead, arp,
+  chords, pad), plus three starter songs. PATTERNS opens the browser: choose a genre, filter by part or role, LISTEN,
+  PUT IN A..H. SET UP SOUNDS gives the project the genre's tempo, key, kit, four sounds and pedals; BUILD SONG also
+  stacks the patterns into grooves A..F and writes the order onto the SONG page. One UNDO takes either back.
+- **LFOS** (top right): three LFOs side by side. Click an LFO's button, then touch the knob or bar it should move.
+  Shape, SYNC, speed and depth per LFO; saved with the project.
+- **Analog and digital looks**: every synth and pedal carries the year its kind is from. Analog ones have wooden cheeks
+  or worn paint, screws, round knobs and a glowing scope; digital ones are flat with grooves, dials inside a ring of
+  lights and an LCD.
+- The display on a pedal now follows its knobs, its character and its on/off switch.
