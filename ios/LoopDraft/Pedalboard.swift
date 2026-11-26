@@ -36,7 +36,18 @@ private let MASTER_PEDAL_SPECS: [PedalSpec] = [
     PedalSpec(typeId: 18, code: "DLY", name: "DELAY", top: Color(red: 0.86, green: 0.90, blue: 0.95), bottom: Color(red: 0.66, green: 0.72, blue: 0.80), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "LEVEL", param2: "TIME"),
     PedalSpec(typeId: 19, code: "TAPE", name: "TAPE ECHO", top: Color(red: 0.18, green: 0.37, blue: 0.27), bottom: Color(red: 0.11, green: 0.23, blue: 0.17), ink: .white, param1: "LEVEL", param2: "TIME"),
     PedalSpec(typeId: 20, code: "VERB", name: "REVERB", top: Color(red: 0.37, green: 0.50, blue: 0.64), bottom: Color(red: 0.23, green: 0.33, blue: 0.46), ink: .white, param1: "LEVEL", param2: "SIZE"),
-    PedalSpec(typeId: 21, code: "GATE", name: "GATE", top: Color(red: 0.15, green: 0.16, blue: 0.18), bottom: Color(red: 0.07, green: 0.07, blue: 0.09), ink: .white, param1: "THRESH", param2: "DECAY")
+    PedalSpec(typeId: 21, code: "GATE", name: "GATE", top: Color(red: 0.15, green: 0.16, blue: 0.18), bottom: Color(red: 0.07, green: 0.07, blue: 0.09), ink: .white, param1: "THRESH", param2: "DECAY"),
+    PedalSpec(typeId: 22, code: "PNCH", name: "PUNCH", top: Color(red: 0.85, green: 0.25, blue: 0.16), bottom: Color(red: 0.61, green: 0.15, blue: 0.09), ink: .white, param1: "ATTACK", param2: "SUSTAIN"),
+    PedalSpec(typeId: 23, code: "CRSH", name: "CRUSHER", top: Color(red: 0.29, green: 0.31, blue: 0.35), bottom: Color(red: 0.16, green: 0.18, blue: 0.20), ink: .white, param1: "DRIVE", param2: "TONE"),
+    PedalSpec(typeId: 24, code: "SLCE", name: "SLICER", top: Color(red: 0.07, green: 0.71, blue: 0.65), bottom: Color(red: 0.04, green: 0.46, blue: 0.42), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "DEPTH", param2: "RATE"),
+    PedalSpec(typeId: 25, code: "GVRB", name: "GATED VERB", top: Color(red: 0.69, green: 0.29, blue: 0.60), bottom: Color(red: 0.45, green: 0.17, blue: 0.39), ink: .white, param1: "LEVEL", param2: "GATE"),
+    PedalSpec(typeId: 26, code: "BOOM", name: "BOOM", top: Color(red: 0.16, green: 0.18, blue: 0.42), bottom: Color(red: 0.09, green: 0.10, blue: 0.25), ink: .white, param1: "BOOM", param2: "PITCH"),
+    PedalSpec(typeId: 27, code: "CLD", name: "CLOUD", top: Color(red: 0.66, green: 0.78, blue: 0.91), bottom: Color(red: 0.45, green: 0.59, blue: 0.75), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "MIX", param2: "GRAIN"),
+    PedalSpec(typeId: 28, code: "LOFI", name: "LO-FI", top: Color(red: 0.79, green: 0.64, blue: 0.42), bottom: Color(red: 0.58, green: 0.45, blue: 0.25), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "WOBBLE", param2: "AGE"),
+    PedalSpec(typeId: 29, code: "DUB", name: "DUB DELAY", top: Color(red: 0.12, green: 0.43, blue: 0.23), bottom: Color(red: 0.07, green: 0.27, blue: 0.13), ink: .white, param1: "LEVEL", param2: "TIME"),
+    PedalSpec(typeId: 30, code: "FSH", name: "FREQ SHIFT", top: Color(red: 0.55, green: 0.59, blue: 0.64), bottom: Color(red: 0.35, green: 0.38, blue: 0.43), ink: .white, param1: "SHIFT", param2: "MIX"),
+    PedalSpec(typeId: 31, code: "RES", name: "RESONATOR", top: Color(red: 0.72, green: 0.53, blue: 0.04), bottom: Color(red: 0.49, green: 0.35, blue: 0.02), ink: .white, param1: "MIX", param2: "NOTE"),
+    PedalSpec(typeId: 32, code: "SHIM", name: "SHIMMER", top: Color(red: 0.91, green: 0.85, blue: 0.96), bottom: Color(red: 0.71, green: 0.62, blue: 0.82), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "LEVEL", param2: "DECAY")
 ]
 
 struct GuitarPedalboardView: View {

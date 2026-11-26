@@ -89,10 +89,44 @@ const PedalSpec kPedals[] = {
    {"Spring", "Plate", "Hall", "Cloud"},
    {"Band-limited, with the drip of the springs", "Bright and dense", "Darker and longer", "Nearly endless, slowly turning"}},
   {21, "GATE", "Gate", 0xff26282d, 0xff121316, true, 0xffc9ccd2, {"Thresh", "Decay", "Range", "Hold"},
-   {"Smooth", "Hard"}, {"Fades the noise out", "Slams shut"}},
+   {"Smooth", "Hard"}, {"Fades the noise out", "Slams shut"}},  // made for drums and synths
+  {22, "PNCH", "Punch", 0xffd8402a, 0xff9c2516, true, 0xfff1ead8, {"Attack", "Sustain", "Level", "Clip"},
+   {"Punch", "Snap"},
+   {"Makes the hit of every drum harder or softer, its ring longer or shorter", "Shapes only the top of the hit, the body stays"}},
+  {23, "CRSH", "Crusher", 0xff4a4f58, 0xff2a2d33, true, 0xffff6d1f, {"Drive", "Tone", "Glue", "Body"},
+   {"Tape", "Diode", "Clip"},
+   {"Glue and round saturation for the whole kit", "Crunchy", "Flat tops: the gabber kick"}},
+  {24, "SLCE", "Slicer", 0xff12b5a5, 0xff0a756b, false, 0xff1d1b18, {"Depth", "Rate", "Width", "Pattern"},
+   {"Gate", "Stutter"},
+   {"Sixteen steps in time with the tempo let the sound through or not", "Every two beats the last slice is repeated"}},
+  {25, "GVRB", "Gated Verb", 0xffb04a9a, 0xff742c64, true, 0xfff1ead8, {"Level", "Gate", "Size", "Tone"},
+   {"Gated", "Reverse"},
+   {"A huge room that is cut off: the snare of the eighties", "Swells up to nothing"}},
+  {26, "BOOM", "Boom", 0xff2a2f6b, 0xff171a40, true, 0xffffca28, {"Boom", "Pitch", "Decay", "Sens"},
+   {"Sub", "Thump"},
+   {"Every low hit sets off a clean sub tone", "With a pitch drop, like a drum machine's kick"}},
+  {27, "CLD", "Cloud", 0xffa8c8e8, 0xff7396be, false, 0xff1d1b18, {"Mix", "Grain", "Scatter", "Feedbk"},
+   {"Cloud", "Reverse", "Octave", "Fifth"},
+   {"Small grains of what you played, scattered in time and space", "The grains run backwards", "Half of them an octave up", "Half of them a fifth up"}},
+  {28, "LOFI", "Lo-Fi", 0xffc9a36a, 0xff94733f, false, 0xff1d1b18, {"Wobble", "Age", "Drive", "Noise"},
+   {"Cassette", "Reel", "Vinyl"},
+   {"Wow, flutter, hiss and a narrow band", "A studio machine: gentler, with a bump in the lows", "Slow wow and crackle"}},
+  {29, "DUB", "Dub Delay", 0xff1f6e3a, 0xff124421, true, 0xffffca28, {"Level", "Time", "Feedbk", "Filter"},
+   {"Dub", "Ping-pong", "Wide"},
+   {"Always in time. FILTER left: every repeat darker; right: thinner", "Repeats jump from side to side", "A different time on each side"}},
+  {30, "FSH", "Freq Shift", 0xff8c96a3, 0xff59626e, true, 0xff1d1b18, {"Shift", "Mix", "Feedbk", "Spread"},
+   {"Up", "Down", "Split"},
+   {"Every tone moved up by the same number of hertz: metal and bells", "Moved down", "Down on the left, up on the right"}},
+  {31, "RES", "Resonator", 0xffb8860b, 0xff7d5a05, true, 0xfff1ead8, {"Mix", "Note", "Decay", "Bright"},
+   {"String", "Tube", "Chord"},
+   {"A string tuned to the project's scale rings along with every hit", "A pipe: hollow, only the odd overtones", "Three strings: the note, its third and fifth"}},
+  {32, "SHIM", "Shimmer", 0xffe8d9f5, 0xffb59fd0, false, 0xff1d1b18, {"Level", "Decay", "Shimmer", "Tone"},
+   {"Octave", "Fifth", "Freeze"},
+   {"A reverb whose tail climbs an octave", "Climbs a fifth", "HOLD up: the room stands still while you play over it"}},
 };
 // What knob `i` of a pedal is called on a given character. "" = this knob does nothing there.
 const char* knobName(const PedalSpec& sp, int voice, int i) {
+  if (i == 4) return "Mix";
   const bool classic = voice == 0 && sp.type <= 6;               // the standard pedals as Loop Draft has them
   if (classic) {
     if (i == 2) return "Level";
@@ -103,7 +137,9 @@ const char* knobName(const PedalSpec& sp, int voice, int i) {
     if (sp.type == 8 && (voice == 1 || voice == 3)) return "";
     if (sp.type == 18 && voice == 1) return "Wobble";
     if (sp.type == 20 && voice == 0) return "Dwell";
+    if (sp.type == 24 && voice == 1) return "Amount";
   }
+  if (i == 2 && sp.type == 32 && voice == 2) return "Hold";
   if (i == 2 && sp.type == 13 && voice == 1) return "";
   return sp.knobs[i];
 }
@@ -140,6 +176,17 @@ float pedalTrace(int type, float x) {
     case 19: return pulses(0.035f, 0.015f);
     case 20: return std::sin(t * 23.0f + 3.0f * std::sin(t * 7.0f)) * std::exp(-3.5f * x) * 0.9f;
     case 21: return x < 0.55f ? std::sin(t * 9.0f) * 0.8f : 0.0f;
+    case 22: { const float u = std::fmod(x * 3.0f, 1.0f); return std::sin(u * 40.0f) * (u < 0.08f ? 1.0f : 0.45f * std::exp(-5.0f * u)); }
+    case 23: return juce::jlimit(-0.75f, 0.75f, std::sin(t * 2.0f) * 1.6f + 0.25f * std::sin(t * 9.0f));
+    case 24: return std::fmod(x * 8.0f, 1.0f) < 0.55f && (int(x * 8.0f) % 4 != 3) ? std::sin(t * 24.0f) * 0.8f : 0.0f;
+    case 25: return x < 0.06f ? 0.9f : (x < 0.6f ? std::sin(t * 31.0f + 2.0f * std::sin(t * 9.0f)) * 0.55f : 0.0f);
+    case 26: return std::sin(juce::MathConstants<float>::twoPi * (2.0f * x + 1.2f * (1.0f - std::exp(-8.0f * x)))) * std::exp(-2.2f * x) * 0.9f;
+    case 27: { float y = 0.0f; for (int n = 0; n < 6; ++n) { const float c = 0.1f + 0.16f * float(n), d = (x - c) / 0.05f; y += std::exp(-d * d) * std::sin(t * (14.0f + 9.0f * float(n % 3))) * (n % 2 ? 0.5f : 0.8f); } return y; }
+    case 28: return std::sin(t * 4.0f + 1.5f * std::sin(t * 0.7f)) * 0.6f + 0.12f * std::sin(t * 61.0f) * std::sin(t * 3.3f);
+    case 29: { float y = 0.0f; for (int n = 0; n < 5; ++n) { const float c = 0.08f + 0.2f * float(n), d = (x - c) / (0.02f + 0.012f * float(n)); y += std::exp(-d * d) * std::pow(0.7f, float(n)); } return y * 1.7f - 0.85f; }
+    case 30: return std::sin(t * (2.0f + 9.0f * x)) * 0.8f;
+    case 31: return std::sin(t * 12.0f) * std::exp(-3.0f * std::fmod(x * 2.0f, 1.0f)) * 0.9f;
+    case 32: return (std::sin(t * 5.0f) * (1.0f - x) + std::sin(t * 10.0f) * x) * (0.4f + 0.5f * std::sin(juce::MathConstants<float>::pi * x));
     default: return 0.0f;
   }
 }
@@ -148,13 +195,15 @@ const PedalSpec* pedalSpec(int type) {
   return nullptr;
 }
 // how the menu is ordered: families, each with its pedals (by type number)
-struct PedalFamily { const char* name; int types[8]; };
+struct PedalFamily { const char* name; int types[8]; };   // a 0 ends the list
 const PedalFamily kPedalFamilies[] = {
   {"Drive", {1, 7, 8, 9, 2, 0, 0, 0}},
   {"Dynamics", {6, 21, 0, 0, 0, 0, 0, 0}},
   {"Modulation", {3, 12, 4, 10, 11, 13, 17, 0}},
   {"Filter and pitch", {5, 14, 15, 16, 0, 0, 0, 0}},
-  {"Echo and space", {18, 19, 20, 0, 0, 0, 0, 0}},
+  {"Echo and space", {18, 19, 29, 20, 25, 32, 0, 0}},
+  {"For drums", {22, 23, 24, 26, 0, 0, 0, 0}},
+  {"Textures", {27, 28, 30, 31, 0, 0, 0, 0}},
 };
 
 // ---- knob movements inside a groove: what can move, what it is called, and its range ----
@@ -349,6 +398,7 @@ class ParamBar : public juce::Component {
     slider_.updateText();
   }
   void setLabel(const juce::String& label) { if (label != label_) { label_ = label; slider_.updateText(); } }
+  void setTarget(int paramId, int index) { pid_ = paramId; setIndex(index); }
   // call with the lock held
   void refresh() {
     if (dragging_) return;
@@ -514,7 +564,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   juce::TextButton fxTrackBtn[5], pedalOn[3], pedalLeft[3], pedalRight[3];
   juce::ComboBox pedalBox[3];
   std::unique_ptr<Knob> pedalKnob[3][4];
-  juce::TextButton voiceBtn[3][4];
+  juce::TextButton voiceBtn[3][4], subBtn[3], syncPedalBtn[3];
+  std::unique_ptr<ParamBar> pedalMix[3];
   juce::Rectangle<int> pedalArea[3], traceArea[3], aboutArea[3];
 
   // library
@@ -821,8 +872,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         voiceBtn[i][k].onClick = [this, i, k] { const juce::ScopedLock sl(p.lock()); p.session().setFxVoice(fxTrack, slotOf(i), k); };
         addChildComponent(voiceBtn[i][k]);
       }
+      pedalMix[i] = std::make_unique<ParamBar>(p, "Mix", ld::P_FX_SLOT1_MIX + i, 0, 0.0f, 1.0f, fmtPct);
+      subBtn[i].setButtonText("KEEP SUB");
+      subBtn[i].setTooltip("Everything below about 120 Hz goes round the pedal: clean, and in the middle");
+      syncPedalBtn[i].setButtonText("SYNC");
+      syncPedalBtn[i].setTooltip("The speed or time follows the tempo; the knob then picks the note length");
+      subBtn[i].onClick = [this, i] { toggleFlag(slotOf(i), ld::kFxKeepSub); };
+      syncPedalBtn[i].onClick = [this, i] { toggleFlag(slotOf(i), ld::kFxSync); };
       for (juce::Component* c : {static_cast<juce::Component*>(&pedalBox[i]), static_cast<juce::Component*>(&pedalOn[i]),
-                                 static_cast<juce::Component*>(&pedalLeft[i]), static_cast<juce::Component*>(&pedalRight[i])})
+                                 static_cast<juce::Component*>(&pedalLeft[i]), static_cast<juce::Component*>(&pedalRight[i]),
+                                 static_cast<juce::Component*>(pedalMix[i].get()), static_cast<juce::Component*>(&subBtn[i]),
+                                 static_cast<juce::Component*>(&syncPedalBtn[i])})
         addChildComponent(c);
     }
 
@@ -1045,6 +1105,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     for (int i = 0; i < 3; ++i) {
       pedalBox[i].setVisible(f); pedalOn[i].setVisible(f); pedalLeft[i].setVisible(f); pedalRight[i].setVisible(f);
       for (int k = 0; k < 4; ++k) { pedalKnob[i][k]->setVisible(f); voiceBtn[i][k].setVisible(f); }
+      pedalMix[i]->setVisible(f); subBtn[i].setVisible(f); syncPedalBtn[i].setVisible(f);
     }
     for (auto& b : kindBtn) b.setVisible(l);
     loadBtn.setVisible(l); tempoBtn.setVisible(l); styleBox.setVisible(l); list.setVisible(l);
@@ -1154,6 +1215,11 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         const int vw = voices.getWidth() / 4;
         for (int k = 0; k < 4; ++k) voiceBtn[i][k].setBounds(voices.removeFromLeft(vw).reduced(1, 0));
         aboutArea[i] = c.removeFromTop(32);
+        c.removeFromTop(4);
+        auto extra = c.removeFromTop(24);          // what a pedal for the studio has on top: dry/wet, the lows left alone, in time
+        syncPedalBtn[i].setBounds(extra.removeFromRight(52)); extra.removeFromRight(3);
+        subBtn[i].setBounds(extra.removeFromRight(76)); extra.removeFromRight(4);
+        pedalMix[i]->setBounds(extra);
         auto foot = c.removeFromBottom(44);
         pedalLeft[i].setBounds(foot.removeFromLeft(36).reduced(0, 8));
         pedalRight[i].setBounds(foot.removeFromRight(36).reduced(0, 8));
@@ -1341,6 +1407,10 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     }
   }
 
+  void toggleFlag(int slot, int flag) {
+    const juce::ScopedLock sl(p.lock());
+    p.session().setFxFlags(fxTrack, slot, int(p.session().project().fx[fxTrack].slots[slot].flags) ^ flag);
+  }
   // The order of the pedals is the order the sound runs through them.
   void swapPedals(int a, int b) {
     if (a < 0 || b < 0 || a >= ld::kFxSlots || b >= ld::kFxSlots) return;
@@ -1707,6 +1777,11 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
             voiceBtn[i][k].setVisible(has);
             if (has) { voiceBtn[i][k].setButtonText(sp->voices[k]); voiceBtn[i][k].setToggleState(k == voice, juce::dontSendNotification); }
           }
+          pedalMix[i]->setVisible(sp != nullptr); subBtn[i].setVisible(sp != nullptr);
+          pedalMix[i]->setTarget(ld::fxSlotParamId(slot, 4), fxTrack); pedalMix[i]->refresh();
+          subBtn[i].setToggleState((sl.flags & ld::kFxKeepSub) != 0, juce::dontSendNotification);
+          syncPedalBtn[i].setVisible(sp != nullptr && ld::fxCanSync(sl.type, voice));
+          syncPedalBtn[i].setToggleState((sl.flags & ld::kFxSync) != 0, juce::dontSendNotification);
           pedalOn[i].setVisible(sp != nullptr);
           pedalOn[i].setButtonText(sl.bypass ? "OFF" : "ON");
           pedalOn[i].setToggleState(sp != nullptr && !sl.bypass, juce::dontSendNotification);

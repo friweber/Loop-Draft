@@ -73,7 +73,18 @@ val MASTER_PEDAL_SPECS = listOf(
     PedalSpec(18, "DLY", "DELAY", Color(0xFFDCE6F2), Color(0xFFA9B8CC), Color(0xFF1A1408), "LEVEL", "TIME"),
     PedalSpec(19, "TAPE", "TAPE ECHO", Color(0xFF2E5E46), Color(0xFF1B3B2B), Color(0xFFF7F7F7), "LEVEL", "TIME"),
     PedalSpec(20, "VERB", "REVERB", Color(0xFF5E7FA3), Color(0xFF3B5575), Color(0xFFF7F7F7), "LEVEL", "SIZE"),
-    PedalSpec(21, "GATE", "GATE", Color(0xFF26282D), Color(0xFF121316), Color(0xFFF7F7F7), "THRESH", "DECAY")
+    PedalSpec(21, "GATE", "GATE", Color(0xFF26282D), Color(0xFF121316), Color(0xFFF7F7F7), "THRESH", "DECAY"),
+    PedalSpec(22, "PNCH", "PUNCH", Color(0xFFD8402A), Color(0xFF9C2516), Color(0xFFF7F7F7), "ATTACK", "SUSTAIN"),
+    PedalSpec(23, "CRSH", "CRUSHER", Color(0xFF4A4F58), Color(0xFF2A2D33), Color(0xFFF7F7F7), "DRIVE", "TONE"),
+    PedalSpec(24, "SLCE", "SLICER", Color(0xFF12B5A5), Color(0xFF0A756B), Color(0xFF1A1408), "DEPTH", "RATE"),
+    PedalSpec(25, "GVRB", "GATED VERB", Color(0xFFB04A9A), Color(0xFF742C64), Color(0xFFF7F7F7), "LEVEL", "GATE"),
+    PedalSpec(26, "BOOM", "BOOM", Color(0xFF2A2F6B), Color(0xFF171A40), Color(0xFFF7F7F7), "BOOM", "PITCH"),
+    PedalSpec(27, "CLD", "CLOUD", Color(0xFFA8C8E8), Color(0xFF7396BE), Color(0xFF1A1408), "MIX", "GRAIN"),
+    PedalSpec(28, "LOFI", "LO-FI", Color(0xFFC9A36A), Color(0xFF94733F), Color(0xFF1A1408), "WOBBLE", "AGE"),
+    PedalSpec(29, "DUB", "DUB DELAY", Color(0xFF1F6E3A), Color(0xFF124421), Color(0xFFF7F7F7), "LEVEL", "TIME"),
+    PedalSpec(30, "FSH", "FREQ SHIFT", Color(0xFF8C96A3), Color(0xFF59626E), Color(0xFFF7F7F7), "SHIFT", "MIX"),
+    PedalSpec(31, "RES", "RESONATOR", Color(0xFFB8860B), Color(0xFF7D5A05), Color(0xFFF7F7F7), "MIX", "NOTE"),
+    PedalSpec(32, "SHIM", "SHIMMER", Color(0xFFE8D9F5), Color(0xFFB59FD0), Color(0xFF1A1408), "LEVEL", "DECAY")
 )
 
 fun pedalSpec(typeId: Int): PedalSpec? = PEDAL_SPECS.firstOrNull { it.typeId == typeId } ?: MASTER_PEDAL_SPECS.firstOrNull { it.typeId == typeId }

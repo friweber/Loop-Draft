@@ -34,7 +34,7 @@ The builds are not signed. On macOS, remove the download mark once after copying
   If pattern and groove differ in length, the shorter one is repeated. MIDI drum files are read by General MIDI
   drum notes; melodic files are moved to the nearest notes of the project's scale.
 - **Pedals**: each track has six slots, the sound runs through them from left to right; the strip on top shows the
-  whole board, a click on it shows that half. Twenty-one pedals with up to four knobs and a character switch each
+  whole board, a click on it shows that half. Thirty-two pedals with up to four knobs and a character switch each
   (table below). The phone apps play all of it and show the first three slots with two knobs.
 - **Knob movements**: light REC KNOBS, let it play, and hold and move a knob or a bar: the movement is written into
   the groove that is sounding, one value per beat. Up to eight per groove. The SONG page shows them; you can draw
@@ -80,6 +80,28 @@ has always had it, so old projects sound the same. In files: `voice` 0..3 in the
 | Delay | Level, Time, Repeats, Tone (Analog: Wobble) | Digital, Analog, Ping-pong |
 | Tape Echo | Level, Time, Repeats, Age | Single, Multi-head, Worn |
 | Reverb | Level, Decay, Tone, Pre-delay (Spring: Dwell) | Spring, Plate, Hall, Cloud |
+| Punch | Attack, Sustain, Level, Clip | Punch, Snap |
+| Crusher | Drive, Tone, Glue, Body | Tape, Diode, Clip |
+| Slicer | Depth, Rate, Width, Pattern (Stutter: Amount) | Gate, Stutter |
+| Gated Verb | Level, Gate, Size, Tone | Gated, Reverse |
+| Boom | Boom, Pitch, Decay, Sensitivity | Sub, Thump |
+| Cloud | Mix, Grain, Scatter, Feedback | Cloud, Reverse, Octave, Fifth |
+| Lo-Fi | Wobble, Age, Drive, Noise | Cassette, Reel, Vinyl |
+| Dub Delay | Level, Time, Feedback, Filter | Dub, Ping-pong, Wide |
+| Freq Shift | Shift, Mix, Feedback, Spread | Up, Down, Split |
+| Resonator | Mix, Note, Decay, Bright | String, Tube, Chord |
+| Shimmer | Level, Decay, Shimmer (Freeze: Hold), Tone | Octave, Fifth, Freeze |
+
+Every pedal also has, under its character switch:
+
+- **Mix**: dry/wet. Half way on a distortion or compressor is parallel processing.
+- **KEEP SUB**: everything below about 120 Hz goes round the pedal, clean and in the middle of the stereo picture.
+  For kicks and basses under a fuzz, chorus or phaser.
+- **SYNC** (chorus, phaser, flanger, tremolo, vibrato, wah, delay, tape echo): the speed or time follows the tempo
+  and the bar. The speed knob then picks the cycle: 4 bars, 2 bars, 1 bar, 1/2, 1/4, 1/8, 1/16, 1/32; on the two
+  echoes the time: 1/16, 1/8T, 1/8, 1/4T, dotted 1/8, 1/4, dotted 1/4, 1/2. Slicer and Dub Delay are always in time.
+
+The Resonator is tuned to the project's key and scale. Mix can be moved by REC KNOBS like the other knobs.
 
 ## Build
 
