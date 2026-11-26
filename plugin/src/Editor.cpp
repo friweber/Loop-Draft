@@ -1850,7 +1850,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
     g.setColour(col::muted);
     g.drawText("ADD", songAdd[0].getX() - 44, songAdd[0].getY(), 40, songAdd[0].getHeight(), juce::Justification::centredLeft);
-    g.drawText("STARTS AT BAR " + juce::String(p.songStartBar()), startArea, juce::Justification::centred, true);
+    g.drawText("FROM BAR " + juce::String(p.songStartBar()), startArea, juce::Justification::centred, true);
     // the song: every block is a groove, as wide as it is long
     int total = 0;
     for (int c = 0; c < pr.chainLen; ++c) total += juce::jlimit(1, ld::kMaxBars, int(pr.scenes[pr.chain[c]].bars));

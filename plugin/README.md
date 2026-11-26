@@ -60,7 +60,7 @@ The builds are not signed. On macOS, remove the download mark once after copying
 - **Boards** (PEDALS): ready-made pedal chains for drums, bass and synths. MENU > Fewer pedal controls hides the
   third and fourth knob, Mix, KEEP SUB and SYNC.
 - **Bars**: COPY and PASTE move the content of a bar, also to another groove. **Mix**: a meter per track, MUTE and SOLO.
-- **Song**: drag a block to move it, DUP repeats it, STARTS AT BAR sets where on the host's timeline the song begins.
+- **Song**: drag a block to move it, DUP repeats it, FROM BAR sets where on the host's timeline the song begins.
 - **Loop Master Live** (MENU > Loop Master Live): one screen to play a set from.
   - Eight groove pads: a click starts a groove at the next bar line.
   - Six effects to hold, on the whole mix: stutter, gate, crush, echo, wash, lo-fi. Echo and wash ring out.

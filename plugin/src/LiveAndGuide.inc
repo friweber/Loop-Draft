@@ -90,7 +90,7 @@ const GuideText kGuides[7] = {
   {"Song: put the grooves in a row",
    {"Each block is a groove, as wide as it is long. ADD A to H puts one after the selected block.",
     "Drag a block to move it. DUP repeats it, REMOVE takes it out, a double-click opens it for editing.",
-    "With PLAY THE SONG lit and FOLLOW HOST on, the song is tied to your DAW's timeline, from the bar set at STARTS AT BAR.",
+    "With PLAY THE SONG lit and FOLLOW HOST on, the song is tied to your DAW's timeline, from the bar set at FROM BAR.",
     "Knob movements: ADD A MOVEMENT picks a control from a list, or light REC KNOBS, let it play and turn any knob.",
     "Click a movement in the list to open it in the big editor; draw with the mouse or use RISE, FALL, HILL, STEPS.", nullptr}},
   {"Library: ready-made material",
