@@ -356,7 +356,7 @@ class SoundPanel : public juce::Component {
   }
   // How bright a note is at this moment of the display's own slow pulse: 1 when it starts, fading as the synth's
   // "fade" control says. This is what makes the FM and Phase pictures breathe.
-  float pulse() const { return std::exp(-std::fmod(clock, 1.8f) / juce::jmax(0.02f, sp.fmModDecay)); }
+  float pulse() const { return pulseFixed >= 0.0f ? pulseFixed : std::exp(-std::fmod(clock, 1.8f) / juce::jmax(0.02f, sp.fmModDecay)); }
   juce::Rectangle<int> vectorPad() const {
     const int side = juce::jmin(disp[0].getHeight() - 14, disp[0].getWidth() * 45 / 100);
     return juce::Rectangle<int>(disp[0].getX() + 10, disp[0].getCentreY() - side / 2, side, side);
@@ -415,7 +415,7 @@ class SoundPanel : public juce::Component {
     const Skin& sk = skin();
     const SynthFace& f = sk.faces[face];
     const juce::Colour trace(f.trace), back(sk.displayBack), grid(sk.displayGrid);
-    static const char* const ownTitle[ld::kNumSynthModes] = {"THE TWO OSCILLATORS, ADDED", "ONE OPERATOR BENDS THE OTHER", "THE STRING", "DRAG THE DOT", "SEVEN VOICES DRIFTING", "THE DRAWBARS", "A SINE, BENT"};
+    static const char* const ownTitle[ld::kNumSynthModes] = {"THE TWO OSCILLATORS, ADDED", "ONE OPERATOR BENDS THE OTHER  -  faint: the start of a note", "THE STRING", "DRAG THE DOT", "SEVEN VOICES DRIFTING", "THE DRAWBARS", "A SINE, BENT  -  faint: the start of a note"};
     const char* const titles[3] = {ownTitle[face], "FILTER", face == 2 ? "HOW LONG IT RINGS" : "ENVELOPE"};
     for (int d = 0; d < 3; ++d) {
       const auto b = disp[d].toFloat();
@@ -497,6 +497,17 @@ class SoundPanel : public juce::Component {
           }
           g.setColour(trace.withAlpha(0.25f));
           g.strokePath(plain, juce::PathStrokeType(1.2f));
+        }
+        if (face == 1 || face == 6 || face == 3) {                // faint: the wave at the very start of a note, before the bend fades
+          juce::Path start;
+          pulseFixed = 1.0f;
+          for (int i = 0; i <= n; ++i) {
+            const float px = area.getX() + float(i), py = area.getCentreY() - waveAt(cycles * float(i) / float(n)) * area.getHeight() * 0.42f;
+            if (i == 0) start.startNewSubPath(px, py); else start.lineTo(px, py);
+          }
+          pulseFixed = -1.0f;
+          g.setColour(trace.withAlpha(0.3f));
+          g.strokePath(start, juce::PathStrokeType(1.2f));
         }
         for (int i = 0; i <= n; ++i) {
           const float px = area.getX() + float(i), py = area.getCentreY() - waveAt(cycles * float(i) / float(n)) * area.getHeight() * 0.42f;
@@ -692,6 +703,6 @@ class SoundPanel : public juce::Component {
   bool drums = true, built = false, breakOn = false, wasCustom = false, dragXY = false;
   juce::Rectangle<int> disp[3];                                // the synth's own display, the filter's, the envelope's
   ld::SynthParams sp;                                          // what the displays draw, copied every tick
-  float clock = 0.0f;
+  float clock = 0.0f, pulseFixed = -1.0f;
   int pad = 0, synth = 0, face = 0;
 };
