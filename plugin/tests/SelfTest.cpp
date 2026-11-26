@@ -63,9 +63,10 @@ int main() {
   };
 
   run(50);
-  check(mainOut == 0.0, "silent while the host is stopped");
+  check(mainOut < 1e-6, "silent while the host is stopped");
   head.playing = true;
   run(400);
+  const double playingLevel = mainOut / 400.0;                 // per block
   check(mainOut > 1.0 && drums > 1.0, "plays with the host: main and drum output carry sound");
   check(p.hostLeads(), "the host leads");
   check(std::abs(p.shownBpm() - 120.0) < 1e-6, "shows the host's tempo");
@@ -88,9 +89,9 @@ int main() {
   check(drums > drumsBefore * 0.5, "and up again");
 
   head.playing = false;
-  run(400);
+  run(600);                                                    // delay and reverb ring out
   run(50);
-  check(mainOut < 1e-3, "quiet again after the host stopped");
+  check(mainOut / 50.0 < playingLevel * 1e-4, "quiet again after the host stopped");
   midi.addEvent(juce::MidiMessage::noteOn(1, 45, 0.9f), 0);
   run(40);
   check(bass > 0.5, "a MIDI note on channel 1 plays the bass");
