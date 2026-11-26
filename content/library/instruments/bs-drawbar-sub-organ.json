@@ -1,0 +1,40 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Drawbar Sub Organ",
+  "style": "bass",
+  "comment": "Only the low drawbars: a round, clean organ bass for garage and deep house.",
+  "engine": "organ",
+  "cutoff": 1800.0,
+  "res": 0.7,
+  "attack": 0.003,
+  "decay": 0.25,
+  "sustain": 0.8,
+  "release": 0.07,
+  "level": 0.85,
+  "vector": {
+    "x": 0.08,
+    "y": 0.4
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 3.0,
+    "decay": 0.08,
+    "feedback": 0.0
+  },
+  "warmth": 0.55,
+  "motion": 0.1,
+  "octave": -1,
+  "track": {
+    "level": 0.8,
+    "delay": 0.0,
+    "reverb": 0.05,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.4,
+        "rate": 0.3
+      }
+    ]
+  }
+}

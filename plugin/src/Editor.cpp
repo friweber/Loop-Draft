@@ -19,7 +19,7 @@ const char* const kSceneNames[8] = {"A", "B", "C", "D", "E", "F", "G", "H"};
 const char* const kKits[10] = {"808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break", "Hardcore Gabber",
                                "Warehouse Rumble", "Neuro Techstep", "EBM Electro", "Glitch Breakcore"};
 const char* const kInstruments[8] = {"Custom", "Analog Bass", "Acid 303", "Reese DnB", "FM Bell", "FM E-Piano", "Super Pad", "Pluck Lead"};
-const char* const kEngines[4] = {"Subtractive", "FM 2-Op", "Pluck", "Vector"};
+const char* const kEngines[7] = {"Analog", "FM Two", "String", "Vector", "Unison", "Drawbar", "Phase"};
 const char* const kNoteNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 // Every pedal: the six standard ones of Loop Draft and the stompbox collection.
@@ -256,6 +256,10 @@ bool midiToScene(const juce::File& file, const ld::Project& pr, int part, ld::Sc
   if (part == 0)                                             // a file with a drum channel: only that channel is drums
     for (int t = 0; t < mf.getNumTracks() && !tenOnly; ++t)
       for (const auto* h : *mf.getTrack(t)) if (h->message.isNoteOn() && h->message.getChannel() == 10) { tenOnly = true; break; }
+  bool ownChannel = false;                                   // a file with notes on this track's channel: only those
+  if (part > 0)
+    for (int t = 0; t < mf.getNumTracks() && !ownChannel; ++t)
+      for (const auto* h : *mf.getTrack(t)) if (h->message.isNoteOn() && h->message.getChannel() == part) { ownChannel = true; break; }
   for (int t = 0; t < mf.getNumTracks(); ++t) {
     for (const auto* h : *mf.getTrack(t)) {
       const juce::MidiMessage& m = h->message;
@@ -282,7 +286,7 @@ bool midiToScene(const juce::File& file, const ld::Project& pr, int part, ld::Sc
         }
         if (out.drums.steps[pad][step] < 2) out.drums.steps[pad][step] = strong ? 2 : 1;
       } else {
-        if (m.getChannel() == 10) continue;
+        if (m.getChannel() == 10 || (ownChannel && m.getChannel() != part)) continue;
         ld::SynthPattern& pat = out.synth[part - 1];
         if (pat.count >= ld::kMaxNotes) continue;
         const int deg = ld::midiToDegree(pr, part - 1, note);
@@ -443,6 +447,19 @@ class Knob : public juce::Component {
     };
     addAndMakeVisible(slider_);
   }
+  // The same knob for another control with a range and a way of writing its value.
+  void configure(int paramId, int index, const juce::String& label, float lo, float hi, float centre, juce::String (*fmt)(float), juce::Colour cap, juce::Colour ink) {
+    fmt_ = fmt;
+    if (slider_.getMinimum() != double(lo) || slider_.getMaximum() != double(hi) || centre != centre_) {
+      setting_ = true;
+      slider_.setRange(double(lo), double(hi), 0.0);
+      if (centre > lo && centre < hi) slider_.setSkewFactorFromMidPoint(double(centre)); else slider_.setSkewFactor(1.0);
+      setting_ = false;
+      centre_ = centre;
+    }
+    slider_.setDoubleClickReturnValue(true, double(juce::jlimit(lo, hi, ld::Session::defaultParam(paramId, 0))));
+    set(paramId, index, label, cap, ink);
+  }
   void set(int paramId, int index, const juce::String& label, juce::Colour cap, juce::Colour ink) {
     pid_ = paramId; index_ = index;
     if (label != label_ || ink != ink_ || cap != cap_) {
@@ -462,11 +479,13 @@ class Knob : public juce::Component {
   void paint(juce::Graphics& g) override {
     g.setColour(ink_);
     g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
-    const juce::String text = dragging_ ? juce::String(juce::roundToInt(slider_.getValue() * 100.0)) : label_.toUpperCase();
+    const juce::String text = dragging_ ? (fmt_ ? fmt_(float(slider_.getValue())) : juce::String(juce::roundToInt(slider_.getValue() * 100.0))) : label_.toUpperCase();
     g.drawText(text, getLocalBounds().removeFromBottom(16), juce::Justification::centred, false);
   }
 
  private:
+  juce::String (*fmt_)(float) = nullptr;
+  float centre_ = 0.0f;
   LoopMasterProcessor& p_;
   juce::Slider slider_;
   juce::String label_;
@@ -490,6 +509,7 @@ juce::String fmtPan(float v) {
 }
 
 #include "LiveAndGuide.inc"
+#include "SoundPanel.inc"
 
 }  // namespace
 
@@ -527,7 +547,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       g.setFont(juce::Font(juce::FontOptions(10.0f)));
       g.drawText(pt.midi ? "MIDI" : "", width - 40, 0, 36, height, juce::Justification::centredRight, false);
     }
-    void listBoxItemClicked(int row, const juce::MouseEvent&) override { b->listen(row); }
+    void listBoxItemClicked(int row, const juce::MouseEvent&) override { b->rowClicked(row); }
   } patternModel;
   std::vector<Pattern> patterns;
   std::vector<std::shared_ptr<ld::Scene>> grooveScenes;      // one per library entry (null where it is not a groove)
@@ -568,6 +588,16 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   juce::Rectangle<int> startArea;
   LiveView live{p};
   GuideView guide;
+  // the sound editors of DRUMS and SYNTH
+  SoundPanel sound{p};
+  juce::TextButton soundBtn{"EDIT SOUND"}, listenBtn{"LISTEN"};
+  bool soundView = false, listenOn = false;
+  int libInst[ld::kNumSynths] = {}, libKit = 0;                // the library preset that was chosen last, as its menu id
+  // knob movements: the one that is open in the big editor
+  int laneSel = 0, lastLanePt = -1;
+  float lastLaneVal = 0.0f;
+  juce::TextButton laneAdd{"ADD A MOVEMENT..."}, shapeBtn[5];
+  juce::Rectangle<int> laneEdit;
   juce::Rectangle<int> chipArea[ld::kFxSlots];
   int slotOf(int i) const { return pedalPage * 3 + i; }
   juce::TextButton fxTrackBtn[5], pedalOn[3], pedalLeft[3], pedalRight[3];
@@ -748,9 +778,21 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     addAndMakeVisible(midiBox);
 
     // drums
+    kitBox.addSectionHeading("Drum machines");
     for (int i = 0; i < 10; ++i) kitBox.addItem(kKits[i], i + 1);
+    addLibraryTo(kitBox, "drumkit", "Kits from the library");
     kitBox.onChange = [this] {
       const int k = kitBox.getSelectedId() - 1;
+      if (k >= 99) {                                          // a kit from the library: machine, pad settings and pedals
+        const auto& lib = p.library();
+        if (k - 99 < int(lib.size())) {
+          const juce::String err = p.importLibrary(lib[size_t(k - 99)], scene(), synth, false);
+          message = err.isEmpty() ? lib[size_t(k - 99)].name + " is on the drums. UNDO brings the old kit back." : err;
+          if (err.isEmpty()) libKit = k + 1;
+        }
+        return;
+      }
+      libKit = 0;
       const juce::ScopedLock sl(p.lock());
       if (k >= 0 && k != int(p.session().getParam(ld::P_DRUM_ENGINE, 0) + 0.5f)) p.session().setDrumEngine(k);
     };
@@ -793,13 +835,25 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     rollDown.onClick = [this] { rollBase = juce::jmax(-14, rollBase - 7); };
     rollUp.onClick = [this] { rollBase = juce::jmin(14, rollBase + 7); };
     for (auto* b : {&addSynthBtn, &slideBtn, &chordBtn, &rollDown, &rollUp}) addChildComponent(b);
+    instBox.addSectionHeading("Basic sounds");
     for (int i = 0; i < 8; ++i) instBox.addItem(kInstruments[i], i + 1);
+    addLibraryTo(instBox, "instrument", "Sounds from the library");
     instBox.onChange = [this] {
       const int k = instBox.getSelectedId() - 1;
+      if (k >= 99) {                                          // a sound from the library
+        const auto& lib = p.library();
+        if (k - 99 < int(lib.size())) {
+          const juce::String err = p.importLibrary(lib[size_t(k - 99)], scene(), synth, false);
+          message = err.isEmpty() ? lib[size_t(k - 99)].name + " is on " + kTrackNames[synth + 1] + ". EDIT SOUND shows the synth it is made on." : err;
+          if (err.isEmpty()) libInst[synth] = k + 1;
+        }
+        return;
+      }
+      libInst[synth] = 0;
       const juce::ScopedLock sl(p.lock());
       if (k >= 0 && k != int(p.session().getParam(ld::P_SYN_INSTRUMENT, synth) + 0.5f)) p.session().applyInstrument(synth, k);
     };
-    for (int i = 0; i < 4; ++i) engineBox.addItem(kEngines[i], i + 1);
+    for (int i = 0; i < ld::kNumSynthModes; ++i) engineBox.addItem(kEngines[i], i + 1);
     engineBox.onChange = [this] {
       const int k = engineBox.getSelectedId() - 1;
       const juce::ScopedLock sl(p.lock());
@@ -1034,6 +1088,33 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     help(loadBtn, "Loads the selected entry: a groove into the selected groove, a sound onto the open synth, a kit onto the drums.");
     help(list, "Ready-made material. Pick an entry and press LOAD.");
 
+    // the sound editors
+    sound.sceneNow = [this] { return scene(); };
+    sound.say = [this](const juce::String& text) { message = text; };
+    addChildComponent(sound);
+    soundBtn.onClick = [this] { soundView = !soundView; stopListening(); message.clear(); showTab(); };
+    addChildComponent(soundBtn);
+    help(soundBtn, "EDIT SOUND: swaps the grid for the sound itself: on SYNTH the synth with all its knobs, on DRUMS the pad, a drum built from scratch, and the break machine.");
+    listenBtn.onClick = [this] {
+      listenOn = !listenOn;
+      if (!listenOn) stopListening();
+      else if (patternList.getSelectedRow() >= 0) listen(patternList.getSelectedRow());
+      else message = "LISTEN is lit: now a click on a pattern plays it in place of the groove. Nothing is changed until you press A to H.";
+    };
+    addChildComponent(listenBtn);
+    help(listenBtn, "LISTEN: lit, a click on a pattern plays it in place of the groove (and starts playback if it stands still). Unlit, a click only selects.");
+    // knob movements
+    laneAdd.onClick = [this] { showMovementMenu(); };
+    addChildComponent(laneAdd);
+    help(laneAdd, "Adds a knob movement to this groove by choosing the control from a list. Then draw its curve on the right.");
+    static const char* const shapes[5] = {"FLAT", "RISE", "FALL", "HILL", "STEPS"};
+    for (int i = 0; i < 5; ++i) {
+      shapeBtn[i].setButtonText(shapes[i]);
+      shapeBtn[i].onClick = [this, i] { laneShape(i); };
+      addChildComponent(shapeBtn[i]);
+      help(shapeBtn[i], "Draws this shape over the whole groove for the selected movement. Then change it by hand.");
+    }
+
     // live and guide lie on top of everything
     live.onExit = [this] { setLive(false); };
     live.onGuide = [this] { guide.show(6); };
@@ -1043,6 +1124,13 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     showTab();
     {
       const bool shots = juce::SystemStats::getEnvironmentVariable("LOOPMASTER_TAB", "").isNotEmpty();
+      if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_SOUND", "").isNotEmpty()) {     // for screenshots: the sound editor, on a given synth
+        soundView = true;
+        const int eng = juce::SystemStats::getEnvironmentVariable("LOOPMASTER_SOUND", "").getIntValue();
+        const juce::ScopedLock sl(p.lock());
+        if (eng > 0) p.session().setParam(ld::P_SYN_MODE, synth, float(juce::jlimit(0, ld::kNumSynthModes - 1, eng - 1)));
+        showTab();
+      }
       if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_LIVE", "").isNotEmpty() || (p.liveMode && !shots)) setLive(true);
       if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_GUIDE", "").isNotEmpty() || (!p.guideSeen && !shots)) guide.show(live.isVisible() ? 6 : tab);
     }
@@ -1088,6 +1176,19 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       if (!f.hasFileExtension("ldp")) f = f.withFileExtension("ldp");
       message = p.saveProjectFile(f) ? "Saved " + f.getFileName() : "Could not save " + f.getFileName();
     });
+  }
+
+  // Puts the library's entries of one kind into a list, grouped by style. Their ids are 100 + the place in the library.
+  void addLibraryTo(juce::ComboBox& box, const char* kind, const char* title) {
+    const auto& lib = p.library();
+    juce::StringArray styles;
+    for (const auto& e : lib) if (e.kind == kind) styles.addIfNotAlreadyThere(e.style);
+    if (styles.isEmpty()) return;
+    box.addSeparator();
+    for (const auto& st : styles) {
+      box.addSectionHeading(juce::String(title) + (st.isNotEmpty() ? ": " + st : juce::String()));
+      for (size_t i = 0; i < lib.size(); ++i) if (lib[i].kind == kind && lib[i].style == st) box.addItem(lib[i].name, 100 + int(i));
+    }
   }
 
   void setLive(bool on) {
@@ -1153,7 +1254,14 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     return pt.scene;
   }
 
-  // A click plays the pattern in place of the groove, without changing the project. A second click stops it.
+  // A click selects. Only while LISTEN is lit does it also play, so nothing starts on its own.
+  void rowClicked(int row) {
+    if (listenOn) { listen(row); return; }
+    if (row >= 0 && row < int(patterns.size()))
+      message = patterns[size_t(row)].name + " is selected. LISTEN plays it; A to H under the list puts it into a groove.";
+  }
+
+  // Plays the pattern in place of the groove, without changing the project. The same row again stops it.
   void listen(int row) {
     if (row == previewRow) { stopListening(); return; }
     const auto sc = patternScene(row);
@@ -1240,14 +1348,19 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   // ---- layout ----
   void showTab() {
     const bool d = tab == 0, s = tab == 1, f = tab == 2, m = tab == 3, sg = tab == 4, l = tab == 5;
-    const bool ed = d || s, br = ed && browse;
-    kitBox.setVisible(d); accentBtn.setVisible(d || s);
+    const bool sv = (d || s) && soundView;                     // the sound editor takes the grid's place
+    const bool ed = (d || s) && !sv, br = ed && browse;
+    kitBox.setVisible(d); accentBtn.setVisible(ed);
+    soundBtn.setVisible(d || s); sound.setVisible(sv); listenBtn.setVisible(br);
+    laneAdd.setVisible(sg); for (auto& b : shapeBtn) b.setVisible(sg);
     for (auto& b : padBtn) b.setVisible(d);
-    for (auto* b : {hardness.get(), padVol.get(), padPitch.get(), padDecay.get(), padPan.get()}) b->setVisible(d);
+    hardness->setVisible(d);
+    for (auto* b : {padVol.get(), padPitch.get(), padDecay.get(), padPan.get()}) b->setVisible(d && !sv);
     for (auto& b : synthBtn) b.setVisible(s);
-    for (auto* b : {&addSynthBtn, &slideBtn, &chordBtn, &rollDown, &rollUp}) b->setVisible(s);
+    addSynthBtn.setVisible(s);
+    for (auto* b : {&slideBtn, &chordBtn, &rollDown, &rollUp}) b->setVisible(s && !sv);
     instBox.setVisible(s); engineBox.setVisible(s);
-    for (auto* b : synthBars) b->setVisible(s);
+    for (int i = 0; i < synthBars.size(); ++i) synthBars[i]->setVisible(s && !sv && i < 7);   // the rest is under EDIT SOUND
     for (auto* b : mixBars) b->setVisible(m);
     for (auto& b : muteBtn) b.setVisible(m);
     for (auto& b : fxTrackBtn) b.setVisible(f);
@@ -1308,6 +1421,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       kitBox.setBounds(line1.removeFromLeft(220)); line1.removeFromLeft(8);
       hardness->setBounds(line1.removeFromLeft(200)); line1.removeFromLeft(8);
       accentBtn.setBounds(line1.removeFromLeft(90));
+      soundBtn.setBounds(line1.removeFromRight(120));
+      gridArea = {};
+      if (soundView) {                                          // pads on the left, their sound on the right
+        a.removeFromTop(8);
+        auto names = a.removeFromLeft(74);
+        const int rh = juce::jmin(44, a.getHeight() / 8);
+        for (int i = 0; i < 8; ++i) padBtn[i].setBounds(names.removeFromTop(rh).reduced(0, 2));
+        a.removeFromLeft(8);
+        sound.setBounds(a);
+        return;
+      }
       a.removeFromTop(6);
       layoutBars(a.removeFromTop(26));
       a.removeFromTop(8);
@@ -1328,8 +1452,11 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       addSynthBtn.setBounds(line1.removeFromLeft(78)); line1.removeFromLeft(10);
       instBox.setBounds(line1.removeFromLeft(150)); line1.removeFromLeft(6);
       engineBox.setBounds(line1.removeFromLeft(130));
+      soundBtn.setBounds(line1.removeFromRight(120));
+      rollArea = {};
+      if (soundView) { a.removeFromTop(8); sound.setBounds(a); return; }
       a.removeFromTop(6);
-      const int cols = 7, rows = 3, bh = 26;
+      const int cols = 7, rows = 1, bh = 26;
       auto bars = a.removeFromTop(rows * (bh + 4));
       const int cw = (bars.getWidth() - (cols - 1) * 4) / cols;
       for (int i = 0; i < synthBars.size(); ++i)
@@ -1413,16 +1540,25 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       startUp.setBounds(line1.removeFromRight(26)); startArea = line1.removeFromRight(juce::jmin(118, juce::jmax(60, line1.getWidth() - 28)));
       startDown.setBounds(line1.removeFromRight(26));
       a.removeFromTop(8);
-      auto lanes = a.removeFromBottom(22 + ld::kSceneLanes * 26);
+      auto lanes = a.removeFromBottom(juce::jmax(236, a.getHeight() * 60 / 100));     // most of the page: the curve needs room
       a.removeFromBottom(10);
       songArea = a;
       laneTitle = lanes.removeFromTop(22);
-      for (int i = 0; i < ld::kSceneLanes; ++i) {
-        auto row = lanes.removeFromTop(26).reduced(0, 2);
-        laneClear[i].setBounds(row.removeFromRight(64));
-        row.removeFromRight(6); row.removeFromLeft(190);        // the name, painted
+      auto left = lanes.removeFromLeft(juce::jlimit(220, 280, lanes.getWidth() / 4));
+      lanes.removeFromLeft(10);
+      laneAdd.setBounds(left.removeFromBottom(26));
+      left.removeFromBottom(6);
+      const int rowH = juce::jlimit(18, 26, left.getHeight() / ld::kSceneLanes);
+      for (int i = 0; i < ld::kSceneLanes; ++i) {               // the list: a click opens a movement in the editor
+        auto row = left.removeFromTop(rowH).reduced(0, 1);
+        laneClear[i].setBounds(row.removeFromRight(54));
+        row.removeFromRight(4);
         laneArea[i] = row;
       }
+      auto tools = lanes.removeFromTop(24);
+      for (auto& b : shapeBtn) { b.setBounds(tools.removeFromLeft(64)); tools.removeFromLeft(4); }
+      lanes.removeFromTop(6);
+      laneEdit = lanes;
     } else {
       auto a = r;
       auto line1 = a.removeFromTop(28);
@@ -1458,6 +1594,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     a.removeFromRight(10);
     browseArea = col;
     col.removeFromTop(20);                                      // the title, painted
+    listenBtn.setBounds(col.removeFromTop(24));
+    col.removeFromTop(4);
     auto put = col.removeFromBottom(26);
     const int pw = (put.getWidth() - 7 * 2) / 8;
     for (auto& b : putBtn) { b.setBounds(put.removeFromLeft(pw)); put.removeFromLeft(2); }
@@ -1487,19 +1625,20 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     g.setFont(juce::Font(juce::FontOptions(13.0f)));
     g.setColour(hover.isNotEmpty() ? col::silk : (message.isNotEmpty() ? col::yellow : col::muted));
     const juce::String hint = hover.isNotEmpty() ? hover : message.isNotEmpty() ? message
+        : ((tab == 0 || tab == 1) && soundView ? "EDIT SOUND is lit: this is the sound itself. Unlight it to get the grid back."
         : ((tab == 0 || tab == 1) && loopBar && !p.songMode() ? "LOOP BAR is lit: only the bar you have open plays. Unlight it to hear the whole groove."
         : (p.hostPlays() ? "The host leads: its play button, position and tempo."
            : (p.hostLeads() ? "The host stands still. PLAY here plays at the host's tempo; the host's own play button takes over."
-                            : "Own transport. Start your host's playback, or press PLAY.")));
+                            : "Own transport. Start your host's playback, or press PLAY."))));
     g.drawText(hint, getLocalBounds().reduced(10).removeFromBottom(18), juce::Justification::centredLeft, true);
 
     const juce::ScopedLock sl(p.lock());
-    if (tab == 0) paintGrid(g);
-    else if (tab == 1) paintRoll(g);
+    if (tab == 0 && !soundView) paintGrid(g);
+    else if (tab == 1 && !soundView) paintRoll(g);
     else if (tab == 2) paintPedals(g);
     else if (tab == 3) paintMixNames(g);
     else if (tab == 4) paintSong(g);
-    if ((tab == 0 || tab == 1) && browse) paintBrowser(g);
+    if ((tab == 0 || tab == 1) && browse && !soundView) paintBrowser(g);
   }
 
   int stepInScene() const {
@@ -1685,7 +1824,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
     g.setColour(col::muted);
     const juce::String who = tab == 0 ? "DRUM" : juce::String(kTrackNames[synth + 1]).toUpperCase();
-    g.drawText(who + " PATTERNS  -  click to listen", browseArea.withHeight(18), juce::Justification::centredLeft, true);
+    g.drawText(who + " PATTERNS", browseArea.withHeight(18), juce::Justification::centredLeft, true);
     g.drawText("PUT IN GROOVE", browseArea.getX(), putBtn[0].getY() - 18, browseArea.getWidth(), 16, juce::Justification::centredLeft, true);
   }
 
@@ -1748,34 +1887,146 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     }
     // what moves inside the groove that is open
     const int sc = scene();
-    const int pts = juce::jlimit(1, ld::kMaxBars, int(pr.scenes[sc].bars)) * 4;
+    const ld::Scene& scn = pr.scenes[sc];
+    const int bars = juce::jlimit(1, ld::kMaxBars, int(scn.bars)), pts = bars * 4;
     g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
     g.setColour(col::muted);
-    g.drawText(juce::String("KNOB MOVEMENTS IN GROOVE ") + kSceneNames[sc] + "  -  REC KNOBS writes them while it plays; draw here to change them",
+    g.drawText(juce::String("KNOB MOVEMENTS IN GROOVE ") + kSceneNames[sc] + "  -  add one from the list or with REC KNOBS, then draw its curve",
                laneTitle, juce::Justification::centredLeft, true);
+    int count = 0;
     for (int i = 0; i < ld::kSceneLanes; ++i) {
-      const ld::SceneLane& ln = pr.scenes[sc].lanes[i];
+      const ld::SceneLane& ln = scn.lanes[i];
       const auto area = laneArea[i].toFloat();
-      g.setColour(col::recess);
+      const bool sel = i == laneSel && ln.paramId >= 0;
+      g.setColour(sel ? col::orange.withAlpha(0.85f) : col::recess);
       g.fillRoundedRectangle(area, 3.0f);
       if (ln.paramId < 0) continue;
+      ++count;
+      g.setColour(sel ? col::ink : col::silk);
+      g.setFont(juce::Font(juce::FontOptions(12.5f, sel ? juce::Font::bold : juce::Font::plain)));
+      g.drawText(laneName(ln), laneArea[i].reduced(6, 0), juce::Justification::centredLeft, true);
+    }
+    // the big editor for the one that is selected
+    const auto ed = laneEdit.toFloat();
+    g.setColour(juce::Colour(0xff0d0f10));
+    g.fillRoundedRectangle(ed, 5.0f);
+    const ld::SceneLane* open = laneSel >= 0 && laneSel < ld::kSceneLanes && scn.lanes[laneSel].paramId >= 0 ? &scn.lanes[laneSel] : nullptr;
+    if (open == nullptr) {
+      g.setColour(col::muted);
+      g.setFont(juce::Font(juce::FontOptions(14.0f)));
+      g.drawFittedText(count == 0 ? "No knob moves in this groove yet.\nADD A MOVEMENT picks a control from a list; REC KNOBS (top right) records one while you turn it."
+                                  : "Click a movement in the list on the left to open it here.",
+                       laneEdit.reduced(20), juce::Justification::centred, 3);
+      return;
+    }
+    const float x0 = ed.getX() + 8.0f, w = ed.getWidth() - 16.0f, y0 = ed.getY() + 20.0f, h = ed.getHeight() - 30.0f;
+    for (int q = 0; q <= 4; ++q) {                              // quarter lines of the control's range
+      g.setColour(juce::Colours::white.withAlpha(q == 0 || q == 4 ? 0.16f : 0.07f));
+      g.fillRect(x0, y0 + h * float(q) / 4.0f, w, 1.0f);
+    }
+    g.setFont(juce::Font(juce::FontOptions(10.5f, juce::Font::bold)));
+    for (int pt = 0; pt <= pts; ++pt) {                         // a line per beat, a stronger one per bar
+      const float px = x0 + w * float(pt) / float(pts);
+      const bool barLine = pt % 4 == 0;
+      if (!barLine && pts > 32) continue;
+      g.setColour(juce::Colours::white.withAlpha(barLine ? 0.22f : 0.07f));
+      g.fillRect(px, y0, 1.0f, h);
+      if (barLine && pt < pts) { g.setColour(col::muted); g.drawText(juce::String(pt / 4 + 1), int(px) + 3, int(ed.getY()) + 3, 30, 14, juce::Justification::centredLeft, false); }
+    }
+    juce::Path curve, fill;
+    for (int pt = 0; pt <= pts; ++pt) {
+      const float px = x0 + w * float(pt) / float(pts), py = y0 + h * (1.0f - autoToUnit(open->paramId, open->points[pt]));
+      if (pt == 0) { curve.startNewSubPath(px, py); fill.startNewSubPath(px, y0 + h); fill.lineTo(px, py); } else { curve.lineTo(px, py); fill.lineTo(px, py); }
+    }
+    fill.lineTo(x0 + w, y0 + h);
+    fill.closeSubPath();
+    g.setColour(col::orange.withAlpha(0.18f));
+    g.fillPath(fill);
+    g.setColour(col::orange);
+    g.strokePath(curve, juce::PathStrokeType(2.2f));
+    if (pts <= 64)
+      for (int pt = 0; pt <= pts; ++pt)
+        g.fillEllipse(x0 + w * float(pt) / float(pts) - 3.0f, y0 + h * (1.0f - autoToUnit(open->paramId, open->points[pt])) - 3.0f, 6.0f, 6.0f);
+    if (e.isPlaying() && e.currentScene() == sc && e.currentStep() >= 0) {
+      g.setColour(juce::Colours::white.withAlpha(0.8f));
+      g.fillRect(x0 + w * float(e.currentStep()) / float(pts * 4), y0, 1.5f, h);
+    }
+    // the value under the mouse, in the control's own unit
+    const auto at = getMouseXYRelative();
+    if (laneEdit.contains(at)) {
+      const int pt = juce::jlimit(0, pts, int(std::floor((float(at.x) - x0) * float(pts) / w + 0.5f)));
+      float lo = 0.0f, hi = 1.0f;
+      autoRange(open->paramId, lo, hi);
+      const float v = open->points[pt];
+      const juce::String shown = hi - lo > 20.0f ? juce::String(juce::roundToInt(v)) : (lo == 0.0f && hi == 1.0f ? juce::String(juce::roundToInt(v * 100.0f)) + " %" : juce::String(v, 2));
       g.setColour(col::silk);
-      g.setFont(juce::Font(juce::FontOptions(12.5f)));
-      g.drawText(laneName(ln), laneArea[i].getX() - 190, laneArea[i].getY(), 184, laneArea[i].getHeight(), juce::Justification::centredLeft, true);
-      g.setColour(col::line);
-      for (int b = 4; b < pts; b += 4) g.fillRect(area.getX() + area.getWidth() * float(b) / float(pts), area.getY(), 1.0f, area.getHeight());
-      juce::Path curve;
-      for (int pt = 0; pt <= pts; ++pt) {
-        const float px = area.getX() + area.getWidth() * float(pt) / float(pts);
-        const float py = area.getBottom() - 2.0f - autoToUnit(ln.paramId, ln.points[pt]) * (area.getHeight() - 4.0f);
-        if (pt == 0) curve.startNewSubPath(px, py); else curve.lineTo(px, py);
+      g.drawText("bar " + juce::String(pt / 4 + 1) + ", beat " + juce::String(pt % 4 + 1) + ":  " + shown, laneEdit.reduced(10, 3), juce::Justification::topRight, false);
+    }
+  }
+
+  // ADD A MOVEMENT: every control that can move inside a groove, track by track.
+  void showMovementMenu() {
+    juce::PopupMenu m;
+    {
+      const juce::ScopedLock sl(p.lock());
+      const ld::Project& pr = p.session().project();
+      const int used = 1 + juce::jlimit(1, ld::kNumSynths, int(pr.activeSynths));
+      for (int t = 0; t < used; ++t) {
+        juce::PopupMenu sub;
+        sub.addSectionHeader("Mixer");
+        for (const auto& a : kAutoParams) if (!ld::isSynthParam(a.pid)) sub.addItem(1 + a.pid * 8 + t, a.name);
+        if (t > 0) {
+          sub.addSectionHeader("Sound");
+          for (const auto& a : kAutoParams) if (ld::isSynthParam(a.pid)) sub.addItem(1 + a.pid * 8 + (t - 1), a.name);
+        }
+        bool any = false;
+        for (int slot = 0; slot < ld::kFxSlots; ++slot) {
+          const ld::FxSlot& fs = pr.fx[t].slots[slot];
+          const PedalSpec* sp = pedalSpec(int(fs.type));
+          if (!sp) continue;
+          if (!any) { sub.addSectionHeader("Pedals"); any = true; }
+          for (int k = 0; k < 5; ++k) {
+            const char* name = knobName(*sp, juce::jlimit(0, 3, int(fs.voice)), k);
+            if (name[0]) sub.addItem(1 + ld::fxSlotParamId(slot, k) * 8 + t, juce::String(slot + 1) + " " + sp->name + ": " + name);
+          }
+        }
+        m.addSubMenu(kTrackNames[t], sub);
       }
-      g.setColour(col::orange);
-      g.strokePath(curve, juce::PathStrokeType(2.0f));
-      if (e.isPlaying() && e.currentScene() == sc && e.currentStep() >= 0) {
-        g.setColour(juce::Colours::white.withAlpha(0.7f));
-        g.fillRect(area.getX() + area.getWidth() * float(e.currentStep()) / float(pts * 4), area.getY(), 1.5f, area.getHeight());
-      }
+    }
+    m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&laneAdd), [this](int r) {
+      if (r <= 0) return;
+      const int pid = (r - 1) / 8, index = (r - 1) % 8;
+      const juce::ScopedLock sl(p.lock());
+      ld::Session& s = p.session();
+      int lane = s.findLane(scene(), pid, index);
+      if (lane < 0) lane = s.writeLanePoint(scene(), pid, index, 0, s.getParam(pid, index));   // a new one starts flat, as the knob stands
+      if (lane < 0) { message = "This groove already has " + juce::String(ld::kSceneLanes) + " knob movements. CLEAR one first."; return; }
+      laneSel = lane;
+      message = "Now draw the curve on the right, or press RISE, FALL, HILL or STEPS.";
+    });
+  }
+
+  // One of the ready shapes over the whole groove, between the lowest and highest value the curve has now
+  // (or the control's whole range if it is flat).
+  void laneShape(int shape) {
+    const juce::ScopedLock sl(p.lock());
+    ld::Session& s = p.session();
+    const int sc = scene();
+    if (laneSel < 0 || laneSel >= ld::kSceneLanes) return;
+    const ld::SceneLane ln = s.project().scenes[sc].lanes[laneSel];
+    if (ln.paramId < 0) return;
+    const int pts = juce::jlimit(1, ld::kMaxBars, int(s.project().scenes[sc].bars)) * 4;
+    float lo = 1.0f, hi = 0.0f;
+    for (int pt = 0; pt <= pts; ++pt) { const float u = autoToUnit(ln.paramId, ln.points[pt]); lo = juce::jmin(lo, u); hi = juce::jmax(hi, u); }
+    if (hi - lo < 0.05f) { lo = 0.0f; hi = 1.0f; }
+    for (int pt = 0; pt <= pts; ++pt) {
+      const float t = float(pt) / float(pts);
+      float u = autoToUnit(ln.paramId, s.getParam(ln.paramId, ln.index));           // FLAT: where the knob itself stands
+      if (shape == 1) u = lo + (hi - lo) * t;
+      else if (shape == 2) u = hi - (hi - lo) * t;
+      else if (shape == 3) u = lo + (hi - lo) * (1.0f - std::abs(2.0f * t - 1.0f));
+      else if (shape == 4) u = lo + (hi - lo) * float((pt / 4) % 2);               // bar by bar: low, high, low, high
+      s.writeLanePoint(sc, ln.paramId, ln.index, pt, autoFromUnit(ln.paramId, u), pt == 0);
     }
   }
 
@@ -1798,7 +2049,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   }
 
   // ---- mouse on the grids ----
-  // Drawing in a lane: the point under the mouse takes the height of the mouse.
+  // Drawing in the big editor: the points the mouse passes over take its height.
   void drawLane(const juce::MouseEvent& ev, bool first) {
     if (laneDrag < 0) return;
     const juce::ScopedLock sl(p.lock());
@@ -1806,10 +2057,16 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     const ld::SceneLane ln = p.session().project().scenes[sc].lanes[laneDrag];
     if (ln.paramId < 0) return;
     const int pts = juce::jlimit(1, ld::kMaxBars, int(p.session().project().scenes[sc].bars)) * 4;
-    const auto area = laneArea[laneDrag];
-    const int pt = juce::jlimit(0, pts, int(std::floor(float(ev.x - area.getX()) * float(pts) / float(juce::jmax(1, area.getWidth())) + 0.5f)));
-    const float u = 1.0f - float(ev.y - area.getY() - 2) / float(juce::jmax(1, area.getHeight() - 4));
-    p.session().writeLanePoint(sc, ln.paramId, ln.index, pt, autoFromUnit(ln.paramId, u), first);
+    const float x0 = float(laneEdit.getX()) + 8.0f, w = float(laneEdit.getWidth()) - 16.0f, y0 = float(laneEdit.getY()) + 20.0f, h = float(laneEdit.getHeight()) - 30.0f;
+    const int pt = juce::jlimit(0, pts, int(std::floor((float(ev.x) - x0) * float(pts) / juce::jmax(1.0f, w) + 0.5f)));
+    const float u = juce::jlimit(0.0f, 1.0f, 1.0f - (float(ev.y) - y0) / juce::jmax(1.0f, h));
+    if (first || lastLanePt < 0) { lastLanePt = pt; lastLaneVal = u; }
+    const int from = juce::jmin(lastLanePt, pt), to = juce::jmax(lastLanePt, pt);
+    for (int q = from; q <= to; ++q) {                          // a fast stroke leaves no gaps
+      const float t = to == from ? 1.0f : float(q - lastLanePt) / float(pt - lastLanePt);
+      p.session().writeLanePoint(sc, ln.paramId, ln.index, q, autoFromUnit(ln.paramId, lastLaneVal + (u - lastLaneVal) * t), first && q == from);
+    }
+    lastLanePt = pt; lastLaneVal = u;
   }
   void mouseDrag(const juce::MouseEvent& ev) override { if (tab == 4 && laneDrag >= 0) { drawLane(ev, false); repaint(); } }
   void mouseUp(const juce::MouseEvent& ev) override {
@@ -1841,7 +2098,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     }
     if (tab == 4) {
       for (size_t c = 0; c < songRects.size(); ++c) if (songRects[c].contains(ev.getPosition())) { songSel = int(c); songDragFrom = int(c); repaint(); return; }
-      for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(ev.getPosition())) { laneDrag = i; drawLane(ev, true); repaint(); return; }
+      for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(ev.getPosition())) { laneSel = i; repaint(); return; }
+      if (laneEdit.contains(ev.getPosition())) { laneDrag = laneSel; lastLanePt = -1; drawLane(ev, true); repaint(); }
       return;
     }
     const bool strong = accent || ev.mods.isRightButtonDown() || ev.mods.isShiftDown();
@@ -1877,6 +2135,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       const juce::var v = c->getProperties()["help"];
       if (!v.isVoid()) return v.toString();
       if (c == &live) return live.helpAt(live.getMouseXYRelative());
+      if (c == &sound) return sound.helpAt(sound.getMouseXYRelative());
     }
     if (under != this) return {};
     const auto at = getMouseXYRelative();
@@ -1888,7 +2147,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     }
     if (tab == 4) {
       for (const auto& r : songRects) if (r.contains(at)) return "A block of the song. Click selects it, drag moves it, a double-click opens its groove for editing.";
-      for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(at)) return "A knob movement inside this groove, one value per beat. Draw with the mouse to change it.";
+      for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(at)) return "A knob movement in this groove. A click opens it in the editor on the right.";
+      if (laneEdit.contains(at)) return "The movement over the length of the groove: one point per beat, top is the control's highest value. Draw with the mouse.";
     }
     return {};
   }
@@ -1927,6 +2187,9 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       s.engine().setLoopBar(onGrid && loopBar && !s.previewing() && !live.isVisible() ? bar : -1);
       barPaste.setEnabled(barClip != nullptr);
       if (live.isVisible()) live.tick();
+      if (sound.isVisible()) { sound.setTarget(tab == 0, pad, synth); sound.tick(); }
+      soundBtn.setToggleState(soundView, juce::dontSendNotification);
+      listenBtn.setToggleState(listenOn, juce::dontSendNotification);
       loopBtn.setToggleState(loopBar, juce::dontSendNotification);
       barAdd.setEnabled(bars < ld::kMaxBars); barDel.setEnabled(bars > 1); barDouble.setEnabled(bars < ld::kMaxBars);
       browseBtn.setToggleState(browse, juce::dontSendNotification);
@@ -1962,7 +2225,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
 
       if (tab == 0) {
         const int kit = juce::jlimit(0, 9, int(s.getParam(ld::P_DRUM_ENGINE, 0) + 0.5f));
-        kitBox.setSelectedId(kit + 1, juce::dontSendNotification);
+        if (kitBox.getSelectedId() != (libKit >= 100 ? libKit : kit + 1)) kitBox.setSelectedId(libKit >= 100 ? libKit : kit + 1, juce::dontSendNotification);
         for (int i = 0; i < 8; ++i) padBtn[i].setButtonText(kit == 4 ? "Slice " + juce::String(i + 1) : juce::String(kPadNames[i]));
         hardness->setVisible(kit != 4);
         hardness->refresh();
@@ -1970,8 +2233,11 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         padVol->setLabel(who + " volume"); padPitch->setLabel(who + " pitch"); padDecay->setLabel(who + " decay"); padPan->setLabel(who + " pan");
         for (auto* b : {padVol.get(), padPitch.get(), padDecay.get(), padPan.get()}) { b->setIndex(pad); b->refresh(); }
       } else if (tab == 1) {
-        instBox.setSelectedId(1 + juce::jlimit(0, 7, int(s.getParam(ld::P_SYN_INSTRUMENT, synth) + 0.5f)), juce::dontSendNotification);
-        engineBox.setSelectedId(1 + juce::jlimit(0, 3, int(s.getParam(ld::P_SYN_MODE, synth) + 0.5f)), juce::dontSendNotification);
+        {
+          const int want = libInst[synth] >= 100 ? libInst[synth] : 1 + juce::jlimit(0, 7, int(s.getParam(ld::P_SYN_INSTRUMENT, synth) + 0.5f));
+          if (instBox.getSelectedId() != want) instBox.setSelectedId(want, juce::dontSendNotification);
+        }
+        engineBox.setSelectedId(1 + juce::jlimit(0, ld::kNumSynthModes - 1, int(s.getParam(ld::P_SYN_MODE, synth) + 0.5f)), juce::dontSendNotification);
         for (auto* b : synthBars) { b->setIndex(synth); b->refresh(); }
       } else if (tab == 2) {
         fxTrack = juce::jlimit(0, nSynths, fxTrack);
@@ -2021,7 +2287,12 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         songPlayBtn.setToggleState(p.songMode(), juce::dontSendNotification);
         songEndBtn.setButtonText(p.songLoop() ? "AFTER THE END: START OVER" : "AFTER THE END: SILENCE");
         songRemove.setEnabled(s.project().chainLen > 1);
+        bool openOne = false;
         for (int i = 0; i < ld::kSceneLanes; ++i) laneClear[i].setVisible(s.project().scenes[sc].lanes[i].paramId >= 0);
+        if (laneSel < 0 || laneSel >= ld::kSceneLanes || s.project().scenes[sc].lanes[laneSel].paramId < 0)      // open the first one there is
+          for (int i = 0; i < ld::kSceneLanes; ++i) if (s.project().scenes[sc].lanes[i].paramId >= 0) { laneSel = i; break; }
+        openOne = laneSel >= 0 && laneSel < ld::kSceneLanes && s.project().scenes[sc].lanes[laneSel].paramId >= 0;
+        for (auto& b : shapeBtn) b.setEnabled(openOne);
       } else {
         tempoBtn.setVisible(libKind == 0);
       }

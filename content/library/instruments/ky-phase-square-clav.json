@@ -1,0 +1,39 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Phase Square Clav",
+  "style": "keys & chords",
+  "comment": "Square-bent and snappy: a digital clavinet for funky sixteenth lines.",
+  "engine": "phase",
+  "osc1": "square",
+  "detune": 3.0,
+  "cutoff": 6500.0,
+  "res": 1.5,
+  "attack": 0.001,
+  "decay": 0.2,
+  "sustain": 0.25,
+  "release": 0.06,
+  "level": 0.75,
+  "fm": {
+    "ratio": 2.0,
+    "index": 6.0,
+    "decay": 0.12,
+    "feedback": 0.3
+  },
+  "warmth": 0.5,
+  "motion": 0.15,
+  "octave": 0,
+  "track": {
+    "level": 0.8,
+    "delay": 0.08,
+    "reverb": 0.1,
+    "fx": [
+      {
+        "type": "wah",
+        "amount": 0.3,
+        "rate": 0.3,
+        "sync": true
+      }
+    ]
+  }
+}

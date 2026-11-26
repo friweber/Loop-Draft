@@ -1,0 +1,39 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Phase Resonant Digital",
+  "style": "bass",
+  "comment": "The resonant shape swept by each note: a bright digital bass with a built-in filter sweep.",
+  "engine": "phase",
+  "osc1": "triangle",
+  "detune": 4.0,
+  "cutoff": 6000.0,
+  "res": 0.8,
+  "attack": 0.002,
+  "decay": 0.3,
+  "sustain": 0.6,
+  "release": 0.08,
+  "level": 0.8,
+  "fm": {
+    "ratio": 3.0,
+    "index": 6.0,
+    "decay": 0.22,
+    "feedback": 0.15
+  },
+  "warmth": 0.45,
+  "motion": 0.2,
+  "octave": -1,
+  "slideTime": 0.06,
+  "track": {
+    "level": 0.8,
+    "delay": 0.1,
+    "reverb": 0.05,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.4,
+        "rate": 0.3
+      }
+    ]
+  }
+}

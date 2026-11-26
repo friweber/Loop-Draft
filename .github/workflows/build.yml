@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, sound]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', 'plugin/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -314,6 +314,10 @@ jobs:
           for t in 0 1 2 3 4 5; do
             LOOPMASTER_TAB=$t LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/tab$t.png" "report/standalone$t.log" || true
+          done
+          for snd in "0:1:drumsound" "1:1:synth-analog" "1:5:synth-unison" "1:7:synth-phase"; do
+            LOOPMASTER_TAB=${snd%%:*} LOOPMASTER_SOUND=$(echo $snd | cut -d: -f2) LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
+              "$A/Standalone/Loop Master" "report/${snd##*:}.png" "report/${snd##*:}.log" || true
           done
           LOOPMASTER_LIVE=1 LOOPMASTER_TAB=0 LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
             "$A/Standalone/Loop Master" "report/live.png" "report/live.log" || true

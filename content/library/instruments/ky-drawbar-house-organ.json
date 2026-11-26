@@ -1,0 +1,40 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Drawbar House Organ",
+  "style": "keys & chords",
+  "comment": "The classic house organ stab and bass: hollow, with a hard percussive ping.",
+  "engine": "organ",
+  "cutoff": 7000.0,
+  "res": 0.7,
+  "attack": 0.002,
+  "decay": 0.3,
+  "sustain": 0.75,
+  "release": 0.08,
+  "level": 0.8,
+  "vector": {
+    "x": 0.35,
+    "y": 0.7
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 5.0,
+    "decay": 0.12,
+    "feedback": 0.0
+  },
+  "warmth": 0.5,
+  "motion": 0.2,
+  "octave": 0,
+  "track": {
+    "level": 0.8,
+    "delay": 0.12,
+    "reverb": 0.15,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.15,
+        "rate": 0.5
+      }
+    ]
+  }
+}

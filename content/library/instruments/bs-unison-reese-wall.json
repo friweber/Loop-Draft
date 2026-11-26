@@ -1,0 +1,42 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "BS - Unison Reese Wall",
+  "style": "bass",
+  "comment": "A slow-beating wall of low saws with a clean sub underneath, for drum and bass.",
+  "engine": "unison",
+  "osc1": "saw",
+  "detune": 14.0,
+  "cutoff": 900.0,
+  "res": 2.2,
+  "attack": 0.005,
+  "decay": 0.6,
+  "sustain": 0.9,
+  "release": 0.15,
+  "level": 0.8,
+  "lfo": {
+    "target": "cutoff",
+    "rate": 0.4,
+    "depth": 0.3
+  },
+  "vector": {
+    "x": 0.8,
+    "y": 0.8
+  },
+  "warmth": 0.7,
+  "motion": 0.25,
+  "octave": -1,
+  "slideTime": 0.09,
+  "track": {
+    "level": 0.8,
+    "delay": 0.0,
+    "reverb": 0.05,
+    "fx": [
+      {
+        "type": "compressor",
+        "amount": 0.5,
+        "rate": 0.3
+      }
+    ]
+  }
+}

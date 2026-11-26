@@ -1,0 +1,46 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "KY - Drawbar Full Gospel",
+  "style": "keys & chords",
+  "comment": "All drawbars out: a big bright organ for chords.",
+  "engine": "organ",
+  "cutoff": 9000.0,
+  "res": 0.7,
+  "attack": 0.005,
+  "decay": 0.5,
+  "sustain": 0.95,
+  "release": 0.12,
+  "level": 0.7,
+  "vector": {
+    "x": 0.85,
+    "y": 0.1
+  },
+  "fm": {
+    "ratio": 2.0,
+    "index": 2.0,
+    "decay": 0.2,
+    "feedback": 0.0
+  },
+  "warmth": 0.6,
+  "motion": 0.45,
+  "octave": 0,
+  "chord": true,
+  "track": {
+    "level": 0.8,
+    "delay": 0.05,
+    "reverb": 0.3,
+    "fx": [
+      {
+        "type": "chorus",
+        "amount": 0.5,
+        "rate": 0.55
+      },
+      {
+        "type": "overdrive",
+        "amount": 0.2,
+        "rate": 0.5
+      }
+    ]
+  }
+}

@@ -58,7 +58,7 @@ Every key is optional. What you leave out gets the neutral default, not the valu
 | Key | Values | Default |
 |---|---|---|
 | `preset` | start from a built-in sound, then override: `Analog Bass`, `Acid 303`, `Reese DnB`, `FM Bell`, `FM E-Piano`, `Super Pad`, `Pluck Lead` | none |
-| `engine` | `subtractive`, `fm`, `pluck`, `vector` | subtractive |
+| `engine` | `subtractive`, `fm`, `pluck`, `vector`, `unison`, `organ`, `phase` (see below) | subtractive |
 | `osc1`, `osc2` | `saw`, `square`, `triangle`, `sine` | saw, triangle |
 | `detune` | -50 .. 50 cents (oscillator 2) | 7 |
 | `cutoff` | 60 .. 12000 Hz | 1800 |
@@ -82,6 +82,16 @@ Every key is optional. What you leave out gets the neutral default, not the valu
 | `warmth`, `motion` | 0 .. 1 | 0.5, 0.3 |
 | `octave` | -2 .. 2, relative to the project octave | 0 |
 | `chord` | `true`: every note plays as a triad from the scale | false |
+
+The three newer engines reuse the same keys with their own meaning:
+
+- `unison` (seven detuned saws and a sub): `osc1` `saw` or `square` for the whole stack, `detune` is the spread,
+  `vector.x` how much of the six outer voices, `vector.y` the level of the sub.
+- `organ` (drawbar harmonics): `vector.x` from the low drawbars only to all of them, `vector.y` takes the even
+  harmonics out, `fm.index` is the percussion ping and `fm.decay` its length.
+- `phase` (phase distortion): `osc1` is the shape the sine is bent towards (`saw`, `square`, `triangle` = resonant,
+  `sine` = pulse), `fm.index` how far, `fm.decay` how fast that fades in each note, `fm.feedback` how much of it
+  stays, `fm.ratio` how high the resonant shape sweeps.
 
 `track` (the mixer strip), all optional:
 

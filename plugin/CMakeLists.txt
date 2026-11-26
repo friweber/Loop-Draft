@@ -6,7 +6,7 @@
 # JUCE is fetched at configure time. It is dual-licensed: AGPLv3, or the JUCE licence (free "Starter" tier).
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Oldest macOS the plugin runs on")
-project(LoopMaster VERSION 0.5.0 LANGUAGES C CXX)
+project(LoopMaster VERSION 0.6.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

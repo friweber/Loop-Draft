@@ -14,7 +14,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = buildNumber
-        versionName = "0.14.$buildNumber"
+        versionName = "0.15.$buildNumber"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }   // x86_64 is for the emulator test on GitHub
         externalNativeBuild {
             cmake {

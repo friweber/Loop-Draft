@@ -43,6 +43,18 @@ The builds are not signed. On macOS, remove the download mark once after copying
 - **Song**: the SONG page is the timeline: blocks of grooves in a row, as wide as they are long. With PLAY THE SONG
   lit and FOLLOW HOST on, the song is tied to the host's bars from bar 1: wherever the host plays, that part of the
   song sounds. After the last block it is silent, or starts over (AFTER THE END).
+- **Sounds**: the lists on DRUMS and SYNTH hold the basic kits and sounds and everything in the library. EDIT SOUND
+  swaps the grid for the sound itself.
+  - SYNTH: seven synths, each with its own panel. The row on top is the shelf; a click puts another one on the
+    table: Analog (two oscillators and a filter), FM Two, String (plucked), Vector (four sources, blended), Unison
+    (seven detuned saws and a sub), Drawbar (organ) and Phase (phase distortion).
+  - DRUMS: the selected pad (volume, pan, pitch, decay, reverse, choke), a drum built from scratch (six starting
+    points and eleven knobs), and the **break machine** for jungle and breakbeat: it cuts a breakbeat (the built-in
+    one, a WAV of yours, or this groove's own drums) into eight slices, one per pad. WRITE BREAK puts the slices
+    into the grid in their original order as a starting point.
+- **Patterns**: a click in the pattern list selects. Only while LISTEN is lit does a click also play.
+- **Knob movements**: besides REC KNOBS, ADD A MOVEMENT on the SONG page picks any control from a list. The selected
+  movement opens in a large editor: draw it, or use FLAT, RISE, FALL, HILL, STEPS.
 - **Help**: point at any control and the line at the bottom of the window says what it does. MENU > Guide shows
   a few numbered steps for the page you are on (it opens by itself the first time).
 - **Boards** (PEDALS): ready-made pedal chains for drums, bass and synths. MENU > Fewer pedal controls hides the

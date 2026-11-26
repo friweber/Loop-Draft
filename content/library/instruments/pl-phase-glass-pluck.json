@@ -1,0 +1,32 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "PL - Phase Glass Pluck",
+  "style": "pluck & arp",
+  "comment": "A short pulse-bent pluck that starts bright and turns into a pure sine. Arpeggios and sequences.",
+  "engine": "phase",
+  "osc1": "sine",
+  "detune": 6.0,
+  "cutoff": 8000.0,
+  "res": 0.8,
+  "attack": 0.001,
+  "decay": 0.28,
+  "sustain": 0.0,
+  "release": 0.2,
+  "level": 0.75,
+  "fm": {
+    "ratio": 2.0,
+    "index": 7.0,
+    "decay": 0.09,
+    "feedback": 0.0
+  },
+  "warmth": 0.35,
+  "motion": 0.3,
+  "octave": 1,
+  "track": {
+    "level": 0.8,
+    "delay": 0.3,
+    "reverb": 0.3,
+    "fx": []
+  }
+}

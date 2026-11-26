@@ -1,0 +1,47 @@
+{
+  "kind": "instrument",
+  "format": 1,
+  "name": "LD - Unison Hoover Stack",
+  "style": "lead & acid",
+  "comment": "Square stack with a pitch wobble: the rave hoover. Play short stabs.",
+  "engine": "unison",
+  "osc1": "square",
+  "detune": 38.0,
+  "cutoff": 2600.0,
+  "res": 3.0,
+  "attack": 0.03,
+  "decay": 0.4,
+  "sustain": 0.7,
+  "release": 0.2,
+  "level": 0.7,
+  "lfo": {
+    "target": "pitch",
+    "rate": 5.5,
+    "depth": 0.18
+  },
+  "vector": {
+    "x": 1.0,
+    "y": 0.5
+  },
+  "fold": 0.15,
+  "warmth": 0.6,
+  "motion": 0.6,
+  "octave": 0,
+  "track": {
+    "level": 0.8,
+    "delay": 0.15,
+    "reverb": 0.2,
+    "fx": [
+      {
+        "type": "overdrive",
+        "amount": 0.35,
+        "rate": 0.5
+      },
+      {
+        "type": "phaser",
+        "amount": 0.3,
+        "rate": 0.2
+      }
+    ]
+  }
+}
