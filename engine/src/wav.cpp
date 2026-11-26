@@ -1,10 +1,13 @@
 #include <cstdio>
+#include "files.h"
 #include <cstring>
 
 #include "loopdraft/voices.h"
 
 #define DR_WAV_IMPLEMENTATION
+#ifndef _WIN32
 #define DR_WAV_NO_WCHAR
+#endif
 #include "dr_wav.h"
 
 namespace ld {
@@ -12,7 +15,11 @@ namespace ld {
 std::unique_ptr<Sample> loadWav(const char* path) {
   unsigned int channels = 0, rate = 0;
   drwav_uint64 frames = 0;
+#ifdef _WIN32
+  float* data = drwav_open_file_and_read_pcm_frames_f32_w(widePath(path).c_str(), &channels, &rate, &frames, nullptr);
+#else
   float* data = drwav_open_file_and_read_pcm_frames_f32(path, &channels, &rate, &frames, nullptr);
+#endif
   if (!data) return nullptr;
   auto s = std::make_unique<Sample>();
   if (channels >= 1 && frames >= 2 && rate > 0) {
@@ -31,7 +38,7 @@ std::unique_ptr<Sample> loadWav(const char* path) {
 }
 
 bool writeWav16(const char* path, const float* l, const float* r, size_t frames, double sampleRate) {
-  FILE* f = std::fopen(path, "wb");
+  FILE* f = openFile(path, "wb");
   if (!f) return false;
   const uint32_t sr = uint32_t(sampleRate), bytes = uint32_t(frames * 4);
   unsigned char h[44];

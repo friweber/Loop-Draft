@@ -107,6 +107,7 @@ class Engine {
   double stepLen() const { return sr_ * 60.0 / tempo() / 4.0; }
   void stopNow();
   void seekHost(double pos16);
+  bool hostAgrees() const;
 
   double sr_;
   SpscQueue<Cmd> cmds_{1024};

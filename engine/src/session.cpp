@@ -1,4 +1,5 @@
 #include "loopdraft/session.h"
+#include "files.h"
 #include "loopdraft/content.h"
 
 #include <memory>
@@ -761,7 +762,7 @@ bool Session::saveCopy(const char* path) const {
     const float* r = brk->r.size() == brk->l.size() ? brk->r.data() : brk->l.data();
     if (!writeWav16(breakPath(path).c_str(), brk->l.data(), r, brk->frames(), brk->rate)) return false;
   } else {
-    std::remove(breakPath(path).c_str());          // no stale audio from an earlier save under this name
+    removeFile(breakPath(path).c_str());          // no stale audio from an earlier save under this name
   }
   return writeProjectFile(path, proj_);
 }

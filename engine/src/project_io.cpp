@@ -7,6 +7,7 @@
 // Versions 1 (app build 5) and 4 (app build 7, v0.3) were raw copies of the Project struct. Their layouts
 // are frozen below so those files keep opening.
 #include <cstdio>
+#include "files.h"
 #include <cstring>
 #include <memory>
 #include <string>
@@ -299,7 +300,7 @@ bool readRecords(FILE* f, Project& p, bool needEnd) {
 
 bool writeProjectFile(const char* path, const Project& project) {
   const std::string tmp = std::string(path) + ".tmp";
-  FILE* f = std::fopen(tmp.c_str(), "wb");
+  FILE* f = openFile(tmp.c_str(), "wb");
   if (!f) return false;
   Project p = project;
   Writer w{f};
@@ -309,8 +310,8 @@ bool writeProjectFile(const char* path, const Project& project) {
   const unsigned char end[9] = {3, 0, 'e', 'n', 'd', 0, 0, 0, 0};
   w.ok = w.ok && std::fwrite(end, 1, sizeof(end), f) == sizeof(end);
   bool ok = (std::fclose(f) == 0) && w.ok;
-  if (ok) ok = std::rename(tmp.c_str(), path) == 0;                   // atomic: never leaves a half-written project
-  if (!ok) std::remove(tmp.c_str());
+  if (ok) ok = renameFile(tmp.c_str(), path);                   // atomic: never leaves a half-written project
+  if (!ok) removeFile(tmp.c_str());
   return ok;
 }
 
@@ -357,7 +358,7 @@ static bool readProjectStream(FILE* f, Project& out, bool* converted) {
 }
 
 bool readProjectFile(const char* path, Project& out, bool* converted) {
-  FILE* f = std::fopen(path, "rb");
+  FILE* f = openFile(path, "rb");
   if (!f) return false;
   const bool ok = readProjectStream(f, out, converted);
   std::fclose(f);
@@ -373,7 +374,16 @@ const unsigned char kStartPreset[] = {
 
 Project makeStartProject() {
   Project p;
+#ifdef _WIN32
+  FILE* f = nullptr;                              // no fmemopen there: the bytes go through a temporary file
+  if (tmpfile_s(&f) != 0) f = nullptr;
+  if (f) {
+    if (std::fwrite(kStartPreset, 1, sizeof(kStartPreset), f) != sizeof(kStartPreset)) { std::fclose(f); f = nullptr; }
+    else std::rewind(f);
+  }
+#else
   FILE* f = fmemopen(const_cast<unsigned char*>(kStartPreset), sizeof(kStartPreset), "rb");
+#endif
   const bool ok = f && readProjectStream(f, p, nullptr);
   if (f) std::fclose(f);
   return ok ? p : makeDemoProject();

@@ -121,7 +121,6 @@ void Engine::processCommands() {
         trash_.push(Trash{true, proj_});
         proj_ = static_cast<Project*>(c.ptr);
         applyProject();
-        hostNext_ = -1;                             // lengths may have changed: the host position is looked up again
         break;
       case Cmd::SetSample:
         sampler_.stopPad(c.a);                      // no voice may keep pointing at the old sample
@@ -193,12 +192,32 @@ void Engine::hostTransport(bool playing, double quarterNotes, double bpm) {
   const int64_t expectNext = int64_t(std::ceil(pos - 1e-6));
   // Still in step with the host (one behind is a swung step that is due): only the timing is renewed, so nothing
   // drifts when the tempo moves. Otherwise the host jumped, looped or just started.
-  if (playing_ && hostNext_ >= 0 && (hostNext_ == expectNext || hostNext_ == expectNext - 1)) {
+  if (playing_ && hostNext_ >= 0 && (hostNext_ == expectNext || hostNext_ == expectNext - 1) && hostAgrees()) {
     stepBase_ = double(frame_) + (double(hostNext_) - pos) * sl;
     nextFire_ = std::llround(stepBase_ + double(swingOffset(proj_->swing, step_)) * sl);
     return;
   }
   seekHost(pos);
+}
+
+// Is the step that fires next the one the host's count stands for? Not after the scene got longer or shorter,
+// the song chain changed, or another scene took over.
+bool Engine::hostAgrees() const {
+  const Project& p = *proj_;
+  if (!songMode_) {
+    const int steps = sceneSteps(p.scenes[scene_]);
+    return int(((hostNext_ % steps) + steps) % steps) == step_;
+  }
+  int64_t total = 0;
+  for (int c = 0; c < p.chainLen; ++c) total += sceneSteps(p.scenes[p.chain[c]]);
+  if (total < 1) return false;
+  int64_t rel = ((hostNext_ % total) + total) % total;
+  for (int c = 0; c < p.chainLen; ++c) {
+    const int st = sceneSteps(p.scenes[p.chain[c]]);
+    if (rel < st) return c == chainPos_ && int(rel) == step_;
+    rel -= st;
+  }
+  return false;
 }
 
 void Engine::seekHost(double pos) {
