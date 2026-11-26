@@ -231,7 +231,7 @@ JNI(void, setParam)(JNIEnv*, jobject, jint id, jint index, jfloat v) { if (S()) 
 JNI(jint, toggleStep)(JNIEnv*, jobject, jint scene, jint pad, jint step, jboolean accent) {
   return S() ? S()->toggleDrumStep(scene, pad, step, accent == JNI_TRUE) : 0;
 }
-// 8 rows of 128 steps, row after row.
+// 8 rows of kMaxSteps (256) steps, row after row.
 JNI(jbyteArray, drumGrid)(JNIEnv* env, jobject, jint scene) {
   const jsize n = ld::kNumPads * ld::kMaxSteps;
   jbyteArray arr = env->NewByteArray(n);

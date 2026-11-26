@@ -362,7 +362,7 @@ struct SynthScreen: View {
                         let vel = findNoteVel(myNotes, step: st, deg: Int(deg))
                         let ghost = state.ghostAlpha > 0.05 ? findGhost(otherNotes, step: st, rowMidi: rowMidi) : nil
                         let kick = state.ghostDrums && state.ghostAlpha > 0.05 && st < drumBytes.count && drumBytes[st] > 0
-                        let snare = state.ghostDrums && state.ghostAlpha > 0.05 && (128 + st) < drumBytes.count && drumBytes[128 + st] > 0
+                        let snare = state.ghostDrums && state.ghostAlpha > 0.05 && (256 + st) < drumBytes.count && drumBytes[256 + st] > 0
                         let bg: Color = kick ? PAD_COLORS[0].opacity(min(0.24, state.ghostAlpha * 0.25)) : (snare ? PAD_COLORS[1].opacity(min(0.20, state.ghostAlpha * 0.20)) : skin.recess)
 
                         Button {
@@ -401,8 +401,8 @@ struct SynthScreen: View {
                     ForEach(0..<8, id: \.self) { col in
                         let st = page * 8 + col
                         let k = st < drumBytes.count && drumBytes[st] > 0
-                        let s = (128 + st) < drumBytes.count && drumBytes[128 + st] > 0
-                        let h = (3 * 128 + st) < drumBytes.count && drumBytes[3 * 128 + st] > 0
+                        let s = (256 + st) < drumBytes.count && drumBytes[256 + st] > 0
+                        let h = (3 * 256 + st) < drumBytes.count && drumBytes[3 * 256 + st] > 0
                         HStack(spacing: 2) {
                             if k { Circle().fill(PAD_COLORS[0]).frame(width: 6, height: 6) }
                             if s { Circle().fill(PAD_COLORS[1]).frame(width: 6, height: 6) }

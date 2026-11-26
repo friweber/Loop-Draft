@@ -1440,7 +1440,23 @@ static void testHostClockMidiAndOutputs() {
     CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 16);
     run(e, qn, 120.0, 2, false);                              // the host stops
     CHECK(!e.isPlaying());
-    e.play(0);                                                // the app's own PLAY does nothing while a host leads
+    qn = run(e, qn, 120.0, 4);                                // it plays again
+    e.stop(); e.play(2);                                      // our own buttons do nothing while the host plays
+    qn = run(e, qn, 120.0, 4);
+    CHECK(e.isPlaying()); CHECK_EQ(e.currentScene(), 0);
+    run(e, qn, 120.0, 2, false);
+    CHECK(!e.isPlaying());
+    e.play(0);                                                // the host stands still: PLAY starts our own transport, at the host's tempo
+    run(e, qn, 120.0, 30, false);
+    CHECK(e.isPlaying()); CHECK(e.currentStep() >= 0);
+    qn = run(e, 1.0, 120.0, 3);                               // the host starts: it leads again, from where it is
+    CHECK(e.isPlaying()); CHECK_EQ(e.currentStep(), 4);
+    run(e, qn, 120.0, 2, false);
+    CHECK(!e.isPlaying());
+    e.play(0);
+    run(e, qn, 120.0, 2, false);
+    CHECK(e.isPlaying());
+    e.stop();
     run(e, qn, 120.0, 2, false);
     CHECK(!e.isPlaying());
     e.hostTransportOff();

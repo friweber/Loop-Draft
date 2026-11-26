@@ -129,7 +129,8 @@ void Engine::processCommands() {
         user_[c.a] = static_cast<Sample*>(c.ptr);
         break;
       case Cmd::Play:
-        if (hostSync_) break;                       // the host decides
+        if (hostSync_ && hostPlaying_) break;       // the host decides while it plays; while it stands still, our own PLAY works
+        ownPlay_ = hostSync_;
         playing_ = true; step_ = 0; pending_ = -1;
         stepBase_ = double(frame_); nextFire_ = frame_;
         lastFire_ = std::numeric_limits<int64_t>::min() / 2;
@@ -139,7 +140,8 @@ void Engine::processCommands() {
         autoPos_ = chainPos_; autoScene_ = scene_; autoStart_ = frame_;
         break;
       case Cmd::Stop:
-        if (hostSync_) break;
+        if (hostSync_ && hostPlaying_) break;
+        ownPlay_ = false;
         stopNow();
         break;
       case Cmd::QueueScene:
@@ -183,11 +185,14 @@ void Engine::hostTransport(bool playing, double quarterNotes, double bpm) {
   hostSync_ = true;
   hostBpm_ = bpm >= 20.0 ? bpm : 0.0;
   if (tempo() != delayBpm_) { delayBpm_ = tempo(); delay_.setTime(sr_, 0.75 * 60.0 / delayBpm_); }
+  const bool was = hostPlaying_;
+  hostPlaying_ = playing;
   if (!playing) {
-    if (playing_) { stopNow(); aPlaying_.store(false, std::memory_order_relaxed); }
+    if (playing_ && (was || !ownPlay_)) { stopNow(); aPlaying_.store(false, std::memory_order_relaxed); }   // the host stopped; a PLAY of our own carries on
     hostNext_ = -1;
     return;
   }
+  ownPlay_ = false;
   const double sl = stepLen();
   const double pos = quarterNotes * 4.0;         // in sixteenths
   if (songMode_ && !aSongLoop_.load(std::memory_order_relaxed) && (pos < -1e-6 || pos >= double(songSteps()) - 1e-6)) {
@@ -292,7 +297,7 @@ void Engine::seekHost(double pos) {
 
 void Engine::hostTransportOff() {
   if (!hostSync_) return;
-  hostSync_ = false; hostBpm_ = 0.0; hostNext_ = -1;
+  hostSync_ = false; hostPlaying_ = false; ownPlay_ = false; hostBpm_ = 0.0; hostNext_ = -1;
   if (tempo() != delayBpm_) { delayBpm_ = tempo(); delay_.setTime(sr_, 0.75 * 60.0 / delayBpm_); }
 }
 
@@ -406,7 +411,7 @@ void Engine::fireStep() {
   if (step_ >= steps) {                         // end of the scene: loop, or move along the song chain
     step_ = 0;
     if (songMode_) {
-      if (hostSync_ && chainPos_ + 1 >= p.chainLen && !aSongLoop_.load(std::memory_order_relaxed)) {
+      if (hostSync_ && !ownPlay_ && chainPos_ + 1 >= p.chainLen && !aSongLoop_.load(std::memory_order_relaxed)) {
         stopNow();                              // the song is over; the host plays on without us
         aPlaying_.store(false, std::memory_order_relaxed);
         nextFire_ = std::numeric_limits<int64_t>::max() / 2;
@@ -425,6 +430,30 @@ void Engine::renderAudio(float* l, float* r, int n) {
   for (int s = 0; s < kNumSynths; ++s) effSynth[s] = p.synths[s];
   for (int t = 0; t < kNumTracks; ++t) effFx[t] = p.fx[t];
 
+  // Host automation: these values stand in for the project's own. The song's sweeps and a groove's knob movements
+  // come after, so where a groove moves a knob, that movement is what sounds.
+  float masterVal = p.master;
+  for (int i = 0; i < kMaxOverrides; ++i) {
+    const Override& o = ov_[i];
+    if (o.id < 0) continue;
+    const float v = o.value;
+    const auto unit = [](float x, float hi) { return x < 0.0f ? 0.0f : (x > hi ? hi : x); };
+    if (o.id == P_MASTER) { masterVal = unit(v, 1.0f); continue; }
+    if (o.index < 0) continue;
+    if (o.index < kNumTracks) {
+      switch (o.id) {
+        case P_FX_LEVEL:  effFx[o.index].level = unit(v, 1.0f); break;
+        case P_FX_DRIVE:  effFx[o.index].drive = unit(v, 1.0f); break;
+        case P_FX_DELAY:  effFx[o.index].delaySend = unit(v, 0.8f); break;
+        case P_FX_REVERB: effFx[o.index].revSend = unit(v, 0.8f); break;
+        default: break;
+      }
+    }
+    if (o.index < kNumSynths) {
+      if (o.id == P_SYN_CUTOFF) effSynth[o.index].cutoff = v < 60.0f ? 60.0f : (v > 12000.0f ? 12000.0f : v);
+      else if (o.id == P_SYN_RES) effSynth[o.index].res = v < 0.5f ? 0.5f : (v > 15.0f ? 15.0f : v);
+    }
+  }
   const auto clampF = [](float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); };
   // One automated value takes the place of the project's own. t: the track.
   const auto automate = [&](int t, int id, float lin) {
@@ -508,29 +537,6 @@ void Engine::renderAudio(float* l, float* r, int n) {
       const int t = isSynthParam(ln.paramId) ? 1 + ln.index : ln.index;
       if (t < 0 || t >= kNumTracks) continue;
       automate(t, ln.paramId, ln.points[b0] + fr * (ln.points[b0 + 1] - ln.points[b0]));
-    }
-  }
-  // Host automation: these values replace the project's own.
-  float masterVal = p.master;
-  for (int i = 0; i < kMaxOverrides; ++i) {
-    const Override& o = ov_[i];
-    if (o.id < 0) continue;
-    const float v = o.value;
-    const auto unit = [](float x, float hi) { return x < 0.0f ? 0.0f : (x > hi ? hi : x); };
-    if (o.id == P_MASTER) { masterVal = unit(v, 1.0f); continue; }
-    if (o.index < 0) continue;
-    if (o.index < kNumTracks) {
-      switch (o.id) {
-        case P_FX_LEVEL:  effFx[o.index].level = unit(v, 1.0f); break;
-        case P_FX_DRIVE:  effFx[o.index].drive = unit(v, 1.0f); break;
-        case P_FX_DELAY:  effFx[o.index].delaySend = unit(v, 0.8f); break;
-        case P_FX_REVERB: effFx[o.index].revSend = unit(v, 0.8f); break;
-        default: break;
-      }
-    }
-    if (o.index < kNumSynths) {
-      if (o.id == P_SYN_CUTOFF) effSynth[o.index].cutoff = v < 60.0f ? 60.0f : (v > 12000.0f ? 12000.0f : v);
-      else if (o.id == P_SYN_RES) effSynth[o.index].res = v < 0.5f ? 0.5f : (v > 15.0f ? 15.0f : v);
     }
   }
   for (int t = 0; t < kNumTracks; ++t) {

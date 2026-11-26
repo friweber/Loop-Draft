@@ -148,6 +148,7 @@ class Engine {
 
   // host clock (plugin)
   bool hostSync_ = false;
+  bool hostPlaying_ = false, ownPlay_ = false;   // with a host that stands still, PLAY starts our own transport
   double hostBpm_ = 0.0, delayBpm_ = 0.0;
   int64_t hostNext_ = -1;          // the host's count of sixteenths of the step that fires next; -1: find it again
   struct Override { int id = -1, index = 0; float value = 0.0f; };

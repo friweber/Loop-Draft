@@ -53,8 +53,14 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   juce::String importLibrary(const LibraryEntry& e, int scene, int synth, bool tempoAndKey);   // "" or what went wrong
   void setSongMode(bool on);
   bool songMode() const { return songMode_.load(); }
+  void setSongLoop(bool on);                           // with the host: start the song over after its end, or stay silent
+  bool songLoop() const { return songLoop_.load(); }
+  juce::String midiFolder;                             // where the pattern browser looks for .mid files (editor thread)
+  // The control the user is holding right now, so its movement can be written into the groove (editor thread).
+  struct Touch { int pid = -1, index = 0; float value = 0.0f; } touch;
   void setScene(int scene);                            // through the host parameter, so the host can record it
   bool hostLeads() const { return hostLeads_.load(); } // the host's transport and tempo are in charge right now
+  bool hostPlays() const { return hostPlays_.load(); } // ... and it is playing: our own PLAY waits
   double shownBpm() const { return shownBpm_.load(); }
   juce::RangedAudioParameter* hostParam(int paramId, int index) const;   // the host parameter for an engine control, or null
 
@@ -85,7 +91,7 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   std::atomic<float>* midiTrackRaw_ = nullptr;
   int lastScene_ = -1;
 
-  std::atomic<bool> songMode_{false}, hostLeads_{false};
+  std::atomic<bool> songMode_{false}, songLoop_{false}, hostLeads_{false}, hostPlays_{false};
   std::atomic<double> shownBpm_{120.0};
 
   std::vector<float> scratch_;                         // for track outputs the host did not connect

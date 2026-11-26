@@ -795,7 +795,7 @@ fun DrumGridAssembler(
                         val st = bar * 16 + stInBar
                         val isBeat = stInBar % 4 == 0
                         if (stInBar > 0 && isBeat) Spacer(Modifier.width(3.dp))
-                        val curV = grid[pad * 128 + st].toInt()
+                        val curV = grid[pad * 256 + st].toInt()
                         val isHead = s.playing && s.step == st
                         val beatGroupOdd = ((stInBar / 4) % 2) == 1
                         val emptyBg = if (beatGroupOdd) skin.recess else skin.recess.copy(alpha = 0.62f)
@@ -950,7 +950,7 @@ fun DrumsTab(s: AppState) {
                 for (col in 0 until 8) {
                     val stInBar = row * 8 + col
                     val st = bar * 16 + stInBar
-                    val curV = grid[s.selPad * 128 + st].toInt()
+                    val curV = grid[s.selPad * 256 + st].toInt()
                     Tr808StepButton(
                         stepInBar = stInBar,
                         vel = curV,
@@ -1332,8 +1332,8 @@ fun GhostPianoRoll(
                     }
 
                     // Drum beat column background guide (Kick / Snare pocket)
-                    val drumKick = s.ghostDrums && s.ghostAlpha > 0.05f && drumGrid[0 * 128 + st].toInt() > 0
-                    val drumSnare = s.ghostDrums && s.ghostAlpha > 0.05f && (drumGrid[1 * 128 + st].toInt() > 0 || drumGrid[2 * 128 + st].toInt() > 0)
+                    val drumKick = s.ghostDrums && s.ghostAlpha > 0.05f && drumGrid[0 * 256 + st].toInt() > 0
+                    val drumSnare = s.ghostDrums && s.ghostAlpha > 0.05f && (drumGrid[1 * 256 + st].toInt() > 0 || drumGrid[2 * 256 + st].toInt() > 0)
                     val baseBg = when {
                         drumKick -> PAD_ROW_COLORS[0].copy(alpha = (s.ghostAlpha * 0.24f).coerceIn(0.06f, 0.24f))
                         drumSnare -> PAD_ROW_COLORS[1].copy(alpha = (s.ghostAlpha * 0.20f).coerceIn(0.05f, 0.20f))
@@ -1429,9 +1429,9 @@ fun GhostPianoRoll(
                 SilkLabel("DRM", color = skin.primary, size = 8, mono = true, modifier = Modifier.width(30.dp))
                 for (col in 0 until 8) {
                     val st = page * 8 + col
-                    val kick = drumGrid[0 * 128 + st].toInt() > 0
-                    val snare = drumGrid[1 * 128 + st].toInt() > 0 || drumGrid[2 * 128 + st].toInt() > 0
-                    val hat = drumGrid[3 * 128 + st].toInt() > 0 || drumGrid[4 * 128 + st].toInt() > 0
+                    val kick = drumGrid[0 * 256 + st].toInt() > 0
+                    val snare = drumGrid[1 * 256 + st].toInt() > 0 || drumGrid[2 * 256 + st].toInt() > 0
+                    val hat = drumGrid[3 * 256 + st].toInt() > 0 || drumGrid[4 * 256 + st].toInt() > 0
                     val playhead = s.playing && s.step == st
                     Row(
                         Modifier

@@ -106,8 +106,14 @@ int main() {
     p.session().beginEdit();
     p.session().setDrumStep(0, 5, 3, 2);
     p.session().setParam(ld::P_BPM, 0, 97.0f);
+    p.session().setSceneBars(7, 16);                       // groove H, sixteen bars, a pedal in slot six, a knob movement
+    p.session().setDrumStep(7, 2, 255, 1);
+    p.session().setFxSlot(1, 5, int(ld::FxType::TapeEcho), 0.4f, 0.5f, false);
+    p.session().writeLanePoint(7, ld::fxSlotParamId(5, 2), 1, 64, 0.8f);
   }
   p.setSongMode(true);
+  p.setSongLoop(true);
+  p.midiFolder = "/somewhere/midi";
   juce::MemoryBlock state;
   p.getStateInformation(state);
   check(state.getSize() > 1000, "state is written");
@@ -120,6 +126,16 @@ int main() {
           "the host's session brings the project back");
   }
   check(q.songMode(), "song mode comes back");
+  check(q.songLoop() && q.midiFolder == "/somewhere/midi", "and so do the song's end and the MIDI folder");
+  {
+    const juce::ScopedLock sl(q.lock());
+    const ld::Project& pr = q.session().project();
+    check(pr.scenes[7].bars == 16 && pr.scenes[7].drums.steps[2][255] == 1, "groove H keeps its sixteen bars");
+    check(pr.fx[1].slots[5].type == ld::FxType::TapeEcho, "the sixth pedal slot is kept");
+    check(pr.scenes[7].lanes[0].paramId == ld::fxSlotParamId(5, 2) && pr.scenes[7].lanes[0].points[64] == 0.8f, "a knob movement inside a groove is kept");
+  }
+  if (auto* sc = dynamic_cast<juce::AudioParameterChoice*>(q.params.getParameter("scene")))
+    check(sc->choices.size() == 8, "eight grooves for the host to choose from");
   q.setRateAndBufferSizeDetails(96000.0, 256);
   q.prepareToPlay(96000.0, 256);
   {

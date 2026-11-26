@@ -26,7 +26,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout LoopMasterProcessor::createL
     layout.add(std::make_unique<Float>(juce::ParameterID{"cut" + i, 1}, n + " Cutoff", cut, 2000.0f));
     layout.add(std::make_unique<Float>(juce::ParameterID{"res" + i, 1}, n + " Resonance", juce::NormalisableRange<float>(0.5f, 15.0f, 0.0f), 1.0f));
   }
-  layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"scene", 1}, "Scene", juce::StringArray{"A", "B", "C", "D"}, 0));
+  layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"scene", 1}, "Scene", juce::StringArray{"A", "B", "C", "D", "E", "F", "G", "H"}, 0));
   layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID{"sync", 1}, "Follow Host", true));
   layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{"miditrack", 1}, "MIDI Plays",
              juce::StringArray{"By Channel", "Drums", "Bass", "Lead", "Syn 3", "Syn 4"}, 0));
@@ -69,6 +69,7 @@ LoopMasterProcessor::LoopMasterProcessor()
   sceneRaw_ = params.getRawParameterValue("scene");
   syncRaw_ = params.getRawParameterValue("sync");
   midiTrackRaw_ = params.getRawParameterValue("miditrack");
+  session_->engine().setSongLoop(false);          // in a host the song ends where it ends
 
   buildLibrary();
   adoptProjectValues();
@@ -153,6 +154,7 @@ void LoopMasterProcessor::prepareToPlay(double sampleRate, int) {
   if (have) projectFromMemory(project.getData(), project.getSize(), breakWav.getData(), breakWav.getSize());
   else session_->loadStartPreset();
   session_->engine().setSongMode(songMode_.load());
+  session_->engine().setSongLoop(songLoop_.load());
   lastScene_ = -1;
 }
 
@@ -225,7 +227,7 @@ void LoopMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
   ld::Engine& e = session_->engine();
 
   // host clock
-  bool leads = false;
+  bool leads = false, plays = false;
   if (syncRaw_->load() > 0.5f) {
     if (auto* ph = getPlayHead()) {
       if (const auto pos = ph->getPosition()) {
@@ -235,12 +237,14 @@ void LoopMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
           e.hostTransport(pos->getIsPlaying(), *ppq, *bpm);
           shownBpm_.store(*bpm);
           leads = true;
+          plays = pos->getIsPlaying();
         }
       }
     }
   }
   if (!leads) e.hostTransportOff();
   hostLeads_.store(leads);
+  hostPlays_.store(plays);
 
   // host automation
   for (size_t i = 0; i < maps_.size(); ++i) e.rtSetOverride(maps_[i].pid, maps_[i].index, raw_[i]->load());
@@ -290,6 +294,8 @@ void LoopMasterProcessor::getStateInformation(juce::MemoryBlock& destData) {
   juce::ValueTree root("LoopMaster");
   root.setProperty("version", 1, nullptr);
   root.setProperty("songMode", songMode_.load(), nullptr);
+  root.setProperty("songLoop", songLoop_.load(), nullptr);
+  root.setProperty("midiFolder", midiFolder, nullptr);
   juce::MemoryBlock project, breakWav;
   if (projectToMemory(project, breakWav)) {
     root.setProperty("project", project, nullptr);
@@ -310,6 +316,8 @@ void LoopMasterProcessor::setStateInformation(const void* data, int sizeInBytes)
     projectFromMemory(project->getData(), project->getSize(), brk ? brk->getData() : nullptr, brk ? brk->getSize() : 0);
   }
   setSongMode(bool(root.getProperty("songMode", false)));
+  setSongLoop(bool(root.getProperty("songLoop", false)));
+  midiFolder = root.getProperty("midiFolder", juce::String()).toString();
   const juce::ValueTree saved = root.getChildWithName(params.state.getType());
   if (saved.isValid()) params.replaceState(saved);
   // The project is the truth for the controls it holds; the saved parameters agree with it anyway.
@@ -336,6 +344,12 @@ juce::String LoopMasterProcessor::importLibrary(const LibraryEntry& entry, int s
   std::string err;
   if (session_->importContent(std::string(entry.data, size_t(entry.size)), target, err)) return {};
   return juce::String(err.empty() ? "could not be loaded" : err);
+}
+
+void LoopMasterProcessor::setSongLoop(bool on) {
+  const juce::ScopedLock sl(sessionLock_);
+  songLoop_.store(on);
+  session_->engine().setSongLoop(on);
 }
 
 void LoopMasterProcessor::setSongMode(bool on) {

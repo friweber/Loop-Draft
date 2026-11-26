@@ -27,6 +27,9 @@ struct ContentTarget {
 // wrong; `p` is then left as it was. Values outside their range are errors, not silently clamped.
 bool applyContent(const std::string& json, Project& p, const ContentTarget& target, std::string& error, ContentInfo* info = nullptr);
 
+// The scale degree a synth track would play nearest to a MIDI note, in the project's key.
+int midiToDegree(const Project& p, int synth, int midi);
+
 // Only reads the header (kind, name, style) and checks the whole file against an empty project.
 bool checkContent(const std::string& json, std::string& error, ContentInfo* info = nullptr);
 

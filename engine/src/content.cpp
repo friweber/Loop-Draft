@@ -663,6 +663,10 @@ void writeDrumkitBody(W& w, const Project& p) {
 
 }  // namespace
 
+int midiToDegree(const Project& p, int synth, int midi) {
+  return degreeForMidi(p, p.synths[synth < 0 || synth >= kNumSynths ? 0 : synth].octaveShift, midi);
+}
+
 // ------------------------------------------------------------------ public
 bool applyContent(const std::string& json, Project& p, const ContentTarget& target, std::string& error, ContentInfo* info) {
   JV root;

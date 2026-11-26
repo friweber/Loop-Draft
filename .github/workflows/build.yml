@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, groove]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -311,14 +311,14 @@ jobs:
         continue-on-error: true
         run: |
           A=plugin/build/LoopMaster_artefacts/Release
-          for t in 0 1 2 3 4; do
-            LOOPMASTER_TAB=$t xvfb-run -a -s "-screen 0 1000x680x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
+          for t in 0 1 2 3 4 5; do
+            LOOPMASTER_TAB=$t LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/tab$t.png" "report/standalone$t.log" || true
           done
           n=0
-          for set in "1:1,7:0,8:1" "6:2,4:3,3:3" "18:1,19:1,20:0" "14:1,16:1,10:2" "12:2,13:0,21:1" "9:2,5:1,17:1" "2:0,11:1,15:2"; do
+          for set in "1:1,7:0,8:1" "18:1,19:1,20:0"; do
             n=$((n+1))
-            LOOPMASTER_TAB=2 LOOPMASTER_PEDALS=$set xvfb-run -a -s "-screen 0 1000x680x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
+            LOOPMASTER_TAB=2 LOOPMASTER_PEDALS=$set LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/pedals$n.png" "report/pedals$n.log" || true
           done
           ls -l report

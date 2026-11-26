@@ -196,7 +196,7 @@ struct DrumsScreen: View {
 
     private func gridCell(_ p: Int, _ stInBar: Int, _ bytes: [UInt8], _ rowCol: Color) -> some View {
         let st = bar * 16 + stInBar
-        let idx = p * 128 + st
+        let idx = p * 256 + st
         let v = idx < bytes.count ? Int(bytes[idx]) : 0
         let head = state.playing && state.step == Int32(st)
         let bg: Color = v >= 3 ? skin.secondary : (v == 2 ? rowCol : (v == 1 ? rowCol.opacity(0.75) : skin.recess))
@@ -284,7 +284,7 @@ struct DrumsScreen: View {
             ForEach(0..<8, id: \.self) { col in
                 let stInBar = row * 8 + col
                 let st = bar * 16 + stInBar
-                let idx = pad * 128 + st
+                let idx = pad * 256 + st
                 let curV = idx < bytes.count ? Int(bytes[idx]) : 0
                 Tr808StepButton(stepInBar: stInBar, vel: curV, playhead: state.playing && state.step == Int32(st)) {
                     tapStep(pad: pad, step: st, value: curV)
