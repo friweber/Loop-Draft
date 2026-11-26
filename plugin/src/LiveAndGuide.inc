@@ -227,7 +227,7 @@ class LiveView : public juce::Component {
   void paint(juce::Graphics& g) override {
     g.fillAll(juce::Colour(0xff0c0d0f));
     const juce::ScopedLock sl(p.lock());
-    const ld::Session& s = p.session();
+    ld::Session& s = p.session();
     const ld::Project& pr = s.project();
     const ld::Engine& e = s.engine();
     const bool playing = e.isPlaying(), blink = (frame / 6) % 2 == 0;

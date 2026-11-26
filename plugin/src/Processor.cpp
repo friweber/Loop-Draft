@@ -408,7 +408,7 @@ juce::String LoopMasterProcessor::importLibrary(const LibraryEntry& entry, int s
 
 namespace {
 struct LiveFx { const char* name; ld::FxType type; int voice; float a, r, p3, p4; };
-const LiveFx kLiveFx[LoopMasterProcessor::kLiveFxCount] = {
+const LiveFx kLiveFxDefs[LoopMasterProcessor::kLiveFxCount] = {
   {"STUTTER", ld::FxType::Slicer, 1, 1.0f, 0.6f, 1.0f, 1.0f},        // the last sixteenth, again and again
   {"GATE", ld::FxType::Slicer, 0, 1.0f, 0.6f, 0.45f, 0.45f},
   {"CRUSH", ld::FxType::Crusher, 2, 0.8f, 0.5f, 0.6f, 0.5f},
@@ -418,13 +418,13 @@ const LiveFx kLiveFx[LoopMasterProcessor::kLiveFxCount] = {
 };
 }  // namespace
 
-const char* LoopMasterProcessor::liveFxName(int i) { return i >= 0 && i < kLiveFxCount ? kLiveFx[i].name : ""; }
+const char* LoopMasterProcessor::liveFxName(int i) { return i >= 0 && i < kLiveFxCount ? kLiveFxDefs[i].name : ""; }
 
 void LoopMasterProcessor::liveFx(int i, bool down) {
   const juce::ScopedLock sl(sessionLock_);
   ld::Engine& e = session_->engine();
   if (down && i >= 0 && i < kLiveFxCount) {
-    const LiveFx& f = kLiveFx[i];
+    const LiveFx& f = kLiveFxDefs[i];
     e.setPerformFx(int(f.type), f.voice, f.a, f.r, f.p3, f.p4);
     e.holdPerformFx(true);
     fxHeld_ = i;
