@@ -86,6 +86,20 @@ class Engine {
   // With a host: does the song start over after its last groove (as on the phone), or is it silent from there on?
   void setSongLoop(bool on) { aSongLoop_.store(on, std::memory_order_relaxed); }
   int  queuedScene() const  { return aPending_.load(std::memory_order_relaxed); }
+  // For meters: the loudest sample of a track lately (it falls back on its own), after its strip and pedals.
+  float trackPeak(int track) const { return track >= 0 && track < kNumTracks ? aTrackPeak_[track].load(std::memory_order_relaxed) : 0.0f; }
+
+  // ---- for playing live: things that act on the whole mix, from any thread ----
+  // One pedal on the sum of all tracks, for as long as it is held. It follows the tempo. Pedals that ring (echo,
+  // reverb) ring out after they are let go; the music itself is back at once.
+  void setPerformFx(int type, int voice, float amount, float rate, float p3, float p4) {
+    aPerfK_[0].store(amount); aPerfK_[1].store(rate); aPerfK_[2].store(p3); aPerfK_[3].store(p4);
+    aPerfVoice_.store(voice); aPerfType_.store(type);
+  }
+  void holdPerformFx(bool on) { aPerfOn_.store(on, std::memory_order_relaxed); }
+  // The filter of a DJ mixer: 0 is out of the way, towards -1 the highs go, towards +1 the lows.
+  void setDjFilter(float v) { aDjFilter_.store(v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v), std::memory_order_relaxed); }
+  float djFilter() const { return aDjFilter_.load(std::memory_order_relaxed); }
   float peak(int ch) const  { return (ch ? aPeakR_ : aPeakL_).load(std::memory_order_relaxed); }
   double sampleRate() const { return sr_; }
 
@@ -163,6 +177,14 @@ class Engine {
   std::atomic<bool> aPlaying_{false}, aSongLoop_{true};
   std::atomic<int> aLoopBar_{-1};
   std::atomic<int> aStep_{-1}, aScene_{0}, aChainPos_{0}, aPending_{-1};
+  std::atomic<float> aTrackPeak_[kNumTracks] = {};
+  std::atomic<int> aPerfType_{0}, aPerfVoice_{0};
+  std::atomic<float> aPerfK_[4] = {};
+  std::atomic<bool> aPerfOn_{false};
+  std::atomic<float> aDjFilter_{0.0f};
+  Pedal perf_;
+  float perfMix_ = 0.0f, djNow_ = 0.0f, djIc_[2][2] = {};
+  int64_t perfTail_ = 0;
   std::atomic<float> aPeakL_{0}, aPeakR_{0};
 };
 

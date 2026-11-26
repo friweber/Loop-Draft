@@ -392,6 +392,43 @@ static void tileScene(Scene& sc, int from, int to) {
     for (int pt = from * 4 + 1; pt <= to * 4; ++pt) ln.points[pt] = ln.points[(pt - 1) % (from * 4) + 1];
   }
 }
+// One bar as a groove of its own: the clipboard of the bar editor.
+void Session::copyBar(int scene, int bar, Scene& clip) const {
+  clip = Scene();
+  if (!sceneOk(scene) || bar < 0 || bar >= kMaxBars) return;
+  const Scene& sc = proj_.scenes[scene];
+  const int from = bar * kStepsPerBar;
+  for (int pad = 0; pad < kNumPads; ++pad) for (int st = 0; st < kStepsPerBar; ++st) clip.drums.steps[pad][st] = sc.drums.steps[pad][from + st];
+  for (int y = 0; y < kNumSynths; ++y)
+    for (int i = 0; i < sc.synth[y].count; ++i) {
+      Note n = sc.synth[y].notes[i];
+      if (int(n.step) < from || int(n.step) >= from + kStepsPerBar) continue;
+      n.step = uint16_t(int(n.step) - from);
+      clip.synth[y].notes[clip.synth[y].count++] = n;
+    }
+}
+// part: -1 everything, 0 the drums, 1.. one synth. What the bar held of that part is replaced.
+void Session::pasteBar(int scene, int bar, const Scene& clip, int part) {
+  if (!sceneOk(scene) || bar < 0 || bar >= proj_.scenes[scene].bars) return;
+  beginEdit();
+  Scene& sc = proj_.scenes[scene];
+  const int to = bar * kStepsPerBar;
+  if (part <= 0)
+    for (int pad = 0; pad < kNumPads; ++pad) for (int st = 0; st < kStepsPerBar; ++st) sc.drums.steps[pad][to + st] = clip.drums.steps[pad][st];
+  for (int y = 0; y < kNumSynths; ++y) {
+    if (part >= 0 && part != y + 1) continue;
+    SynthPattern& pat = sc.synth[y];
+    int kept = 0;
+    for (int i = 0; i < pat.count; ++i) if (int(pat.notes[i].step) < to || int(pat.notes[i].step) >= to + kStepsPerBar) pat.notes[kept++] = pat.notes[i];
+    pat.count = kept;
+    for (int i = 0; i < clip.synth[y].count && pat.count < kMaxNotes; ++i) {
+      Note n = clip.synth[y].notes[i];
+      n.step = uint16_t(int(n.step) + to);
+      pat.notes[pat.count++] = n;
+    }
+  }
+  commit();
+}
 void Session::growScene(int scene, int bars) {
   if (!sceneOk(scene)) return;
   Scene& sc = proj_.scenes[scene];

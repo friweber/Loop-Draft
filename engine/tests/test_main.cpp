@@ -1735,6 +1735,52 @@ static void testGroovesLanesLoopAndPreview() {
     qn = 9.0; run(4);
     CHECK(e.isPlaying()); CHECK_EQ(e.chainPos(), 0); CHECK_EQ(e.currentStep(), 4);
   }
+  {  // a bar copied and put somewhere else; meters; what is held on the whole mix while playing live
+    Session s(sr);
+    s.clearScene(1); s.setSceneBars(1, 3);
+    s.setDrumStep(1, 2, 16 + 5, 2); s.toggleNote(1, 0, 16 + 3, 4, true, 2); s.toggleNote(1, 1, 40, 1, false, 1);
+    Scene clip;
+    s.copyBar(1, 1, clip);
+    CHECK_EQ(clip.drums.steps[2][5], 2); CHECK_EQ(clip.synth[0].count, 1); CHECK_EQ(clip.synth[0].notes[0].step, 3); CHECK_EQ(clip.synth[1].count, 0);
+    s.pasteBar(1, 2, clip, 0);                              // only the drums
+    CHECK_EQ(s.project().scenes[1].drums.steps[2][32 + 5], 2); CHECK_EQ(s.project().scenes[1].synth[0].count, 1); CHECK_EQ(s.project().scenes[1].synth[1].count, 1);
+    s.pasteBar(1, 2, clip, -1);                             // everything: the lead's note in bar three goes, the bass comes
+    CHECK_EQ(s.project().scenes[1].synth[0].count, 2); CHECK_EQ(s.project().scenes[1].synth[0].notes[1].step, 32 + 3); CHECK_EQ(s.project().scenes[1].synth[1].count, 0);
+    s.pasteBar(1, 5, clip, -1);                             // a bar the groove does not have: nothing happens
+    CHECK_EQ(s.project().scenes[1].synth[0].count, 2);
+
+    Project p = base;
+    p.scenes[0].bars = 1;
+    for (int st = 0; st < 16; st += 4) p.scenes[0].drums.steps[0][st] = 2;
+    Engine e(sr);
+    e.setProject(p);
+    e.play(0);
+    const double plain = rmsOf(e, 375);
+    CHECK(e.trackPeak(0) > 0.05f); CHECK(e.trackPeak(2) < 1e-4f);
+    e.setDjFilter(1.0f);                                    // all the way to the right: the lows are gone, and a kick is mostly lows
+    rmsOf(e, 375);
+    CHECK(rmsOf(e, 375) < 0.4 * plain);
+    e.setDjFilter(0.0f);
+    rmsOf(e, 375);
+    CHECK(std::fabs(rmsOf(e, 375) - plain) < 0.05 * plain);
+    e.setPerformFx(int(FxType::DubDelay), 1, 0.9f, 0.6f, 0.7f, 0.5f);
+    CHECK(std::fabs(rmsOf(e, 375) - plain) < 0.05 * plain); // chosen, not held: nothing changes
+    e.holdPerformFx(true);
+    CHECK(rmsOf(e, 375) > 1.1 * plain);
+    e.holdPerformFx(false);
+    e.stop();
+    rmsOf(e, 60);
+    CHECK(rmsOf(e, 200) > 1e-4);                            // the echoes ring on after it is let go ...
+    rmsOf(e, 2600);
+    CHECK(rmsOf(e, 100) < 1e-5);                            // ... and are gone in the end
+    e.setPerformFx(int(FxType::Slicer), 0, 1.0f, 0.6f, 0.4f, 0.55f);
+    e.play(0);
+    e.holdPerformFx(true);
+    CHECK(rmsOf(e, 375) < 0.9 * plain);                     // a gate over everything
+    e.holdPerformFx(false);
+    rmsOf(e, 375);
+    CHECK(std::fabs(rmsOf(e, 375) - plain) < 0.05 * plain);
+  }
   {  // listening before choosing leaves the project alone
     Session s(sr);
     const auto before = std::make_unique<Project>(s.project());

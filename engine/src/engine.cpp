@@ -18,6 +18,7 @@ Engine::Engine(double sampleRate) : sr_(sampleRate) {
   for (auto& s : synth_) s.init(sr_);
   delay_.init(sr_); reverb_.init(sr_); limiter_.init(sr_);
   subK_ = 1.0f - std::exp(-6.2831853f * 120.0f / float(sr_));
+  perf_.init(sr_);
   master_.setTime(sr_, 15.0); master_.reset(proj_->master);
   for (int t = 0; t < kNumTracks; ++t) {
     tr_[t].level.setTime(sr_, 15.0); tr_[t].dSend.setTime(sr_, 15.0); tr_[t].rSend.setTime(sr_, 15.0);
@@ -592,7 +593,23 @@ void Engine::renderAudio(float* l, float* r, int n) {
     for (int t = 0; t < kNumTracks; ++t)
       for (int sl = 0; sl < kFxSlots; ++sl)
         tr_[t].fxSlots[sl].pedal.setClock(bpmNow, have, beatNow, (effFx[t].slots[sl].flags & kFxSync) != 0, scaleHz_);
+    perf_.setClock(bpmNow, have, beatNow, true, scaleHz_);
   }
+  // what is held on the whole mix while playing live
+  const FxType perfType = FxType(aPerfType_.load(std::memory_order_relaxed));
+  const int perfVoice = aPerfVoice_.load(std::memory_order_relaxed);
+  const bool perfOn = aPerfOn_.load(std::memory_order_relaxed) && perfType != FxType::Off, perfRings = Pedal::rings(perfType);
+  const float pk[4] = {aPerfK_[0].load(), aPerfK_[1].load(), aPerfK_[2].load(), aPerfK_[3].load()};
+  if (perfOn) perfTail_ = perfRings ? int64_t(sr_ * 10.0) : int64_t(sr_ * 0.05);
+  const float djTarget = aDjFilter_.load(std::memory_order_relaxed);
+  djNow_ += (djTarget - djNow_) * 0.2f;
+  const bool djOn = std::fabs(djNow_) > 0.02f;
+  float djG = 0.0f;
+  if (djOn) {
+    const float fc = djNow_ < 0.0f ? 18000.0f * std::pow(0.005f, -djNow_) : 20.0f * std::pow(300.0f, djNow_);
+    djG = std::tan(3.14159265f * (fc > float(sr_) * 0.45f ? float(sr_) * 0.45f : fc) / float(sr_));
+  } else { djIc_[0][0] = djIc_[0][1] = djIc_[1][0] = djIc_[1][1] = 0.0f; }
+  float trackPeak[kNumTracks] = {};
   for (int i = 0; i < n; ++i) {
     float mL = 0, mR = 0, dL = 0, dR = 0, rL = 0, rR = 0;
     for (int t = 0; t < kNumTracks; ++t) {
@@ -654,6 +671,7 @@ void Engine::renderAudio(float* l, float* r, int n) {
         if (fs.mix < 1.0f) { xl = inL + (xl - inL) * fs.mix; xr = inR + (xr - inR) * fs.mix; }
       }
       if (trackOuts) { trkL_[t][trkOff_ + i] = xl; if (trkR_[t]) trkR_[t][trkOff_ + i] = xr; }
+      { const float ax = std::fabs(xl) > std::fabs(xr) ? std::fabs(xl) : std::fabs(xr); if (ax > trackPeak[t]) trackPeak[t] = ax; }
       mL += xl; mR += xr; dL += xl * ds; dR += xr * ds; rL += xl * rs; rR += xr * rs;
     }
     float oL, oR;
@@ -661,10 +679,39 @@ void Engine::renderAudio(float* l, float* r, int n) {
     reverb_.tick(rL, rR, oL, oR); mL += oL; mR += oR;
     const float g = master_.next(masterVal);
     mL *= g; mR *= g;
+    if (perfTail_ > 0) {
+      perfMix_ += ((perfOn ? 1.0f : 0.0f) - perfMix_) * 0.004f;
+      if (perfRings) {                             // only what is held goes in; what rings comes on top
+        float yl = mL * perfMix_, yr = mR * perfMix_;
+        const float inL = yl, inR = yr;
+        perf_.tick(perfType, perfVoice, yl, yr, pk[0], pk[1], pk[2], pk[3]);
+        mL += yl - inL; mR += yr - inR;
+      } else {
+        float yl = mL, yr = mR;
+        perf_.tick(perfType, perfVoice, yl, yr, pk[0], pk[1], pk[2], pk[3]);
+        mL += (yl - mL) * perfMix_; mR += (yr - mR) * perfMix_;
+      }
+      if (!perfOn) --perfTail_;
+    } else perfMix_ = 0.0f;
+    if (djOn) {
+      float* ch[2] = {&mL, &mR};
+      for (int c = 0; c < 2; ++c) {
+        const float x = *ch[c];
+        const float v1 = (djIc_[c][0] + djG * (x - djIc_[c][1])) / (1.0f + djG * (djG + 0.8f));
+        const float v2 = djIc_[c][1] + djG * v1;
+        djIc_[c][0] = 2.0f * v1 - djIc_[c][0]; djIc_[c][1] = 2.0f * v2 - djIc_[c][1];
+        *ch[c] = djNow_ < 0.0f ? v2 : x - 0.8f * v1 - v2;
+      }
+    }
     limiter_.tick(mL, mR);
     l[i] = mL; r[i] = mR;
     peakL_ = std::fabs(mL) > peakL_ * 0.9995f ? std::fabs(mL) : peakL_ * 0.9995f;
     peakR_ = std::fabs(mR) > peakR_ * 0.9995f ? std::fabs(mR) : peakR_ * 0.9995f;
+  }
+  const float fall = std::exp(-float(n) / (0.3f * float(sr_)));
+  for (int t = 0; t < kNumTracks; ++t) {
+    const float was = aTrackPeak_[t].load(std::memory_order_relaxed) * fall;
+    aTrackPeak_[t].store(trackPeak[t] > was ? trackPeak[t] : was, std::memory_order_relaxed);
   }
 }
 

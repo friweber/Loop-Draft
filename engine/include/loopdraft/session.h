@@ -67,6 +67,8 @@ class Session {
   // true if the note now exists. slide: adds the note as a slide note, or switches slide on/off on an existing one.
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1, bool slide = false);
   void setSceneBars(int scene, int bars);
+  void copyBar(int scene, int bar, Scene& clip) const;                   // one bar, as a groove one bar long
+  void pasteBar(int scene, int bar, const Scene& clip, int part = -1);   // part: -1 everything, 0 drums, 1.. a synth
   void growScene(int scene, int bars);             // longer, and the new bars repeat what is there
   // A pattern from the browser goes into a groove. If the groove and the pattern differ in length, the shorter
   // one is repeated, so the groove stays whole.
