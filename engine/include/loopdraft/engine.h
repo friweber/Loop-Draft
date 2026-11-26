@@ -54,6 +54,26 @@ class Engine {
   void render(float* outL, float* outR, int frames);
   void renderInterleaved(float* out, int frames);   // stereo, LRLR... (what Oboe delivers)
 
+  // ---- audio thread, for a host that brings its own clock, MIDI and automation (the Loop Master plugin) ----
+  // Call these between render() calls, on the thread that renders.
+  // hostTransport: once per block, before render(). quarterNotes is the host's position at the first frame of the block.
+  // The sequencer then follows the host: start, stop, jumps, loops and tempo. Play/Stop from the control thread are ignored.
+  void hostTransport(bool playing, double quarterNotes, double bpm);
+  void hostTransportOff();                 // back to the engine's own transport and the project's tempo
+  void rtTriggerPad(int pad, int vel = 1);
+  void rtNoteOn(int synth, int midiNote, int vel = 1);     // chromatic, not bound to the project's scale
+  void rtNoteOff(int synth, int midiNote);
+  void rtAllNotesOff();
+  void rtQueueScene(int scene);
+  int  rtPadForMidiNote(int midiNote) const;               // the pad a drum note plays (its General MIDI note, or 60..67), else -1
+  // A value that replaces the project's own until cleared: host automation. Levels, sends and drive take a track
+  // as index, cutoff and resonance a synth; P_MASTER takes 0.
+  void rtSetOverride(int paramId, int index, float value);
+  void rtClearOverrides();
+  // Each track on its own (after its channel strip and effects, before delay, reverb, master and limiter).
+  // kNumTracks pointers per side, or nullptr for none. Applies to the next render() call only.
+  void setTrackOutputs(float* const* l, float* const* r);
+
   // ---- status, any thread ----
   bool isPlaying() const    { return aPlaying_.load(std::memory_order_relaxed); }
   int  currentStep() const  { return aStep_.load(std::memory_order_relaxed); }
@@ -83,7 +103,10 @@ class Engine {
   void recordHit(int track, int row, int vel);
   bool suppressed(int track, int row);
   const Sample* padSample(int pad) const { return user_[pad] ? user_[pad] : builtin_[pad].get(); }
-  double stepLen() const { return sr_ * 60.0 / double(proj_->bpm < 20 ? 20 : proj_->bpm) / 4.0; }
+  double tempo() const { const double b = hostBpm_ > 0.0 ? hostBpm_ : double(proj_->bpm); return b < 20.0 ? 20.0 : b; }
+  double stepLen() const { return sr_ * 60.0 / tempo() / 4.0; }
+  void stopNow();
+  void seekHost(double pos16);
 
   double sr_;
   SpscQueue<Cmd> cmds_{1024};
@@ -113,6 +136,17 @@ class Engine {
   Suppress sup_[8];
   Ratchet ratchets_[kNumPads];
   float peakL_ = 0, peakR_ = 0;
+
+  // host clock (plugin)
+  bool hostSync_ = false;
+  double hostBpm_ = 0.0, delayBpm_ = 0.0;
+  int64_t hostNext_ = -1;          // the host's count of sixteenths of the step that fires next; -1: find it again
+  struct Override { int id = -1, index = 0; float value = 0.0f; };
+  static constexpr int kMaxOverrides = 48;
+  Override ov_[kMaxOverrides];
+  float* trkL_[kNumTracks] = {};
+  float* trkR_[kNumTracks] = {};
+  int trkOff_ = 0;
 
   std::atomic<bool> aPlaying_{false};
   std::atomic<int> aStep_{-1}, aScene_{0}, aChainPos_{0}, aPending_{-1};

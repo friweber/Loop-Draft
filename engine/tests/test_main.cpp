@@ -1407,6 +1407,144 @@ static void testAutomationOfFxSlotsAndHardness() {
   CHECK(diff / double(clean.size()) > 0.005);
 }
 
+// The plugin's side of the engine: the host's clock, MIDI notes, automation and separate outputs.
+static void testHostClockMidiAndOutputs() {
+  const double sr = 48000.0;
+  const int block = 256;
+  std::vector<float> l(static_cast<size_t>(block), 0.0f), r(static_cast<size_t>(block), 0.0f);
+  // renders `blocks` blocks at `bpm`, starting at quarter note `qn`; returns the position after them
+  const auto run = [&](Engine& e, double qn, double bpm, int blocks, bool playing = true) {
+    for (int b = 0; b < blocks; ++b) {
+      e.hostTransport(playing, qn, bpm);
+      e.render(l.data(), r.data(), block);
+      if (playing) qn += double(block) * bpm / (60.0 * sr);
+    }
+    return qn;
+  };
+
+  Project p = makeDemoProject();
+  p.swing = 0.0f;
+  {  // follows the host's position and tempo, whatever the project's own tempo is
+    Engine e(sr);
+    e.setProject(p);
+    double qn = run(e, 0.0, 120.0, 40);                      // 40 * 256 frames = 0.2133 s = 0.4267 quarter notes
+    CHECK(e.isPlaying());
+    CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 16);
+    qn = run(e, qn, 120.0, 400);
+    CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 16);
+    qn = run(e, qn, 77.0, 300);                               // the host changes tempo: still in step
+    CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 16);
+    qn = run(e, 2.5, 120.0, 3);                               // the host jumps into a step: step 10 is where it is
+    CHECK_EQ(e.currentStep(), 10);
+    qn = run(e, qn, 120.0, 30);
+    CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 16);
+    run(e, qn, 120.0, 2, false);                              // the host stops
+    CHECK(!e.isPlaying());
+    e.play(0);                                                // the app's own PLAY does nothing while a host leads
+    run(e, qn, 120.0, 2, false);
+    CHECK(!e.isPlaying());
+    e.hostTransportOff();
+    e.play(0);
+    e.render(l.data(), r.data(), block);
+    CHECK(e.isPlaying());
+  }
+  {  // every step fires exactly once per pass, also with swing and a tempo that is not a round number
+    Project q = p;
+    q.swing = 0.3f;
+    for (auto& sc : q.scenes) { sc = Scene(); sc.bars = 1; }
+    for (int st = 0; st < 16; ++st) q.scenes[0].drums.steps[0][st] = 1;      // a kick on every sixteenth
+    Engine a(sr), b(sr);
+    a.setProject(q); b.setProject(q);
+    std::vector<float> la, lb;
+    a.play(0);                                                 // own transport at the project's tempo
+    double qn = 0.0;
+    for (int i = 0; i < 500; ++i) {
+      a.render(l.data(), r.data(), block); la.insert(la.end(), l.begin(), l.end());
+      b.hostTransport(true, qn, double(q.bpm)); b.render(l.data(), r.data(), block); lb.insert(lb.end(), l.begin(), l.end());
+      qn += double(block) * double(q.bpm) / (60.0 * sr);
+    }
+    double diff = 0.0, sig = 0.0;
+    for (size_t i = 0; i < la.size(); ++i) { diff += double(la[i] - lb[i]) * double(la[i] - lb[i]); sig += double(la[i]) * double(la[i]); }
+    CHECK(sig > 1.0);
+    CHECK(diff < sig * 1e-3);                                  // led by a host at the same tempo it sounds the same
+  }
+  {  // song mode: the host's position picks the slot of the chain
+    Project q = p;
+    q.chainLen = 3; q.chain[0] = 0; q.chain[1] = 1; q.chain[2] = 2;
+    for (auto& sc : q.scenes) sc.bars = 1;
+    Engine e(sr);
+    e.setProject(q);
+    e.setSongMode(true);
+    run(e, 4.0 + 1.0, 120.0, 3);                              // bar 2, beat 2
+    CHECK_EQ(e.chainPos(), 1); CHECK_EQ(e.currentScene(), 1); CHECK_EQ(e.currentStep(), 4);
+    run(e, 12.0 + 8.0 + 0.5, 120.0, 3);                       // past the end: the chain repeats
+    CHECK_EQ(e.chainPos(), 2); CHECK_EQ(e.currentStep(), 2);
+  }
+  {  // notes from a keyboard, separate outputs, automation
+    Project q = p;
+    for (auto& sc : q.scenes) sc = Scene();
+    Engine e(sr);
+    e.setProject(q);
+    std::vector<float> tl(static_cast<size_t>(kNumTracks * block), 0.0f), tr(static_cast<size_t>(kNumTracks * block), 0.0f);
+    float* pl[kNumTracks]; float* pr[kNumTracks];
+    for (int t = 0; t < kNumTracks; ++t) { pl[t] = tl.data() + size_t(t) * block; pr[t] = tr.data() + size_t(t) * block; }
+    double trackSum[kNumTracks] = {}, mainSum = 0.0;
+    const auto go = [&](int blocks) {
+      for (int t = 0; t < kNumTracks; ++t) trackSum[t] = 0.0;
+      mainSum = 0.0;
+      for (int b = 0; b < blocks; ++b) {
+        e.setTrackOutputs(pl, pr);
+        e.render(l.data(), r.data(), block);
+        for (int i = 0; i < block; ++i) mainSum += std::fabs(l[i]);
+        for (int t = 0; t < kNumTracks; ++t) for (int i = 0; i < block; ++i) trackSum[t] += std::fabs(pl[t][i]);
+      }
+    };
+    e.render(l.data(), r.data(), block);
+    e.rtNoteOn(1, 61, 2);                                      // C#4 on the lead: not in every scale, still plays
+    go(40);
+    CHECK(trackSum[2] > 1.0); CHECK(trackSum[0] == 0.0); CHECK(trackSum[1] == 0.0); CHECK(mainSum > 1.0);
+    const double held = trackSum[2];
+    e.rtNoteOff(1, 61);
+    go(200); go(40);
+    CHECK(trackSum[2] < held * 0.05);                          // released
+    CHECK_EQ(e.rtPadForMidiNote(int(q.pads[0].gmNote)), 0);
+    CHECK_EQ(e.rtPadForMidiNote(63), 3); CHECK_EQ(e.rtPadForMidiNote(1), -1);
+    e.rtTriggerPad(0, 2);
+    go(20);
+    CHECK(trackSum[0] > 0.5);
+    const double drumsLoud = trackSum[0];
+    go(400);
+    e.rtSetOverride(P_FX_LEVEL, 0, 0.0f);                      // the host pulls the drum fader down
+    go(40);                                                    // the fader glides there
+    e.rtTriggerPad(0, 2);
+    go(20);
+    CHECK(trackSum[0] < drumsLoud * 0.01);
+    e.rtClearOverrides();
+    go(40);
+    e.rtTriggerPad(0, 2);
+    go(20);
+    CHECK(trackSum[0] > drumsLoud * 0.5);
+    e.render(l.data(), r.data(), block);                       // without setTrackOutputs the pointers are not used again
+  }
+  {  // the audio thread still does not allocate
+    Engine e(sr);
+    e.setProject(p);
+    e.render(l.data(), r.data(), block);
+    g_allocs = 0; g_count = true;
+    double qn = 0.0;
+    for (int b = 0; b < 200; ++b) {
+      e.hostTransport(true, qn, 133.0);
+      if (b == 20) e.rtNoteOn(0, 40, 1);
+      if (b == 60) e.rtNoteOff(0, 40);
+      if (b == 80) e.rtSetOverride(P_SYN_CUTOFF, 0, 900.0f);
+      e.render(l.data(), r.data(), block);
+      qn += double(block) * 133.0 / (60.0 * sr);
+    }
+    g_count = false;
+    CHECK_EQ(long(g_allocs), 0L);
+  }
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -1448,6 +1586,7 @@ int main() {
     {"drum synth pads are project state", testDrumSynthIsProjectState},
     {"presets and grooves as JSON", testContentJson},
     {"automation of effect slots and drum hardness", testAutomationOfFxSlotsAndHardness},
+    {"host clock, MIDI notes, automation and separate outputs", testHostClockMidiAndOutputs},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

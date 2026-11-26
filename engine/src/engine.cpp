@@ -121,6 +121,7 @@ void Engine::processCommands() {
         trash_.push(Trash{true, proj_});
         proj_ = static_cast<Project*>(c.ptr);
         applyProject();
+        hostNext_ = -1;                             // lengths may have changed: the host position is looked up again
         break;
       case Cmd::SetSample:
         sampler_.stopPad(c.a);                      // no voice may keep pointing at the old sample
@@ -128,6 +129,7 @@ void Engine::processCommands() {
         user_[c.a] = static_cast<Sample*>(c.ptr);
         break;
       case Cmd::Play:
+        if (hostSync_) break;                       // the host decides
         playing_ = true; step_ = 0; pending_ = -1;
         stepBase_ = double(frame_); nextFire_ = frame_;
         lastFire_ = std::numeric_limits<int64_t>::min() / 2;
@@ -137,11 +139,8 @@ void Engine::processCommands() {
         autoPos_ = chainPos_; autoScene_ = scene_; autoStart_ = frame_;
         break;
       case Cmd::Stop:
-        playing_ = false; pending_ = -1;
-        for (auto& s : synth_) s.allNotesOff();
-        for (auto& s : sup_) s.on = false;
-        for (auto& r : ratchets_) r.active = false;
-        aStep_.store(-1, std::memory_order_relaxed);
+        if (hostSync_) break;
+        stopNow();
         break;
       case Cmd::QueueScene:
         if (!playing_) scene_ = c.a;
@@ -169,6 +168,127 @@ void Engine::processCommands() {
 }
 
 // A live hit is snapped to whichever step is closer: the one that just played or the one coming up.
+void Engine::stopNow() {
+  playing_ = false; pending_ = -1;
+  for (auto& s : synth_) s.allNotesOff();
+  for (auto& s : sup_) s.on = false;
+  for (auto& r : ratchets_) r.active = false;
+  aStep_.store(-1, std::memory_order_relaxed);
+}
+
+// ---- host clock, MIDI and automation (audio thread) ----
+
+void Engine::hostTransport(bool playing, double quarterNotes, double bpm) {
+  processCommands();                             // a new project is in place before positions are worked out
+  hostSync_ = true;
+  hostBpm_ = bpm >= 20.0 ? bpm : 0.0;
+  if (tempo() != delayBpm_) { delayBpm_ = tempo(); delay_.setTime(sr_, 0.75 * 60.0 / delayBpm_); }
+  if (!playing) {
+    if (playing_) { stopNow(); aPlaying_.store(false, std::memory_order_relaxed); }
+    hostNext_ = -1;
+    return;
+  }
+  const double sl = stepLen();
+  const double pos = quarterNotes * 4.0;         // in sixteenths
+  const int64_t expectNext = int64_t(std::ceil(pos - 1e-6));
+  // Still in step with the host (one behind is a swung step that is due): only the timing is renewed, so nothing
+  // drifts when the tempo moves. Otherwise the host jumped, looped or just started.
+  if (playing_ && hostNext_ >= 0 && (hostNext_ == expectNext || hostNext_ == expectNext - 1)) {
+    stepBase_ = double(frame_) + (double(hostNext_) - pos) * sl;
+    nextFire_ = std::llround(stepBase_ + double(swingOffset(proj_->swing, step_)) * sl);
+    return;
+  }
+  seekHost(pos);
+}
+
+void Engine::seekHost(double pos) {
+  const Project& p = *proj_;
+  const double sl = stepLen();
+  int64_t g = int64_t(std::floor(pos + 1e-6));
+  double frac = pos - double(g);
+  if (frac < 0.0) frac = 0.0;
+  int scene = scene_ < 0 || scene_ >= kNumScenes ? 0 : scene_, chain = 0, steps = 0;
+  int64_t rel = 0;
+  if (songMode_) {
+    int64_t total = 0;
+    for (int c = 0; c < p.chainLen; ++c) total += sceneSteps(p.scenes[p.chain[c]]);
+    if (total < 1) total = 1;
+    rel = ((g % total) + total) % total;
+    for (int c = 0; c < p.chainLen; ++c) {
+      const int st = sceneSteps(p.scenes[p.chain[c]]);
+      if (rel < st) { chain = c; break; }
+      rel -= st;
+    }
+    scene = p.chain[chain];
+    steps = sceneSteps(p.scenes[scene]);
+  } else {
+    steps = sceneSteps(p.scenes[scene]);
+    rel = ((g % steps) + steps) % steps;
+  }
+  playing_ = true;
+  for (auto& s : sup_) s.on = false;
+  for (auto& r : ratchets_) r.active = false;
+  scene_ = scene; chainPos_ = chain;
+  autoPos_ = chain; autoScene_ = scene;
+  autoStart_ = frame_ - std::llround((double(rel) + frac) * sl);
+  lastFire_ = std::numeric_limits<int64_t>::min() / 2;
+  if (frac < 1e-4) {                              // exactly on a step: it sounds now
+    step_ = int(rel); hostNext_ = g; stepBase_ = double(frame_);
+  } else {                                        // inside a step: the next one is the first to sound
+    step_ = int(rel) + 1; hostNext_ = g + 1; stepBase_ = double(frame_) + (1.0 - frac) * sl;
+    if (step_ >= steps) {
+      step_ = 0;
+      if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; }
+    }
+    aStep_.store(int(rel), std::memory_order_relaxed);
+    aScene_.store(scene, std::memory_order_relaxed);
+    aChainPos_.store(chain, std::memory_order_relaxed);
+  }
+  nextFire_ = std::llround(stepBase_ + double(swingOffset(p.swing, step_)) * sl);
+  aPlaying_.store(true, std::memory_order_relaxed);
+}
+
+void Engine::hostTransportOff() {
+  if (!hostSync_) return;
+  hostSync_ = false; hostBpm_ = 0.0; hostNext_ = -1;
+  if (tempo() != delayBpm_) { delayBpm_ = tempo(); delay_.setTime(sr_, 0.75 * 60.0 / delayBpm_); }
+}
+
+void Engine::rtTriggerPad(int pad, int vel) {
+  if (pad < 0 || pad >= kNumPads) return;
+  sampler_.trigger(pad, proj_->pads[pad], padSample(pad), vel >= 2 ? 2 : 1);
+}
+void Engine::rtNoteOn(int synth, int midiNote, int vel) {
+  if (synth < 0 || synth >= kNumSynths || midiNote < 0 || midiNote > 127) return;
+  synth_[synth].noteOn(midiNote, vel >= 2 ? 2 : 1, -1, 1, 1000 + midiNote);
+}
+void Engine::rtNoteOff(int synth, int midiNote) {
+  if (synth < 0 || synth >= kNumSynths) return;
+  synth_[synth].noteOff(1000 + midiNote);
+}
+void Engine::rtAllNotesOff() { for (auto& s : synth_) s.allNotesOff(); }
+void Engine::rtQueueScene(int scene) {
+  scene = clampScene(scene);
+  if (!playing_) scene_ = scene;
+  else if (!songMode_) pending_ = (scene == scene_) ? -1 : scene;
+}
+int Engine::rtPadForMidiNote(int midiNote) const {
+  for (int i = 0; i < kNumPads; ++i) if (proj_->pads[i].gmNote == midiNote) return i;
+  return midiNote >= 60 && midiNote < 60 + kNumPads ? midiNote - 60 : -1;
+}
+void Engine::rtSetOverride(int paramId, int index, float value) {
+  int freeSlot = -1;
+  for (int i = 0; i < kMaxOverrides; ++i) {
+    if (ov_[i].id == paramId && ov_[i].index == index) { ov_[i].value = value; return; }
+    if (ov_[i].id < 0 && freeSlot < 0) freeSlot = i;
+  }
+  if (freeSlot >= 0) { ov_[freeSlot].id = paramId; ov_[freeSlot].index = index; ov_[freeSlot].value = value; }
+}
+void Engine::rtClearOverrides() { for (auto& o : ov_) o.id = -1; }
+void Engine::setTrackOutputs(float* const* l, float* const* r) {
+  for (int t = 0; t < kNumTracks; ++t) { trkL_[t] = l ? l[t] : nullptr; trkR_[t] = (l && r) ? r[t] : nullptr; }
+}
+
 void Engine::recordHit(int track, int row, int vel) {
   if (!playing_ || !recording_) return;
   RecordedHit h; h.track = track; h.row = row; h.vel = vel;
@@ -231,6 +351,7 @@ void Engine::fireStep() {
   }
 
   lastFire_ = nextFire_; lastStep_ = step_; lastScene_ = scene_;
+  if (hostNext_ >= 0) ++hostNext_;
   aStep_.store(step_, std::memory_order_relaxed);
   aScene_.store(scene_, std::memory_order_relaxed);
   aChainPos_.store(chainPos_, std::memory_order_relaxed);
@@ -318,8 +439,38 @@ void Engine::renderAudio(float* l, float* r, int n) {
       }
     }
   }
+  // Host automation: these values replace the project's own.
+  float masterVal = p.master;
+  for (int i = 0; i < kMaxOverrides; ++i) {
+    const Override& o = ov_[i];
+    if (o.id < 0) continue;
+    const float v = o.value;
+    const auto unit = [](float x, float hi) { return x < 0.0f ? 0.0f : (x > hi ? hi : x); };
+    if (o.id == P_MASTER) { masterVal = unit(v, 1.0f); continue; }
+    if (o.index < 0) continue;
+    if (o.index < kNumTracks) {
+      switch (o.id) {
+        case P_FX_LEVEL:  effFx[o.index].level = unit(v, 1.0f); break;
+        case P_FX_DRIVE:  effFx[o.index].drive = unit(v, 1.0f); break;
+        case P_FX_DELAY:  effFx[o.index].delaySend = unit(v, 0.8f); break;
+        case P_FX_REVERB: effFx[o.index].revSend = unit(v, 0.8f); break;
+        default: break;
+      }
+    }
+    if (o.index < kNumSynths) {
+      if (o.id == P_SYN_CUTOFF) effSynth[o.index].cutoff = v < 60.0f ? 60.0f : (v > 12000.0f ? 12000.0f : v);
+      else if (o.id == P_SYN_RES) effSynth[o.index].res = v < 0.5f ? 0.5f : (v > 15.0f ? 15.0f : v);
+    }
+  }
   for (int t = 0; t < kNumTracks; ++t) {
     if (tr_[t].cDrive != effFx[t].drive) { tr_[t].drive.set(effFx[t].drive); tr_[t].cDrive = effFx[t].drive; }
+  }
+  const bool trackOuts = trkL_[0] != nullptr;
+  if (trackOuts) {
+    for (int t = 0; t < kNumTracks; ++t) {
+      std::memset(trkL_[t] + trkOff_, 0, sizeof(float) * size_t(n));
+      if (trkR_[t]) std::memset(trkR_[t] + trkOff_, 0, sizeof(float) * size_t(n));
+    }
   }
 
   float tb[kNumTracks][2][kBlock];
@@ -342,6 +493,10 @@ void Engine::renderAudio(float* l, float* r, int n) {
     TrackState& ts = tr_[t];
     if (sound) ts.idle = 0; else if (ts.idle < idleAfter) ts.idle += n;
     live[t] = ts.idle < idleAfter;
+    if (!live[t]) {                                // a silent track takes new fader positions at once: no glide when it wakes up
+      ts.level.reset(effFx[t].mute ? 0.0f : effFx[t].level);
+      ts.dSend.reset(effFx[t].delaySend); ts.rSend.reset(effFx[t].revSend);
+    }
   }
   for (int i = 0; i < n; ++i) {
     float mL = 0, mR = 0, dL = 0, dR = 0, rL = 0, rR = 0;
@@ -386,12 +541,13 @@ void Engine::renderAudio(float* l, float* r, int n) {
           default: break;
         }
       }
+      if (trackOuts) { trkL_[t][trkOff_ + i] = xl; if (trkR_[t]) trkR_[t][trkOff_ + i] = xr; }
       mL += xl; mR += xr; dL += xl * ds; dR += xr * ds; rL += xl * rs; rR += xr * rs;
     }
     float oL, oR;
     delay_.tick(dL, dR, p.delayFeedback, oL, oR); mL += oL; mR += oR;
     reverb_.tick(rL, rR, oL, oR); mL += oL; mR += oR;
-    const float g = master_.next(p.master);
+    const float g = master_.next(masterVal);
     mL *= g; mR *= g;
     limiter_.tick(mL, mR);
     l[i] = mL; r[i] = mR;
@@ -429,9 +585,11 @@ void Engine::render(float* outL, float* outR, int frames) {
       }
     }
     if (n > kBlock) n = kBlock;
+    trkOff_ = done;
     renderAudio(outL + done, outR + done, n);
     frame_ += n; done += n;
   }
+  for (int t = 0; t < kNumTracks; ++t) { trkL_[t] = nullptr; trkR_[t] = nullptr; }   // the pointers were for this call
   aPeakL_.store(peakL_, std::memory_order_relaxed);
   aPeakR_.store(peakR_, std::memory_order_relaxed);
 }
