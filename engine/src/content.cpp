@@ -229,7 +229,8 @@ bool choice(Rd& r, const JV& o, const std::string& path, const char* key, std::i
 const std::initializer_list<Choice> kWaves = {{"saw", 0}, {"square", 1}, {"triangle", 2}, {"sine", 3}, {"sqr", 1}, {"tri", 2}, {"sin", 3}};
 const std::initializer_list<Choice> kEngines = {{"subtractive", 0}, {"fm", 1}, {"pluck", 2}, {"vector", 3}, {"sub", 0}};
 const std::initializer_list<Choice> kLfoTargets = {{"off", 0}, {"cutoff", 1}, {"pitch", 2}, {"volume", 3}, {"amp", 3}};
-const std::initializer_list<Choice> kFxTypes = {{"off", 0}, {"overdrive", 1}, {"bitcrush", 2}, {"chorus", 3}, {"phaser", 4}, {"filter", 5}, {"compressor", 6}, {"distortion", 7}, {"fuzz", 8}, {"booster", 9}, {"tremolo", 10}, {"vibrato", 11}, {"flanger", 12}, {"rotary", 13}, {"wah", 14}, {"autowah", 15}, {"octaver", 16}, {"ringmod", 17}, {"delay", 18}, {"tapeecho", 19}, {"reverb", 20}, {"gate", 21}};
+const std::initializer_list<Choice> kFxTypes = {{"off", 0}, {"overdrive", 1}, {"bitcrush", 2}, {"chorus", 3}, {"phaser", 4}, {"filter", 5}, {"compressor", 6}, {"distortion", 7}, {"fuzz", 8}, {"booster", 9}, {"tremolo", 10}, {"vibrato", 11}, {"flanger", 12}, {"rotary", 13}, {"wah", 14}, {"autowah", 15}, {"octaver", 16}, {"ringmod", 17}, {"delay", 18}, {"tapeecho", 19}, {"reverb", 20}, {"gate", 21},
+    {"punch", 22}, {"crusher", 23}, {"slicer", 24}, {"gatedverb", 25}, {"boom", 26}, {"cloud", 27}, {"lofi", 28}, {"dubdelay", 29}, {"freqshift", 30}, {"resonator", 31}, {"shimmer", 32}};
 const std::initializer_list<Choice> kScales = {{"minor", 0}, {"major", 1}, {"dorian", 2}, {"pentatonic", 3}};
 const std::initializer_list<Choice> kRoots = {{"C", 0}, {"C#", 1}, {"D", 2}, {"D#", 3}, {"E", 4}, {"F", 5}, {"F#", 6}, {"G", 7}, {"G#", 8}, {"A", 9}, {"A#", 10}, {"B", 11},
                                               {"Db", 1}, {"Eb", 3}, {"Gb", 6}, {"Ab", 8}, {"Bb", 10}};
@@ -246,7 +247,8 @@ const std::initializer_list<Choice> kTracks = {{"bass", 0}, {"lead", 1}, {"syn3"
 const char* const kWaveNames[] = {"saw", "square", "triangle", "sine"};
 const char* const kEngineNames[] = {"subtractive", "fm", "pluck", "vector"};
 const char* const kLfoNames[] = {"off", "cutoff", "pitch", "volume"};
-const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor", "distortion", "fuzz", "booster", "tremolo", "vibrato", "flanger", "rotary", "wah", "autowah", "octaver", "ringmod", "delay", "tapeecho", "reverb", "gate"};
+const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor", "distortion", "fuzz", "booster", "tremolo", "vibrato", "flanger", "rotary", "wah", "autowah", "octaver", "ringmod", "delay", "tapeecho", "reverb", "gate",
+                               "punch", "crusher", "slicer", "gatedverb", "boom", "cloud", "lofi", "dubdelay", "freqshift", "resonator", "shimmer"};
 static_assert(sizeof(kFxNames) / sizeof(kFxNames[0]) == size_t(kNumFxTypes), "a name for every effect type");
 const char* const kScaleNames[] = {"minor", "major", "dorian", "pentatonic"};
 const char* const kRootNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
@@ -279,7 +281,7 @@ bool readTrack(Rd& r, const JV& o, const std::string& path, TrackFx& fx) {
       const JV& e = a->a[i];
       const std::string ep = idx(fp, i);
       if (e.t != JV::Obj) return r.fail(ep, "must be an object { ... }");
-      unknownKeys(r, e, ep, {"type", "amount", "rate", "bypass", "voice", "p3", "p4"});
+      unknownKeys(r, e, ep, {"type", "amount", "rate", "bypass", "voice", "p3", "p4", "mix", "keepSub", "sync"});
       int type = 0;
       bool has = false;
       if (!choice(r, e, ep, "type", kFxTypes, type, &has)) return false;
@@ -290,6 +292,9 @@ bool readTrack(Rd& r, const JV& o, const std::string& path, TrackFx& fx) {
       float voice = 0.0f;
       if (!num(r, e, ep, "voice", 0, kMaxFxVoices - 1, voice) || !num(r, e, ep, "p3", 0, 1, sl.p3) || !num(r, e, ep, "p4", 0, 1, sl.p4)) return false;
       sl.voice = uint8_t(voice + 0.5f);
+      bool keepSub = false, sync = false;
+      if (!num(r, e, ep, "mix", 0, 1, sl.mix) || !boolean(r, e, ep, "keepSub", keepSub) || !boolean(r, e, ep, "sync", sync)) return false;
+      sl.flags = uint8_t((keepSub ? kFxKeepSub : 0) | (sync ? kFxSync : 0));
     }
   }
   return true;
@@ -616,6 +621,8 @@ void writeTrack(W& w, const TrackFx& f) {
            ", \"rate\": " + W::number(sl.rate) +
            (sl.voice ? ", \"voice\": " + std::to_string(int(sl.voice)) : std::string()) +
            (sl.p3 != 0.5f ? ", \"p3\": " + W::number(sl.p3) : std::string()) + (sl.p4 != 0.5f ? ", \"p4\": " + W::number(sl.p4) : std::string()) +
+           (sl.mix != 1.0f ? ", \"mix\": " + W::number(sl.mix) : std::string()) +
+           ((sl.flags & kFxKeepSub) ? ", \"keepSub\": true" : "") + ((sl.flags & kFxSync) ? ", \"sync\": true" : "") +
            (sl.bypass ? ", \"bypass\": true }" : " }");
   }
   w.close(']');

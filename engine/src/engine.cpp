@@ -17,6 +17,7 @@ Engine::Engine(double sampleRate) : sr_(sampleRate) {
   sampler_.init(sr_);
   for (auto& s : synth_) s.init(sr_);
   delay_.init(sr_); reverb_.init(sr_); limiter_.init(sr_);
+  subK_ = 1.0f - std::exp(-6.2831853f * 120.0f / float(sr_));
   master_.setTime(sr_, 15.0); master_.reset(proj_->master);
   for (int t = 0; t < kNumTracks; ++t) {
     tr_[t].level.setTime(sr_, 15.0); tr_[t].dSend.setTime(sr_, 15.0); tr_[t].rSend.setTime(sr_, 15.0);
@@ -90,6 +91,11 @@ void Engine::collectGarbage() {
 
 void Engine::applyProject() {
   Project& p = *proj_;
+  for (int d = 0; d < 15; ++d) {                   // two octaves of the scale, an octave below where the synths play
+    float hz = 440.0f * std::pow(2.0f, float(degreeToMidi(p, 0, d) - 12 - 69) / 12.0f);
+    while (hz < 36.0f) hz *= 2.0f;
+    scaleHz_[d] = hz;
+  }
   if (p.chainLen < 1) { p.chainLen = 1; p.chain[0] = 0; }
   if (p.chainLen > kMaxChain) p.chainLen = kMaxChain;
   for (int i = 0; i < p.chainLen; ++i) p.chain[i] = clampScene(p.chain[i]);
@@ -579,6 +585,14 @@ void Engine::renderAudio(float* l, float* r, int n) {
       ts.dSend.reset(effFx[t].delaySend); ts.rSend.reset(effFx[t].revSend);
     }
   }
+  {  // the pedals' clock: the tempo, and where in the groove this block starts
+    const bool have = playing_ && frame_ >= lastFire_ && double(frame_ - lastFire_) < 4.0 * stepLen();
+    const double beatNow = have ? (double(lastStep_) + double(frame_ - lastFire_) / stepLen()) * 0.25 : 0.0;
+    const float bpmNow = float(tempo());
+    for (int t = 0; t < kNumTracks; ++t)
+      for (int sl = 0; sl < kFxSlots; ++sl)
+        tr_[t].fxSlots[sl].pedal.setClock(bpmNow, have, beatNow, (effFx[t].slots[sl].flags & kFxSync) != 0, scaleHz_);
+  }
   for (int i = 0; i < n; ++i) {
     float mL = 0, mR = 0, dL = 0, dR = 0, rL = 0, rR = 0;
     for (int t = 0; t < kNumTracks; ++t) {
@@ -593,6 +607,15 @@ void Engine::renderAudio(float* l, float* r, int n) {
         const FxSlot& fs = fx.slots[sl];
         if (fs.bypass || fs.type == FxType::Off) continue;
         FxSlotState& st = ts.fxSlots[sl];
+        const float inL = xl, inR = xr;
+        const bool keepSub = (fs.flags & kFxKeepSub) != 0;
+        float lowMid = 0.0f;
+        if (keepSub) {                             // the lows go round the pedal: clean, and in the middle
+          st.sub[0][0] += subK_ * (xl - st.sub[0][0]); st.sub[0][1] += subK_ * (st.sub[0][0] - st.sub[0][1]);
+          st.sub[1][0] += subK_ * (xr - st.sub[1][0]); st.sub[1][1] += subK_ * (st.sub[1][0] - st.sub[1][1]);
+          xl -= st.sub[0][1]; xr -= st.sub[1][1];
+          lowMid = 0.5f * (st.sub[0][1] + st.sub[1][1]);
+        }
         // A standard pedal on character 0 sounds as it always has; its third knob is its level.
         if (fs.voice == 0 && uint8_t(fs.type) <= uint8_t(FxType::Compressor)) {
           switch (fs.type) {
@@ -627,6 +650,8 @@ void Engine::renderAudio(float* l, float* r, int n) {
         } else {
           st.pedal.tick(fs.type, fs.voice, xl, xr, fs.amount, fs.rate, fs.p3, fs.p4);
         }
+        if (keepSub) { xl += lowMid; xr += lowMid; }
+        if (fs.mix < 1.0f) { xl = inL + (xl - inL) * fs.mix; xr = inR + (xr - inR) * fs.mix; }
       }
       if (trackOuts) { trkL_[t][trkOff_ + i] = xl; if (trkR_[t]) trkR_[t][trkOff_ + i] = xr; }
       mL += xl; mR += xr; dL += xl * ds; dR += xr * ds; rL += xl * rs; rR += xr * rs;

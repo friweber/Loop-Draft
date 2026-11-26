@@ -27,9 +27,11 @@ enum class SynthMode : uint8_t { Subtractive, Fm, Pluck, Vector };
 enum class FxType     : uint8_t {
   Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor,          // the standard pedals
   // the stompbox collection (pedals.h)
-  Distortion, Fuzz, Booster, Tremolo, Vibrato, Flanger, Rotary, Wah, AutoWah, Octaver, RingMod, Delay, TapeEcho, Reverb, Gate
+  Distortion, Fuzz, Booster, Tremolo, Vibrato, Flanger, Rotary, Wah, AutoWah, Octaver, RingMod, Delay, TapeEcho, Reverb, Gate,
+  // made for drums and synths
+  Punch, Crusher, Slicer, GatedVerb, Boom, Cloud, LoFi, DubDelay, FreqShift, Resonator, Shimmer
 };
-constexpr int kNumFxTypes = int(FxType::Gate) + 1;
+constexpr int kNumFxTypes = int(FxType::Shimmer) + 1;
 enum class DrumEngine : uint8_t {
   Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer,
   HardcoreGabber, WarehouseRumble, NeuroTechstep, EbmElectro, GlitchBreakcore
@@ -62,7 +64,8 @@ enum Param : int {
   P_FX_SLOT4_AMOUNT = 93, P_FX_SLOT4_RATE, P_FX_SLOT4_P3, P_FX_SLOT4_P4,
   P_FX_SLOT5_AMOUNT = 97, P_FX_SLOT5_RATE, P_FX_SLOT5_P3, P_FX_SLOT5_P4,
   P_FX_SLOT6_AMOUNT = 101, P_FX_SLOT6_RATE, P_FX_SLOT6_P3, P_FX_SLOT6_P4,
-  P_LAST = P_FX_SLOT6_P4,
+  P_FX_SLOT1_MIX = 105, P_FX_SLOT2_MIX, P_FX_SLOT3_MIX, P_FX_SLOT4_MIX, P_FX_SLOT5_MIX, P_FX_SLOT6_MIX,   // dry/wet of each slot
+  P_LAST = P_FX_SLOT6_MIX,
   P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
 };
 
@@ -133,10 +136,16 @@ struct FxSlot {
   uint8_t voice = 0;         // the pedal's character switch, see pedals.h. 0 on a standard pedal is the sound it always had
   float p3 = 0.5f;           // 0 .. 1, third and fourth knob. What they do depends on the pedal; 0.5 is the neutral setting
   float p4 = 0.5f;
+  float mix = 1.0f;          // 0 = only the dry signal .. 1 = only the pedal
+  uint8_t flags = 0;         // kFxKeepSub, kFxSync
 };
+constexpr uint8_t kFxKeepSub = 1;   // everything below about 120 Hz goes round the pedal, clean and in the middle
+constexpr uint8_t kFxSync = 2;      // the pedal's speed or time follows the tempo (see fxCanSync)
 constexpr int kMaxFxVoices = 4;
 // How many characters each pedal has, in the order of FxType.
-constexpr uint8_t kFxVoices[] = {1, 4, 1, 4, 4, 3, 4, 4, 4, 3, 4, 2, 3, 2, 3, 3, 2, 2, 3, 3, 4, 2};
+constexpr uint8_t kFxVoices[] = {1, 4, 1, 4, 4, 3, 4, 4, 4, 3, 4, 2, 3, 2, 3, 3, 2, 2, 3, 3, 4, 2,
+                                 2, 3, 2, 2, 2, 4, 3, 3, 3, 3, 3};
+static_assert(int(sizeof(kFxVoices)) == kNumFxTypes, "one voice count per pedal");
 
 // Which slot and which of its knobs (0 amount, 1 rate, 2 p3, 3 p4) a parameter id stands for. False if it is not a slot knob.
 inline bool fxSlotParam(int id, int& slot, int& knob);
@@ -249,15 +258,25 @@ inline bool fxSlotParam(int id, int& slot, int& knob) {
   if (id >= P_FX_SLOT1_AMOUNT && id <= P_FX_SLOT3_RATE) { slot = (id - P_FX_SLOT1_AMOUNT) / 2; knob = (id - P_FX_SLOT1_AMOUNT) % 2; return true; }
   if (id >= P_FX_SLOT1_P3 && id <= P_FX_SLOT3_P4) { slot = (id - P_FX_SLOT1_P3) / 2; knob = 2 + (id - P_FX_SLOT1_P3) % 2; return true; }
   if (id >= P_FX_SLOT4_AMOUNT && id <= P_FX_SLOT6_P4) { slot = 3 + (id - P_FX_SLOT4_AMOUNT) / 4; knob = (id - P_FX_SLOT4_AMOUNT) % 4; return true; }
+  if (id >= P_FX_SLOT1_MIX && id <= P_FX_SLOT6_MIX) { slot = id - P_FX_SLOT1_MIX; knob = 4; return true; }
   return false;
 }
 // The id of knob 0 .. 3 of slot 0 .. kFxSlots - 1.
 inline int fxSlotParamId(int slot, int knob) {
+  if (knob == 4) return P_FX_SLOT1_MIX + slot;
   if (slot >= 3) return P_FX_SLOT4_AMOUNT + (slot - 3) * 4 + knob;
   return knob < 2 ? P_FX_SLOT1_AMOUNT + slot * 2 + knob : P_FX_SLOT1_P3 + slot * 2 + (knob - 2);
 }
 // Is `index` of this parameter a synth (true) or a track / nothing (false)?
 inline bool isSynthParam(int id) { return (id >= P_SYN_WAVE1 && id < P_FX_LEVEL) || id == P_SYN_INSTRUMENT || id == P_SYN_WARMTH || id == P_SYN_MOTION || (id >= P_SYN_FOLD && id <= P_SYN_VEC_Y); }
-inline float& fxSlotKnob(FxSlot& s, int knob) { return knob == 0 ? s.amount : (knob == 1 ? s.rate : (knob == 2 ? s.p3 : s.p4)); }
+inline float& fxSlotKnob(FxSlot& s, int knob) { return knob == 0 ? s.amount : (knob == 1 ? s.rate : (knob == 2 ? s.p3 : (knob == 3 ? s.p4 : s.mix))); }
+// Can this pedal's speed or time follow the tempo when asked to? (The slicer and the dub delay always do.)
+inline bool fxCanSync(FxType t, int voice) {
+  switch (t) {
+    case FxType::Chorus: case FxType::Phaser: return voice > 0;
+    case FxType::Flanger: case FxType::Tremolo: case FxType::Vibrato: case FxType::Wah: case FxType::Delay: case FxType::TapeEcho: return true;
+    default: return false;
+  }
+}
 
 }  // namespace ld

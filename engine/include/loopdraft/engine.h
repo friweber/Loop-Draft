@@ -96,7 +96,7 @@ class Engine {
     void* ptr = nullptr;
   };
   struct Trash { bool isProject; void* ptr; };
-  struct FxSlotState { Drive drive; Bitcrusher crush; Chorus chorus; Phaser phaser; Svf flt[2]; TrackComp comp; Pedal pedal; };
+  struct FxSlotState { Drive drive; Bitcrusher crush; Chorus chorus; Phaser phaser; Svf flt[2]; TrackComp comp; Pedal pedal; float sub[2][2] = {}; };
   struct TrackState { int64_t idle = 0; Smooth level, dSend, rSend; Drive drive; Shelf lo[2], hi[2]; FxSlotState fxSlots[kFxSlots]; float cLow = 1e9f, cHigh = 1e9f, cDrive = -1; };
   struct Suppress { bool on = false; int scene = 0, track = 0, row = 0, step = 0; };
   struct Ratchet { bool active = false; int pad = 0, hits = 0, done = 0; int64_t nextFrame = 0; double base = 0.0, interval = 0.0; };
@@ -148,6 +148,8 @@ class Engine {
 
   // host clock (plugin)
   bool hostSync_ = false;
+  float scaleHz_[15] = {};   // the project's scale over two octaves, for the pedals that are tuned
+  float subK_ = 0.0f;        // the crossover of KEEP SUB
   bool hostPlaying_ = false, ownPlay_ = false;   // with a host that stands still, PLAY starts our own transport
   double hostBpm_ = 0.0, delayBpm_ = 0.0;
   int64_t hostNext_ = -1;          // the host's count of sixteenths of the step that fires next; -1: find it again

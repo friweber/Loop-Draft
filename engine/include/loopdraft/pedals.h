@@ -40,6 +40,22 @@ struct Pedal {
   float la = -1.0f, lr = -1.0f, l3 = -1.0f, l4 = -1.0f;
   float k[8] = {};                      // values worked out from the knobs
   float cph[4] = {};                    // phaser stage coefficients
+  float hil[2][2][4][4] = {};           // frequency shifter: two all-pass chains a quarter turn apart
+  float s[8] = {};                      // odds and ends of the newer pedals
+  uint32_t rng = 0x2545f491u;
+  struct Grain { float pos = 0, len = 1, d0 = 0, rate = 1, panL = 0.7f, panR = 0.7f; bool on = false; };
+  Grain grains[8];
+  float grainClock = 0.0f;
+  // The clock, set by the engine before every block: tempo, where in the bar we are (in quarter notes), whether this
+  // pedal follows it, and the notes of the project's scale for the pedals that are tuned (15 of them, low to high).
+  double beat = 0.0;
+  float bpm = 120.0f;
+  bool sync = false;
+  const float* scale = nullptr;
+  void setClock(float tempo, bool haveBeat, double beatNow, bool follow, const float* scaleHz) {
+    bpm = tempo; sync = follow; scale = scaleHz;
+    if (haveBeat) beat = beatNow;
+  }
 
   void init(double sampleRate) {
     sr = sampleRate;
@@ -68,12 +84,19 @@ struct Pedal {
       fbk[c] = prev[c] = ic1[c] = ic2[c] = 0.0f; flip[c] = flip2[c] = 1.0f;
     }
     ph = ph2 = env = env2 = 0.0f; gate = 1.0f; gain = 1.0f; dTime = -1.0f; w = 0; hold = 0; age = 0;
+    std::memset(hil, 0, sizeof(hil));
+    for (auto& v : s) v = 0.0f;
+    for (auto& g : grains) g.on = false;
+    grainClock = 0.0f;
     la = lr = l3 = l4 = -1.0f;
   }
   void sleep() { last = -1; }           // the next note finds it clean
 
   // Does this pedal keep sounding for seconds after its input stopped?
-  static bool rings(FxType t) { return t == FxType::Delay || t == FxType::TapeEcho || t == FxType::Reverb; }
+  static bool rings(FxType t) {
+    return t == FxType::Delay || t == FxType::TapeEcho || t == FxType::Reverb || t == FxType::Cloud || t == FxType::DubDelay ||
+           t == FxType::Resonator || t == FxType::Shimmer;
+  }
 
   inline void tick(FxType type, int voice, float& l, float& r, float a, float rt, float p3, float p4) {
     const int key = int(type) * 8 + voice;
@@ -85,6 +108,7 @@ struct Pedal {
     float* ch[2] = {&l, &r};
     const float level = p3 * 2.0f;                 // where the third knob is LEVEL: unity in the middle
     ++age;
+    beat += double(bpm) / (60.0 * sr);
     switch (type) {
       // ------------------------------------------------------------------------------------------ drive
       case FxType::Overdrive: {                    // DRIVE, TONE, LEVEL, BODY
@@ -232,7 +256,7 @@ struct Pedal {
       }
       // ------------------------------------------------------------------------------------- modulation
       case FxType::Chorus: {                       // DEPTH, SPEED, MIX, TONE
-        advance(ph, (0.1f + rt * rt * 6.0f) / fs);
+        lfo(ph, 0.1f + rt * rt * 6.0f, rt);
         write(l, r);
         const std::vector<float>* buf[2] = {&bufL, &bufR};
         for (int c = 0; c < 2; ++c) {
@@ -252,7 +276,7 @@ struct Pedal {
         break;
       }
       case FxType::Flanger: {                      // FEEDBACK, SPEED, DEPTH, MANUAL
-        advance(ph, (0.1f + rt * rt * 4.0f) / fs);
+        lfo(ph, 0.1f + rt * rt * 4.0f, rt);
         const float d = (0.0005f + p4 * 0.004f + p3 * 0.005f * (0.5f + 0.5f * sinTurns(ph))) * fs;
         const float wl = read(bufL, d), wr = read(bufR, d);
         if (voice == 2) {                          // ZERO: the sweep passes through the dry signal, which cancels for a moment
@@ -269,7 +293,7 @@ struct Pedal {
         break;
       }
       case FxType::Phaser: {                       // DEPTH, SPEED, FEEDBACK, MIX
-        advance(ph, (0.05f + rt * rt * 8.0f) / fs);
+        lfo(ph, 0.05f + rt * rt * 8.0f, rt);
         if ((age & 15u) == 1) {                    // the sweep is slow: new coefficients every 16 samples
           float u = 0.5f + 0.5f * sinTurns(ph);
           if (voice == 3) u *= u;                  // VIBE: a lamp that glows up fast and fades slowly
@@ -295,7 +319,7 @@ struct Pedal {
         break;
       }
       case FxType::Tremolo: {                      // DEPTH, SPEED, SHAPE, PAN
-        advance(ph, (1.0f + rt * 13.0f) / fs);
+        lfo(ph, 1.0f + rt * 13.0f, rt);
         const float hard = p3 > 0.5f ? (p3 - 0.5f) * 2.0f : 0.0f, sg = 1.0f + hard * hard * 30.0f, norm = 1.0f / fastTanh(sg);
         const float spread = std::fabs(p4 - 0.5f);
         for (int c = 0; c < 2; ++c) {
@@ -318,7 +342,7 @@ struct Pedal {
         break;
       }
       case FxType::Vibrato: {                      // DEPTH, SPEED, MIX, TONE
-        advance(ph, (voice == 1 ? 0.4f + rt * 2.0f : 2.0f + rt * 7.0f) / fs);
+        lfo(ph, voice == 1 ? 0.4f + rt * 2.0f : 2.0f + rt * 7.0f, rt);
         advance(ph2, 7.3f / fs);
         write(l, r);
         float d = 0.005f + 0.003f * a * sinTurns(ph);
@@ -380,7 +404,7 @@ struct Pedal {
         break;
       }
       case FxType::Wah: {                          // DEPTH, SPEED, RANGE, SHARPNESS
-        advance(ph, (0.3f + rt * rt * 6.0f) / fs);
+        lfo(ph, 0.3f + rt * rt * 6.0f, rt);
         const float u = 0.5f + 0.5f * sinTurns(ph), shift = 0.6f + p3 * 0.8f;
         const float f = voice == 1 ? (330.0f + u * 1400.0f) * shift : (voice == 2 ? (120.0f + u * u * 900.0f) * shift : (400.0f + u * u * 1800.0f) * shift);
         const float kq = 1.0f / (voice == 1 ? 1.5f + p4 * 5.0f : 2.0f + p4 * 8.0f), g = svfG(f);
@@ -430,7 +454,7 @@ struct Pedal {
       }
       // --------------------------------------------------------------------------------- echo and space
       case FxType::Delay: {                        // LEVEL, TIME (40 ms .. 1 s), REPEATS, TONE (analog: wobble)
-        const float target = (0.04f + rt * rt * 0.96f) * fs;
+        const float target = sync ? syncSamples(rt) : (0.04f + rt * rt * 0.96f) * fs;
         if (dTime < 0.0f) dTime = target;
         dTime += (target - dTime) * 0.0004f;        // a moved knob bends the pitch for a moment, as on a real one
         float d = dTime;
@@ -454,7 +478,7 @@ struct Pedal {
         break;
       }
       case FxType::TapeEcho: {                     // LEVEL, TIME, REPEATS, AGE
-        const float target = (0.06f + rt * 0.54f) * fs;
+        const float target = sync ? syncSamples(rt) : (0.06f + rt * 0.54f) * fs;
         if (dTime < 0.0f) dTime = target;
         dTime += (target - dTime) * 0.0004f;
         advance(ph, 0.6f / fs); advance(ph2, 7.3f / fs);
@@ -505,6 +529,272 @@ struct Pedal {
         }
         break;
       }
+      // -------------------------------------------------------------------------------- made for drums
+      case FxType::Punch: {                        // ATTACK, SUSTAIN, LEVEL, CLIP
+        if (moved) {
+          const float f = voice == 1 ? 0.5f : 1.0f;
+          k[0] = 1.0f - std::exp(-1.0f / (0.0004f * f * fs)); k[1] = 1.0f - std::exp(-1.0f / (0.018f * f * fs));
+          k[2] = 1.0f - std::exp(-1.0f / (0.2f * fs));
+        }
+        const float in = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+        env += (in - env) * (in > env ? k[0] : k[2]);          // jumps up with the hit
+        env2 += (in - env2) * (in > env2 ? k[1] : k[2]);       // comes after it
+        const float d = (env - env2) / (env + 1e-4f);          // near 1 at the very start of a hit, 0 once it rings
+        const float att = (a - 0.5f) * 2.0f, sus = (rt - 0.5f) * 2.0f;
+        const float ga = att >= 0.0f ? 1.0f + att * d * 3.0f : 1.0f + att * d * 0.95f;
+        const float gs = sus >= 0.0f ? 1.0f + sus * (1.0f - d) * 1.5f : 1.0f + sus * (1.0f - d) * 0.9f;
+        const float clip = p4 > 0.5f ? (p4 - 0.5f) * 2.0f : 0.0f;
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c];
+          float y;
+          if (voice == 1) {                        // SNAP: only the top of the hit is shaped, the body stays as it is
+            const float low = lp(c, 0, x, op(900.0f));
+            y = low * gs + (x - low) * ga * gs;
+          } else {                                 // PUNCH: the whole hit
+            y = x * ga * gs;
+          }
+          y *= level;
+          if (clip > 0.0f) y = fastTanh(y * (1.0f + clip * 4.0f)) / (1.0f + clip);
+          *ch[c] = y;
+        }
+        break;
+      }
+      case FxType::Crusher: {                      // DRIVE, TONE, GLUE, BODY
+        const float in = std::fabs(l) > std::fabs(r) ? std::fabs(l) : std::fabs(r);
+        const float rs = 48000.0f / fs;
+        env += (in - env) * (in > env ? 0.004f : 0.00025f) * rs;
+        const float thr = 0.5f - p3 * 0.42f;
+        if ((age & 7u) == 0) gain = env > thr ? std::pow(env / thr, -0.75f) : 1.0f;     // glue: four to one
+        const float makeup = 1.0f + p3 * 1.5f, d = 1.0f + a * a * 30.0f;
+        if (moved) k[0] = op(600.0f + rt * rt * 15000.0f);
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c] * gain * makeup;
+          const float low = lp(c, 0, x, op(150.0f));
+          float y;
+          if (voice == 1) { const float t = x * d; y = t / (1.0f + std::fabs(t)) * 1.3f; }   // DIODE: crunchy
+          else if (voice == 2) y = hardClip(x * d);                                         // CLIP: flat tops, the gabber kick
+          else y = lp(c, 1, fastTanh(x * d * 0.7f + 0.05f) - 0.04996f, op(9000.0f - a * 3000.0f)) * 1.2f;   // TAPE: round and warm
+          y = lp(c, 2, y, k[0]);
+          y += low * (p4 - 0.5f) * 1.5f;
+          *ch[c] = y * (0.36f - 0.14f * a);
+        }
+        break;
+      }
+      case FxType::Slicer: {                       // DEPTH, RATE, WIDTH, PATTERN (stutter: HOW MUCH)
+        static const float divs[6] = {1.0f, 0.5f, 0.33333f, 0.25f, 0.16667f, 0.125f};      // 1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32
+        const double div = double(divs[int(rt * 5.99f)]);
+        const double u = beat / div;
+        const double fl = std::floor(u);
+        const float fr = float(u - fl);
+        const float rs = 48000.0f / fs, width = 0.1f + 0.85f * p3;
+        if (voice == 1) {                          // STUTTER: at the end of every two beats the last slice is repeated
+          write(l, r);
+          const double period = div * 8.0, up = beat / period;
+          const float pf = float(up - std::floor(up)), zone = 1.0f - (0.125f + p4 * 0.75f);
+          const float len = float(div * 60.0 / double(bpm)) * fs;
+          const bool in = pf >= zone;
+          gate += ((in ? 1.0f : 0.0f) - gate) * 0.02f * rs;
+          float wl = l, wr = r;
+          if (in) {
+            const float t = (pf - zone) * float(period * 60.0 / double(bpm)) * fs;
+            const int maxRep = juceFreeMax(1, int(float(mask - 8) / (len + 1.0f)));
+            const int rep = 1 + int(t / len) % maxRep;
+            const float cut = fr < width || p3 > 0.94f ? 1.0f : 0.0f;
+            wl = read(bufL, len * float(rep)) * cut; wr = read(bufR, len * float(rep)) * cut;
+          }
+          const float m = a * gate;
+          l = l * (1.0f - m) + wl * m; r = r * (1.0f - m) + wr * m;
+        } else {                                   // GATE: sixteen steps that let the sound through or not
+          static const uint16_t pats[8] = {0xFFFF, 0x5555, 0x7777, 0x6DB6, 0x9249, 0x0F0F, 0xD5D5, 0xB5AD};
+          const bool on = ((pats[int(p4 * 7.99f)] >> (int64_t(fl) & 15)) & 1) != 0 && fr < width;
+          gate += ((on ? 1.0f : 0.0f) - gate) * (on ? 0.03f : 0.012f) * rs;
+          const float g = 1.0f - a * (1.0f - gate);
+          l *= g; r *= g;
+        }
+        break;
+      }
+      case FxType::GatedVerb: {                    // LEVEL, GATE, SIZE, TONE
+        const float in = 0.5f * (std::fabs(l) + std::fabs(r)), rs = 48000.0f / fs;
+        env += (in - env) * (in > env ? 0.05f : 0.002f) * rs;
+        env2 += (in - env2) * 0.0008f * rs;
+        const int len = int((0.05f + rt * 0.55f) * fs);
+        if (env > 0.01f + env2 * 1.4f) hold = len; else if (hold > 0) --hold;      // every hit opens the gate anew
+        float g;
+        if (voice == 1) { const float t = hold > 0 ? 1.0f - float(hold) / float(len) : 0.0f; g = hold > 0 ? 0.15f + 0.85f * t * t : 0.0f; }   // REVERSE: swells, then is gone
+        else g = hold > 0 ? 1.0f : 0.0f;                                         // GATED: huge, then cut off
+        gate += (g - gate) * (g > gate ? 0.02f : 0.006f) * rs;
+        const float tone = op(1200.0f + p4 * 9000.0f);
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c];
+          *ch[c] = x + lp(c, 0, verb(c, x, 0.80f + p3 * 0.17f, 0.2f), tone) * gate * a * 1.6f;
+        }
+        break;
+      }
+      case FxType::Boom: {                         // BOOM, PITCH, DECAY, SENSITIVITY
+        const float low = lp(0, 0, 0.5f * (l + r), op(180.0f)), in = std::fabs(low), rs = 48000.0f / fs;
+        env += (in - env) * (in > env ? 0.03f : 0.003f) * rs;
+        env2 += (in - env2) * 0.0015f * rs;
+        if (hold > 0) --hold;
+        const float thr = 0.004f + 0.3f * (1.0f - p4) * (1.0f - p4);
+        if (hold == 0 && env > thr && env > env2 * 1.6f) { s[0] = 1.0f; s[1] = 0.0f; s[2] = 1.0f; hold = int(0.08f * fs); }   // a low hit sets it off
+        if (moved) { k[0] = std::exp(-1.0f / ((0.05f + p3 * 0.6f) * (voice == 1 ? 0.5f : 1.0f) * fs)); k[1] = std::exp(-1.0f / (0.025f * fs)); }
+        const float f = (35.0f + rt * 55.0f) * (1.0f + (voice == 1 ? 3.0f : 0.8f) * s[2]);    // THUMP drops further, like a drum machine's kick
+        advance(s[1], f / fs);
+        const float y = sinTurns(s[1]) * s[0] * a * 0.4f;
+        s[0] *= k[0]; s[2] *= k[1];
+        l += y; r += y;
+        break;
+      }
+      // ------------------------------------------------------------------------------- made for synths
+      case FxType::Cloud: {                        // MIX, GRAIN, SCATTER, FEEDBACK
+        write(l + s[4] * p4 * 0.6f, r + s[5] * p4 * 0.6f);
+        grainClock -= 1.0f;
+        if (grainClock <= 0.0f) {                  // a new grain: a short piece of what came in a moment ago
+          const float len = (0.01f + rt * rt * 0.24f) * fs;
+          for (auto& g : grains) {
+            if (g.on) continue;
+            g.on = true; g.pos = 0.0f; g.len = len;
+            g.rate = voice == 1 ? -1.0f : (voice == 2 ? (rnd() < 0.5f ? 2.0f : 1.0f) : (voice == 3 ? (rnd() < 0.5f ? 1.5f : 1.0f) : 1.0f));
+            g.d0 = 32.0f + rnd() * p3 * 0.6f * fs + (g.rate > 1.0f ? len * (g.rate - 1.0f) : 0.0f);
+            const float pan = 0.5f + (rnd() - 0.5f) * p3;
+            g.panL = 1.4f * (1.0f - pan); g.panR = 1.4f * pan;
+            break;
+          }
+          grainClock = len * (0.25f + 0.15f * rnd());
+        }
+        float wl = 0.0f, wr = 0.0f;
+        for (auto& g : grains) {
+          if (!g.on) continue;
+          const float u = g.pos / g.len, win = 4.0f * u * (1.0f - u);
+          const float d = g.d0 - g.pos * (g.rate - 1.0f);     // played faster: the delay shrinks; backwards: it grows
+          wl += read(bufL, d) * win * g.panL; wr += read(bufR, d) * win * g.panR;
+          g.pos += 1.0f;
+          if (g.pos >= g.len) g.on = false;
+        }
+        wl *= 0.5f; wr *= 0.5f;
+        s[4] = fastTanh(wl); s[5] = fastTanh(wr);
+        l = l * (1.0f - 0.5f * a) + wl * a * 1.3f; r = r * (1.0f - 0.5f * a) + wr * a * 1.3f;
+        break;
+      }
+      case FxType::LoFi: {                         // WOBBLE, AGE, DRIVE, NOISE
+        advance(ph, (voice == 2 ? 0.556f : (voice == 1 ? 0.4f : 0.8f)) / fs);
+        advance(ph2, (voice == 1 ? 9.0f : 6.5f) / fs);
+        if ((age & 4095u) == 0) s[0] = rnd() * 2.0f - 1.0f;      // the transport is never quite steady
+        s[1] += (s[0] - s[1]) * 0.0002f;
+        const float depth = a * a;
+        const float d = (0.006f + depth * (0.0025f * sinTurns(ph) + (voice == 2 ? 0.0f : 0.0004f) * sinTurns(ph2) + 0.0015f * s[1])) * fs;
+        write(l, r);
+        const float w2[2] = {read(bufL, d), read(bufR, d)};
+        const float hi = op(voice == 1 ? 16000.0f - rt * 8000.0f : 14000.0f - rt * 11000.0f), lo = op(20.0f + rt * 180.0f);
+        const float g = 1.0f + p3 * 4.0f, norm = 1.0f / std::sqrt(g);
+        const float in = 0.5f * (std::fabs(l) + std::fabs(r));
+        env += (in - env) * (in > env ? 0.01f : 0.00005f);
+        const float nl = p4 * p4 * (env * 30.0f > 1.0f ? 1.0f : env * 30.0f);      // the noise goes when the music goes
+        if (voice == 2 && rnd() < (2.0f + p4 * 30.0f) / fs) s[2] = (rnd() * 2.0f - 1.0f) * 0.6f;   // VINYL: a crackle now and then
+        s[2] *= 0.86f;
+        for (int c = 0; c < 2; ++c) {
+          float y = lp(c, 1, lp(c, 0, w2[c], hi), hi);
+          y -= lp(c, 2, y, lo);
+          y = fastTanh(y * g) * norm * 1.15f;
+          if (voice == 1) y += lp(c, 3, y, op(110.0f)) * 0.35f;                  // REEL: the head's bump in the lows
+          const float white = rnd() * 2.0f - 1.0f;
+          if (voice == 2) y += (s[2] * (c ? 0.8f : 1.0f) + lp(c, 4, white, op(40.0f)) * 0.5f) * nl;
+          else y += (white - lp(c, 4, white, op(2500.0f))) * (voice == 1 ? 0.006f : 0.018f) * nl;   // CASSETTE hisses
+          *ch[c] = y;
+        }
+        break;
+      }
+      case FxType::DubDelay: {                     // LEVEL, TIME (always in time with the tempo), FEEDBACK, FILTER
+        const float target = syncSamples(rt);
+        if (dTime < 0.0f) dTime = target;
+        dTime += (target - dTime) * 0.0004f;
+        float wl = read(bufL, voice == 2 ? dTime * 0.75f : dTime), wr = read(bufR, dTime);
+        if (moved) {                               // left of the middle the repeats get darker, right of it thinner
+          k[0] = op(p4 < 0.5f ? 300.0f * std::pow(40.0f, p4 * 2.0f) : 12000.0f);
+          k[1] = op(p4 > 0.5f ? 60.0f * std::pow(30.0f, (p4 - 0.5f) * 2.0f) : 60.0f);
+        }
+        wl = lp(0, 0, wl, k[0]); wl -= lp(0, 1, wl, k[1]); wl = fastTanh(wl * 1.2f);
+        wr = lp(1, 0, wr, k[0]); wr -= lp(1, 1, wr, k[1]); wr = fastTanh(wr * 1.2f);
+        const float fb = p3 * 1.02f;
+        if (voice == 1) write(0.5f * (l + r) + wr * fb, wl * fb);     // PING-PONG
+        else write(l + wl * fb, r + wr * fb);                          // DUB, and WIDE with two different times
+        l += wl * a * 1.4f; r += wr * a * 1.4f;
+        break;
+      }
+      case FxType::FreqShift: {                    // SHIFT, MIX, FEEDBACK, SPREAD
+        if (moved) k[0] = 0.5f * std::pow(2000.0f, a);
+        advance(ph, k[0] / fs);
+        for (int c = 0; c < 2; ++c) {
+          const float x0 = *ch[c], x = x0 + fbk[c] * p3 * 0.8f;
+          float i = 0.0f, q = 0.0f;
+          hilbert(c, x, i, q);
+          const float pc = ph + (c ? (p4 - 0.5f) * 0.5f + 1.0f : 0.0f);
+          const float dir = voice == 0 ? 1.0f : (voice == 1 ? -1.0f : (c ? 1.0f : -1.0f));   // UP, DOWN, or SPLIT: down on the left, up on the right
+          const float y = i * sinTurns(pc + 0.25f) - dir * q * sinTurns(pc);
+          fbk[c] = fastTanh(y);
+          *ch[c] = x0 * (1.0f - rt) + y * rt;
+        }
+        break;
+      }
+      case FxType::Resonator: {                    // MIX, NOTE, DECAY, BRIGHT
+        const int deg = int(rt * 14.99f);
+        const float base = scale ? scale[0] : 65.4f;
+        if (moved || base != s[3]) {
+          s[3] = base;
+          const float t60 = 0.1f + p3 * p3 * 6.0f;
+          for (int i = 0; i < 3; ++i) {
+            const int dg = deg + 2 * i;                           // CHORD: the note, and the third and fifth of the scale above it
+            const float f = scale ? (dg <= 14 ? scale[dg] : scale[dg - 7] * 2.0f) : 65.4f * std::pow(2.0f, float(dg) / 7.0f);
+            k[i] = fs / (voice == 1 ? 2.0f * f : f);              // TUBE: closed at one end, only the odd overtones
+            k[3 + i] = std::pow(0.001f, 1.0f / (f * t60));
+          }
+        }
+        const int count = voice == 2 ? 3 : 1;
+        const float dc = 0.15f + p4 * 0.8f, sign = voice == 1 ? -1.0f : 1.0f;
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c];
+          float sum = 0.0f;
+          for (int i = 0; i < count; ++i) {
+            std::vector<float>& line = comb[c][i];
+            const int size = int(line.size());
+            float len = k[i];
+            if (len > float(size - 3)) len = float(size - 3);
+            if (len < 4.0f) len = 4.0f;
+            float pos = float(ci[c][i]) - len;
+            if (pos < 0.0f) pos += float(size);
+            const int i0 = int(pos), i1 = i0 + 1 >= size ? 0 : i0 + 1;
+            const float out = line[size_t(i0)] + (pos - float(i0)) * (line[size_t(i1)] - line[size_t(i0)]);
+            cl[c][i] += dc * (out - cl[c][i]);
+            line[size_t(ci[c][i])] = x * 0.5f + sign * cl[c][i] * k[3 + i];
+            if (++ci[c][i] >= size) ci[c][i] = 0;
+            sum += out;
+          }
+          *ch[c] = x * (1.0f - 0.6f * a) + sum * a * (count == 3 ? 0.7f : 1.2f);
+        }
+        break;
+      }
+      case FxType::Shimmer: {                      // LEVEL, DECAY, SHIMMER (freeze: HOLD), TONE
+        const bool frozen = voice == 2 && p3 > 0.5f;                 // HOLD up: what is in the room now stays, new notes play over it
+        const float fb = frozen ? 1.0f : 0.80f + rt * 0.18f, damp = frozen ? 1.0f : 0.35f;
+        // the octave is fed back only as far as the room can swallow it, so it rises and fades but never runs away
+        const float shim = voice == 2 ? 0.0f : p3 * 3.0f * (1.0f - fb);
+        const float win = 0.05f * fs;
+        advance(ph, ((voice == 1 ? 1.4983f : 2.0f) - 1.0f) / win);
+        const float pb = ph + 0.5f >= 1.0f ? ph - 0.5f : ph + 0.5f;
+        const float ga = 1.0f - std::fabs(2.0f * ph - 1.0f), tone = op(1500.0f + p4 * 9000.0f);
+        const std::vector<float>* buf[2] = {&bufL, &bufR};
+        float wet[2];
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c];
+          const float up = read(*buf[c], 2.0f + (1.0f - ph) * win) * ga + read(*buf[c], 2.0f + (1.0f - pb) * win) * (1.0f - ga);
+          float fed = lp(c, 1, up, op(6000.0f));
+          fed -= lp(c, 2, fed, op(200.0f));              // nothing that stands still may go round: it would only pile up
+          wet[c] = verb(c, (frozen ? 0.0f : x) + fastTanh(fed) * shim, fb, damp);
+          *ch[c] = x + lp(c, 0, wet[c], tone) * a * 0.8f;
+        }
+        write(wet[0], wet[1]);
+        break;
+      }
       default: break;
     }
   }
@@ -513,6 +803,43 @@ struct Pedal {
   static float unit(float x) { return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x); }
   static float hardClip(float x) { return x < -1.0f ? -1.0f : (x > 1.0f ? 1.0f : x); }
   static void advance(float& phase, float by) { phase += by; if (phase >= 1.0f) phase -= 1.0f; }
+  static int juceFreeMax(int a, int b) { return a > b ? a : b; }
+  float rnd() { rng = rng * 1664525u + 1013904223u; return float(rng >> 8) * (1.0f / 16777216.0f); }   // 0 .. 1
+  // An LFO: free at `hz`, or, when the pedal follows the tempo, locked to the bar. The speed knob then picks the
+  // length of one cycle: 4 bars, 2 bars, 1 bar, 1/2, 1/4, 1/8, 1/16, 1/32.
+  void lfo(float& phase, float hz, float rt) {
+    if (!sync) { advance(phase, hz / float(sr)); return; }
+    static const double beats[8] = {16.0, 8.0, 4.0, 2.0, 1.0, 0.5, 0.25, 0.125};
+    const double u = beat / beats[int(rt * 7.99f)];
+    phase = float(u - std::floor(u));
+  }
+  // A delay time in step with the tempo, in samples. The knob picks 1/16, 1/8T, 1/8, 1/4T, 1/8 dotted, 1/4,
+  // 1/4 dotted or 1/2; a time too long for the delay line is halved.
+  float syncSamples(float rt) const {
+    static const float beats[8] = {0.25f, 0.33333f, 0.5f, 0.66667f, 0.75f, 1.0f, 1.5f, 2.0f};
+    float t = beats[int(rt * 7.99f)] * 60.0f / (bpm < 20.0f ? 20.0f : bpm) * float(sr);
+    while (t > float(mask - 8)) t *= 0.5f;
+    return t;
+  }
+  // Two signals a quarter turn apart at every frequency (after O. Niemitalo): what a frequency shifter is made of.
+  void hilbert(int c, float x, float& i, float& q) {
+    static const float co[2][4] = {{0.6923878f, 0.9360654322959f, 0.9882295226860f, 0.9987488452737f},
+                                   {0.4021921162426f, 0.8561710882420f, 0.9722909545651f, 0.9952884791278f}};
+    float out[2];
+    for (int p = 0; p < 2; ++p) {
+      float v = x;
+      for (int n = 0; n < 4; ++n) {
+        float* st = hil[c][p][n];                  // x1, x2, y1, y2
+        const float a2 = co[p][n] * co[p][n];
+        const float y = a2 * (v + st[3]) - st[1];
+        st[1] = st[0]; st[0] = v; st[3] = st[2]; st[2] = y;
+        v = y;
+      }
+      out[p] = v;
+    }
+    i = z[c][5]; z[c][5] = out[0];                 // the first chain is one sample late by design
+    q = out[1];
+  }
   // coefficient of a one-pole low-pass at hz
   float op(float hz) const { const float c = 6.2831853f * hz / float(sr); return c > 0.99f ? 0.99f : (c < 0.0f ? 0.0f : c); }
   float svfG(float hz) const { const float g = 3.14159265f * hz / float(sr); return g > 0.9f ? 0.9f : (g < 0.0005f ? 0.0005f : g); }

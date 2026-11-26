@@ -87,6 +87,7 @@ void sanitize(Project& p) {
       if (int(sl.type) >= kNumFxTypes) sl.type = FxType::Off;
       if (sl.voice >= kFxVoices[int(sl.type)]) sl.voice = 0;
       sl.p3 = clampT(sl.p3, 0.0f, 1.0f); sl.p4 = clampT(sl.p4, 0.0f, 1.0f);
+      sl.mix = clampT(fin(sl.mix, 1.0f), 0.0f, 1.0f); sl.flags &= uint8_t(kFxKeepSub | kFxSync);
       sl.amount = clampT(fin(sl.amount, 0.5f), 0.0f, 1.0f);
       sl.rate = clampT(fin(sl.rate, 0.4f), 0.0f, 1.0f);
     }
@@ -526,7 +527,7 @@ void Session::setFxSlot(int track, int slot, int type, float amount, float rate,
   if (undoStep) beginEdit();
   auto& sl = proj_.fx[track].slots[slot];
   const FxType newType = FxType(clampT(type, 0, kNumFxTypes - 1));
-  if (newType != sl.type) { sl.voice = 0; sl.p3 = 0.5f; sl.p4 = 0.5f; }   // another pedal starts neutral
+  if (newType != sl.type) { sl.voice = 0; sl.p3 = 0.5f; sl.p4 = 0.5f; sl.mix = 1.0f; sl.flags = 0; }   // another pedal starts neutral
   sl.type = newType;
   sl.amount = clampT(amount, 0.0f, 1.0f);
   sl.rate = clampT(rate, 0.0f, 1.0f);
@@ -538,6 +539,12 @@ void Session::setFxVoice(int track, int slot, int voice) {
   beginEdit();
   auto& sl = proj_.fx[track].slots[slot];
   sl.voice = uint8_t(clampT(voice, 0, int(kFxVoices[int(sl.type)]) - 1));
+  commit();
+}
+void Session::setFxFlags(int track, int slot, int flags) {
+  if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
+  beginEdit();
+  proj_.fx[track].slots[slot].flags = uint8_t(flags);
   commit();
 }
 void Session::setFxSlotFull(int track, int slot, const FxSlot& s, bool undoStep) {

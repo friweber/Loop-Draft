@@ -46,6 +46,7 @@ class Session {
   void setChainAuto(int pos, int track, int lane, int paramId, float startVal, float endVal, bool undoStep = true);
   void setFxSlot(int track, int slot, int type, float amount, float rate, bool bypass, bool undoStep = true);
   void setFxVoice(int track, int slot, int voice);                       // the pedal's character switch
+  void setFxFlags(int track, int slot, int flags);                       // kFxKeepSub, kFxSync
   void setFxSlotFull(int track, int slot, const FxSlot& s, bool undoStep = true);   // everything at once (moving pedals)
   void applyInstrument(int synth, int preset);
   void setActiveSynths(int count);

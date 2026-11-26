@@ -254,7 +254,7 @@ template <class V> void fields(V& v, Project& p) {
       std::snprintf(pre, sizeof(pre), "fx%d.slot%d", t, sl);
       FxSlot& fs = x.slots[sl];
       LD_F(pre, fs, type); LD_F(pre, fs, amount); LD_F(pre, fs, rate); LD_F(pre, fs, bypass);
-      LD_F(pre, fs, voice); LD_F(pre, fs, p3); LD_F(pre, fs, p4);
+      LD_F(pre, fs, voice); LD_F(pre, fs, p3); LD_F(pre, fs, p4); LD_F(pre, fs, mix); LD_F(pre, fs, flags);
     }
   }
   for (int i = 0; i < kNumScenes; ++i) {

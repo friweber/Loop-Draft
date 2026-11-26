@@ -1865,6 +1865,62 @@ static void testPedalCollection() {
     ses.setFxVoice(1, 0, 3);
     CHECK(ses.project().fx[1].slots[0].voice == 2);                       // the wah has three
   }
+  {  // every pedal has a dry/wet knob, can leave the lows alone, and some follow the tempo
+    const auto diffTo = [&](const std::vector<float>& x) { double d = 0.0; for (size_t i = 0; i < x.size(); ++i) d += double(x[i] - dry[i]) * double(x[i] - dry[i]); return std::sqrt(d / double(x.size())); };
+    Project p = base;
+    FxSlot& sl = p.fx[1].slots[0];
+    sl.type = FxType::Fuzz; sl.amount = 0.8f; sl.mix = 0.0f;
+    render(p, 2.0, 0.5, wet, tail);
+    CHECK(diffTo(wet) < 1e-6);                                // all the way dry: as if it were not there
+    sl.mix = 1.0f;
+    render(p, 2.0, 0.5, wet, tail);
+    const double full = diffTo(wet);
+    sl.mix = 0.5f;
+    render(p, 2.0, 0.5, wet, tail);
+    CHECK(diffTo(wet) > 0.2 * full && diffTo(wet) < 0.8 * full);
+    sl.mix = 1.0f; sl.type = FxType::Tremolo; sl.voice = 3; sl.amount = 1.0f; sl.flags = kFxKeepSub;   // a chopper that may not touch the lows
+    const auto lows = [&](const std::vector<float>& x, bool second) {   // the level below 100 Hz in one half of every beat
+      double z1 = 0.0, z2 = 0.0, sum = 0.0; int count = 0;
+      const double kk = 1.0 - std::exp(-6.2831853 * 60.0 / sr);
+      for (size_t i = 0; i < x.size(); ++i) {
+        z1 += kk * (double(x[i]) - z1); z2 += kk * (z1 - z2);
+        const double beatPos = double(i) / (sr * 0.5);                  // 120 bpm
+        if (i > size_t(sr * 0.5) && ((beatPos - std::floor(beatPos)) >= 0.5) == second) { sum += z2 * z2; ++count; }
+      }
+      return std::sqrt(sum / double(count));
+    };
+    sl.rate = 0.55f; sl.flags = kFxSync;                      // one chop per quarter note, locked to the beat
+    Project q = p;
+    q.scenes[0].synth[0] = SynthPattern();
+    Note held; held.step = 0; held.degree = 0; held.len = 64;
+    q.scenes[0].synth[0].notes[0] = held; q.scenes[0].synth[0].count = 1; q.scenes[0].bars = 4;
+    for (auto& row : q.scenes[0].drums.steps) for (auto& v : row) v = 0;
+    render(q, 4.0, 0.5, wet, tail);
+    const auto half = [&](bool second) { double sum = 0.0; int count = 0; for (size_t i = size_t(sr * 0.5); i < wet.size(); ++i) { const double b = double(i) / (sr * 0.5); if (((b - std::floor(b)) >= 0.5) == second) { sum += double(wet[i]) * double(wet[i]); ++count; } } return std::sqrt(sum / double(count)); };
+    CHECK(half(false) > 4.0 * half(true));                    // open in the first half of every beat, shut in the second
+    const double shutLows = lows(wet, true);
+    q.fx[1].slots[0].flags = uint8_t(kFxSync | kFxKeepSub);
+    render(q, 4.0, 0.5, wet, tail);
+    CHECK(lows(wet, true) > 3.0 * shutLows);                  // the same, but the lows now pass while it is shut
+    CHECK(fxCanSync(FxType::Tremolo, 0) && !fxCanSync(FxType::Fuzz, 0) && !fxCanSync(FxType::Chorus, 0) && fxCanSync(FxType::Chorus, 1));
+
+    Session ses(sr);                                          // the three of them in a project file and in a preset
+    ses.setFxSlot(2, 4, int(FxType::DubDelay), 0.4f, 0.6f, false);
+    ses.setFxFlags(2, 4, kFxKeepSub | kFxSync);
+    ses.beginEdit(); ses.setParam(P_FX_SLOT5_MIX, 2, 0.3f);
+    CHECK(ses.project().fx[2].slots[4].mix == 0.3f && ses.getParam(fxSlotParamId(4, 4), 2) == 0.3f);
+    CHECK(ses.save("/tmp/ld_test_mix.ldp"));
+    Session back(sr);
+    CHECK(back.load("/tmp/ld_test_mix.ldp"));
+    CHECK(back.project().fx[2].slots[4].type == FxType::DubDelay && back.project().fx[2].slots[4].mix == 0.3f && back.project().fx[2].slots[4].flags == (kFxKeepSub | kFxSync));
+    ses.setFxSlot(2, 4, int(FxType::Cloud), 0.4f, 0.6f, false);          // another pedal starts neutral
+    CHECK(ses.project().fx[2].slots[4].mix == 1.0f && ses.project().fx[2].slots[4].flags == 0);
+    auto pr = std::make_unique<Project>(makeDemoProject());
+    std::string err;
+    CHECK(applyContent(R"({"kind":"instrument","name":"x","track":{"fx":[{"type":"shimmer","voice":2,"mix":0.25,"keepSub":true,"sync":true},{"type":"slicer"}]}})", *pr, ContentTarget{}, err, nullptr));
+    CHECK(pr->fx[1].slots[0].type == FxType::Shimmer && pr->fx[1].slots[0].voice == 2 && pr->fx[1].slots[0].mix == 0.25f && pr->fx[1].slots[0].flags == (kFxKeepSub | kFxSync));
+    CHECK(pr->fx[1].slots[1].type == FxType::Slicer && pr->fx[1].slots[1].mix == 1.0f);
+  }
   {  // all three slots of every track busy, pedals swapped while playing: no allocation on the audio thread
     Project p = base;
     Engine e(sr);
