@@ -311,7 +311,7 @@ jobs:
         continue-on-error: true
         run: |
           A=plugin/build/LoopMaster_artefacts/Release
-          for t in 0 1 2 3; do
+          for t in 0 1 2 3 4; do
             LOOPMASTER_TAB=$t xvfb-run -a -s "-screen 0 1000x680x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/tab$t.png" "report/standalone$t.log" || true
           done

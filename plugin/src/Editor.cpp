@@ -22,6 +22,53 @@ const char* const kInstruments[8] = {"Custom", "Analog Bass", "Acid 303", "Reese
 const char* const kEngines[4] = {"Subtractive", "FM 2-Op", "Pluck", "Vector"};
 const char* const kNoteNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
+// Every pedal: the six standard ones of Loop Draft and the stompbox collection.
+struct PedalSpec {
+  int type;
+  const char* code;
+  const char* name;
+  juce::uint32 top, bottom;
+  bool lightInk;
+  const char* knob1;
+  const char* knob2;                    // "" = this pedal has one control
+};
+const PedalSpec kPedals[] = {
+  {1, "OD", "Overdrive", 0xffe0971b, 0xffb56e0c, false, "Drive", ""},
+  {2, "BIT", "Bitcrush", 0xff218c9c, 0xff135b68, true, "Crush", "Rate"},
+  {3, "CHO", "Chorus", 0xff2b6ec2, 0xff1a4682, true, "Depth", "Speed"},
+  {4, "PHA", "Phaser", 0xffd95621, 0xffa1350d, true, "Depth", "Speed"},
+  {5, "LPF", "Low-Pass", 0xff1f7a52, 0xff124d33, true, "Cutoff", "Reso"},
+  {6, "COMP", "Compressor", 0xffc22d32, 0xff871b1f, true, "Squash", ""},
+  {7, "DST", "Distortion", 0xffe0661b, 0xffa8430c, true, "Gain", "Tone"},
+  {8, "FUZZ", "Fuzz", 0xff7a3fb5, 0xff4f2480, true, "Fuzz", "Tone"},
+  {9, "BST", "Booster", 0xffe8e2d0, 0xffbdb59c, false, "Boost", "Treble"},
+  {10, "TREM", "Tremolo", 0xff3e9a45, 0xff25692b, true, "Depth", "Speed"},
+  {11, "VIB", "Vibrato", 0xff2f8fc9, 0xff1b5f8c, true, "Depth", "Speed"},
+  {12, "FLG", "Flanger", 0xff8a5ad6, 0xff5b3699, true, "Feedbk", "Speed"},
+  {13, "ROTO", "Rotary", 0xff8c5a32, 0xff5e3a1d, true, "Depth", "Speed"},
+  {14, "WAH", "Wah", 0xff33363d, 0xff1c1e22, true, "Depth", "Speed"},
+  {15, "AWAH", "Auto-Wah", 0xffe3c22b, 0xffb09210, false, "Sens", "Peak"},
+  {16, "OCT", "Octaver", 0xff6b4a2e, 0xff45301d, true, "Sub", "Tone"},
+  {17, "RING", "Ring Mod", 0xff7d8794, 0xff525b66, true, "Mix", "Pitch"},
+  {18, "DLY", "Delay", 0xffdce6f2, 0xffa9b8cc, false, "Level", "Time"},
+  {19, "TAPE", "Tape Echo", 0xff2e5e46, 0xff1b3b2b, true, "Level", "Time"},
+  {20, "VERB", "Reverb", 0xff5e7fa3, 0xff3b5575, true, "Level", "Size"},
+  {21, "GATE", "Gate", 0xff26282d, 0xff121316, true, "Thresh", "Decay"},
+};
+const PedalSpec* pedalSpec(int type) {
+  for (const auto& sp : kPedals) if (sp.type == type) return &sp;
+  return nullptr;
+}
+// how the menu is ordered: families, each with its pedals (by type number)
+struct PedalFamily { const char* name; int types[8]; };
+const PedalFamily kPedalFamilies[] = {
+  {"Drive", {1, 7, 8, 9, 2, 0, 0, 0}},
+  {"Dynamics", {6, 21, 0, 0, 0, 0, 0, 0}},
+  {"Modulation", {3, 12, 4, 10, 11, 13, 17, 0}},
+  {"Filter and pitch", {5, 14, 15, 16, 0, 0, 0, 0}},
+  {"Echo and space", {18, 19, 20, 0, 0, 0, 0, 0}},
+};
+
 juce::String noteName(int midi) { return juce::String(kNoteNames[((midi % 12) + 12) % 12]) + juce::String(midi / 12 - 1); }
 
 class Look : public juce::LookAndFeel_V4 {
@@ -145,7 +192,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   // header
   juce::TextButton openBtn{"OPEN"}, saveBtn{"SAVE"}, undoBtn{"UNDO"}, redoBtn{"REDO"}, playBtn{"PLAY"}, syncBtn{"FOLLOW HOST"}, songBtn{"SONG"};
   juce::TextButton bpmDown{"-"}, bpmUp{"+"};
-  juce::TextButton sceneBtn[4], tabBtn[4], barBtn[8];
+  juce::TextButton sceneBtn[4], tabBtn[5], barBtn[8];
   juce::ComboBox midiBox;
   std::unique_ptr<juce::FileChooser> chooser;
 
@@ -163,6 +210,13 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   juce::OwnedArray<ParamBar> mixBars;      // 4 per track, then master, swing, delay feedback
   juce::TextButton muteBtn[5];
 
+  // pedals
+  int fxTrack = 0;
+  juce::TextButton fxTrackBtn[5], pedalOn[3], pedalLeft[3], pedalRight[3];
+  juce::ComboBox pedalBox[3];
+  std::unique_ptr<ParamBar> pedalA[3], pedalR[3];
+  juce::Rectangle<int> pedalArea[3];
+
   // library
   juce::TextButton kindBtn[3], loadBtn{"LOAD INTO PROJECT"}, tempoBtn{"TAKE TEMPO AND KEY"};
   juce::ComboBox styleBox;
@@ -175,7 +229,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
 
   explicit Body(LoopMasterProcessor& proc) : p(proc), list("library", this) {
     setLookAndFeel(&look);
-    tab = juce::jlimit(0, 3, juce::SystemStats::getEnvironmentVariable("LOOPMASTER_TAB", "0").getIntValue());   // for screenshots
+    tab = juce::jlimit(0, 4, juce::SystemStats::getEnvironmentVariable("LOOPMASTER_TAB", "0").getIntValue());   // for screenshots
     const auto button = [this](juce::TextButton& b, std::function<void()> fn) {
       b.onClick = std::move(fn);
       addAndMakeVisible(b);
@@ -199,7 +253,9 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     for (int i = 0; i < 4; ++i) {
       sceneBtn[i].setButtonText(kSceneNames[i]);
       button(sceneBtn[i], [this, i] { p.setScene(i); bar = 0; });
-      static const char* const tabs[4] = {"DRUMS", "SYNTH", "MIX", "LIBRARY"};
+    }
+    for (int i = 0; i < 5; ++i) {
+      static const char* const tabs[5] = {"DRUMS", "SYNTH", "PEDALS", "MIX", "LIBRARY"};
       tabBtn[i].setButtonText(tabs[i]);
       button(tabBtn[i], [this, i] { tab = i; message.clear(); showTab(); });
     }
@@ -322,6 +378,43 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     addChildComponent(mixBars.add(new ParamBar(p, "Swing", ld::P_SWING, 0, 0.0f, 0.5f, fmtPct)));
     addChildComponent(mixBars.add(new ParamBar(p, "Delay feedback", ld::P_DELAY_FB, 0, 0.0f, 0.8f, fmtPct)));
 
+    // pedals
+    for (int t = 0; t < 5; ++t) {
+      fxTrackBtn[t].setButtonText(kTrackNames[t]);
+      fxTrackBtn[t].onClick = [this, t] { fxTrack = t; };
+      addChildComponent(fxTrackBtn[t]);
+    }
+    for (int i = 0; i < 3; ++i) {
+      pedalBox[i].addItem("Empty slot", 1);
+      for (const auto& fam : kPedalFamilies) {
+        pedalBox[i].addSectionHeading(fam.name);
+        for (int type : fam.types) if (const PedalSpec* sp = pedalSpec(type)) pedalBox[i].addItem(sp->name, sp->type + 1);
+      }
+      pedalBox[i].onChange = [this, i] {
+        const int type = juce::jmax(0, pedalBox[i].getSelectedId() - 1);
+        const juce::ScopedLock sl(p.lock());
+        const ld::FxSlot cur = p.session().project().fx[fxTrack].slots[i];
+        if (type == int(cur.type)) return;
+        // a new pedal starts in the middle of its range, and switched on
+        p.session().setFxSlot(fxTrack, i, type, 0.5f, 0.4f, false);
+      };
+      pedalOn[i].onClick = [this, i] {
+        const juce::ScopedLock sl(p.lock());
+        const ld::FxSlot cur = p.session().project().fx[fxTrack].slots[i];
+        p.session().setFxSlot(fxTrack, i, int(cur.type), cur.amount, cur.rate, !cur.bypass);
+      };
+      pedalLeft[i].setButtonText("<");
+      pedalRight[i].setButtonText(">");
+      pedalLeft[i].onClick = [this, i] { swapPedals(i, i - 1); };
+      pedalRight[i].onClick = [this, i] { swapPedals(i, i + 1); };
+      pedalA[i] = std::make_unique<ParamBar>(p, "-", ld::P_FX_SLOT1_AMOUNT + 2 * i, 0, 0.0f, 1.0f, fmtPct);
+      pedalR[i] = std::make_unique<ParamBar>(p, "-", ld::P_FX_SLOT1_RATE + 2 * i, 0, 0.0f, 1.0f, fmtPct);
+      for (juce::Component* c : {static_cast<juce::Component*>(&pedalBox[i]), static_cast<juce::Component*>(&pedalOn[i]),
+                                 static_cast<juce::Component*>(&pedalLeft[i]), static_cast<juce::Component*>(&pedalRight[i]),
+                                 static_cast<juce::Component*>(pedalA[i].get()), static_cast<juce::Component*>(pedalR[i].get())})
+        addChildComponent(c);
+    }
+
     // library
     static const char* const kinds[3] = {"GROOVES", "SYNTH SOUNDS", "DRUM KITS"};
     for (int i = 0; i < 3; ++i) {
@@ -429,7 +522,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
 
   // ---- layout ----
   void showTab() {
-    const bool d = tab == 0, s = tab == 1, m = tab == 2, l = tab == 3;
+    const bool d = tab == 0, s = tab == 1, f = tab == 2, m = tab == 3, l = tab == 4;
     kitBox.setVisible(d); accentBtn.setVisible(d || s);
     for (auto& b : padBtn) b.setVisible(d);
     for (auto* b : {hardness.get(), padVol.get(), padPitch.get(), padDecay.get(), padPan.get()}) b->setVisible(d);
@@ -439,6 +532,11 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     for (auto* b : synthBars) b->setVisible(s);
     for (auto* b : mixBars) b->setVisible(m);
     for (auto& b : muteBtn) b.setVisible(m);
+    for (auto& b : fxTrackBtn) b.setVisible(f);
+    for (int i = 0; i < 3; ++i) {
+      pedalBox[i].setVisible(f); pedalOn[i].setVisible(f); pedalLeft[i].setVisible(f); pedalRight[i].setVisible(f);
+      pedalA[i]->setVisible(f); pedalR[i]->setVisible(f);
+    }
     for (auto& b : kindBtn) b.setVisible(l);
     loadBtn.setVisible(l); tempoBtn.setVisible(l); styleBox.setVisible(l); list.setVisible(l);
     resized();
@@ -464,7 +562,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     songBtn.setBounds(row2.removeFromLeft(80));
     r.removeFromTop(8);
     auto tabs = r.removeFromTop(30);
-    const int tw = (tabs.getWidth() - 12) / 4;
+    const int tw = (tabs.getWidth() - 16) / 5;
     for (auto& b : tabBtn) { b.setBounds(tabs.removeFromLeft(tw)); tabs.removeFromLeft(4); }
     r.removeFromTop(8);
     r.removeFromBottom(22);                                    // the message line, painted
@@ -511,6 +609,25 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       a.removeFromTop(6);
       rollArea = a;
     } else if (tab == 2) {
+      auto a = r;
+      auto line1 = a.removeFromTop(28);
+      for (auto& b : fxTrackBtn) { b.setBounds(line1.removeFromLeft(86)); line1.removeFromLeft(4); }
+      a.removeFromTop(34);                                      // the signal path, painted
+      const int gap = 26, pw = juce::jmin(280, (a.getWidth() - 2 * gap) / 3), ph = juce::jmin(a.getHeight(), 330);
+      const int x0 = a.getX() + (a.getWidth() - (3 * pw + 2 * gap)) / 2;
+      for (int i = 0; i < 3; ++i) {
+        pedalArea[i] = juce::Rectangle<int>(x0 + i * (pw + gap), a.getY(), pw, ph);
+        auto c = pedalArea[i].reduced(16, 14);
+        c.removeFromTop(64);                                    // name and light, painted
+        pedalBox[i].setBounds(c.removeFromTop(28)); c.removeFromTop(12);
+        pedalA[i]->setBounds(c.removeFromTop(32)); c.removeFromTop(8);
+        pedalR[i]->setBounds(c.removeFromTop(32)); c.removeFromTop(14);
+        auto foot = c.removeFromBottom(46);
+        pedalLeft[i].setBounds(foot.removeFromLeft(40).reduced(0, 8));
+        pedalRight[i].setBounds(foot.removeFromRight(40).reduced(0, 8));
+        pedalOn[i].setBounds(foot.reduced(10, 0));
+      }
+    } else if (tab == 3) {
       auto a = r;
       a.removeFromTop(26);                                      // the track names, painted
       const int cw = (a.getWidth() - 5 * 8) / 6;
@@ -567,7 +684,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     const juce::ScopedLock sl(p.lock());
     if (tab == 0) paintGrid(g);
     else if (tab == 1) paintRoll(g);
-    else if (tab == 2) paintMixNames(g);
+    else if (tab == 2) paintPedals(g);
+    else if (tab == 3) paintMixNames(g);
   }
 
   int stepInScene() const {
@@ -637,6 +755,63 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       g.fillRoundedRectangle(cell, 2.0f);
       if (n.vel >= 2) { g.setColour(juce::Colours::white); g.drawRoundedRectangle(cell, 2.0f, 1.0f); }
       if (n.flags & ld::kNoteSlide) { g.setColour(col::yellow); g.fillRect(cell.removeFromLeft(4.0f)); }
+    }
+  }
+
+  // The order of the pedals is the order the sound runs through them.
+  void swapPedals(int a, int b) {
+    if (a < 0 || b < 0 || a > 2 || b > 2) return;
+    const juce::ScopedLock sl(p.lock());
+    const ld::FxSlot sa = p.session().project().fx[fxTrack].slots[a], sb = p.session().project().fx[fxTrack].slots[b];
+    p.session().setFxSlot(fxTrack, a, int(sb.type), sb.amount, sb.rate, sb.bypass);            // one undo step for both
+    p.session().setFxSlot(fxTrack, b, int(sa.type), sa.amount, sa.rate, sa.bypass, false);
+  }
+
+  void paintPedals(juce::Graphics& g) {
+    const ld::TrackFx& fx = p.session().project().fx[fxTrack];
+    // the path of the sound
+    const int y = pedalArea[0].getY() - 20;
+    g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
+    g.setColour(col::muted);
+    g.drawText(juce::String(kTrackNames[fxTrack]).toUpperCase() + "  IN", pedalArea[0].getX(), y - 8, 160, 16, juce::Justification::centredLeft);
+    g.drawText("TO THE MIXER", pedalArea[2].getRight() - 160, y - 8, 160, 16, juce::Justification::centredRight);
+    for (int i = 0; i < 3; ++i) {
+      const auto box = pedalArea[i].toFloat();
+      const ld::FxSlot& sl = fx.slots[i];
+      const PedalSpec* sp = pedalSpec(int(sl.type));
+      if (i < 2) {                                           // the cable to the next one
+        g.setColour(col::line);
+        const float cy = box.getCentreY();
+        g.fillRect(box.getRight(), cy - 2.0f, float(pedalArea[i + 1].getX()) - box.getRight(), 4.0f);
+      }
+      if (!sp) {
+        g.setColour(col::recess);
+        g.fillRoundedRectangle(box, 12.0f);
+        g.setColour(col::line);
+        g.drawRoundedRectangle(box.reduced(1.0f), 12.0f, 1.5f);
+        g.setColour(col::muted);
+        g.setFont(juce::Font(juce::FontOptions(15.0f, juce::Font::bold)));
+        g.drawText("SLOT " + juce::String(i + 1), pedalArea[i].withHeight(74), juce::Justification::centred);
+        continue;
+      }
+      const juce::Colour top(sp->top), bottom(sp->bottom);
+      g.setGradientFill(juce::ColourGradient(top, box.getX(), box.getY(), bottom, box.getX(), box.getBottom(), false));
+      g.fillRoundedRectangle(box, 12.0f);
+      g.setColour(juce::Colours::black.withAlpha(0.45f));
+      g.drawRoundedRectangle(box.reduced(1.0f), 12.0f, 2.0f);
+      const juce::Colour ink = sp->lightInk ? juce::Colour(0xfff7f7f7) : juce::Colour(0xff1a1408);
+      g.setColour(ink);
+      g.setFont(juce::Font(juce::FontOptions(20.0f, juce::Font::bold)));
+      g.drawText(juce::String(sp->name).toUpperCase(), pedalArea[i].getX() + 16, pedalArea[i].getY() + 14, pedalArea[i].getWidth() - 60, 26, juce::Justification::centredLeft, true);
+      g.setFont(juce::Font(juce::FontOptions(12.0f)));
+      g.setColour(ink.withAlpha(0.75f));
+      g.drawText(juce::String(sp->code) + "  -  slot " + juce::String(i + 1), pedalArea[i].getX() + 16, pedalArea[i].getY() + 42, pedalArea[i].getWidth() - 60, 16, juce::Justification::centredLeft, true);
+      // the light
+      const juce::Rectangle<float> led(box.getRight() - 38.0f, box.getY() + 18.0f, 16.0f, 16.0f);
+      g.setColour(juce::Colours::black.withAlpha(0.6f));
+      g.fillEllipse(led.expanded(2.0f));
+      g.setColour(sl.bypass ? juce::Colour(0xff4a1a1a) : col::red.brighter(0.3f));
+      g.fillEllipse(led);
     }
   }
 
@@ -729,6 +904,25 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         engineBox.setSelectedId(1 + juce::jlimit(0, 3, int(s.getParam(ld::P_SYN_MODE, synth) + 0.5f)), juce::dontSendNotification);
         for (auto* b : synthBars) { b->setIndex(synth); b->refresh(); }
       } else if (tab == 2) {
+        fxTrack = juce::jlimit(0, nSynths, fxTrack);
+        for (int t = 0; t < 5; ++t) {
+          fxTrackBtn[t].setVisible(t <= nSynths);
+          fxTrackBtn[t].setToggleState(t == fxTrack, juce::dontSendNotification);
+        }
+        for (int i = 0; i < 3; ++i) {
+          const ld::FxSlot& sl = s.project().fx[fxTrack].slots[i];
+          const PedalSpec* sp = pedalSpec(int(sl.type));
+          pedalBox[i].setSelectedId(sp ? sp->type + 1 : 1, juce::dontSendNotification);
+          pedalA[i]->setIndex(fxTrack); pedalR[i]->setIndex(fxTrack);
+          pedalA[i]->setLabel(sp ? sp->knob1 : "-"); pedalR[i]->setLabel(sp && sp->knob2[0] ? sp->knob2 : "-");
+          pedalA[i]->setVisible(sp != nullptr); pedalR[i]->setVisible(sp != nullptr && sp->knob2[0] != 0);
+          pedalA[i]->refresh(); pedalR[i]->refresh();
+          pedalOn[i].setVisible(sp != nullptr);
+          pedalOn[i].setButtonText(sl.bypass ? "OFF" : "ON");
+          pedalOn[i].setToggleState(sp != nullptr && !sl.bypass, juce::dontSendNotification);
+          pedalLeft[i].setEnabled(i > 0); pedalRight[i].setEnabled(i < 2);
+        }
+      } else if (tab == 3) {
         for (auto* b : mixBars) b->refresh();
         for (int t = 0; t < 5; ++t) {
           const bool used = t <= nSynths;

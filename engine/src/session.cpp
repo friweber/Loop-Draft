@@ -84,7 +84,7 @@ void sanitize(Project& p) {
     f.eqLow = clampT(fin(f.eqLow, 0), -12.0f, 12.0f); f.eqHigh = clampT(fin(f.eqHigh, 0), -12.0f, 12.0f);
     f.delaySend = clampT(fin(f.delaySend, 0), 0.0f, 1.0f); f.revSend = clampT(fin(f.revSend, 0), 0.0f, 1.0f);
     for (auto& sl : f.slots) {
-      if (uint8_t(sl.type) > uint8_t(FxType::Compressor)) sl.type = FxType::Off;
+      if (int(sl.type) >= kNumFxTypes) sl.type = FxType::Off;
       sl.amount = clampT(fin(sl.amount, 0.5f), 0.0f, 1.0f);
       sl.rate = clampT(fin(sl.rate, 0.4f), 0.0f, 1.0f);
     }
@@ -385,7 +385,7 @@ void Session::setFxSlot(int track, int slot, int type, float amount, float rate,
   if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
   if (undoStep) beginEdit();
   auto& sl = proj_.fx[track].slots[slot];
-  sl.type = FxType(clampT(type, 0, int(FxType::Compressor)));
+  sl.type = FxType(clampT(type, 0, kNumFxTypes - 1));
   sl.amount = clampT(amount, 0.0f, 1.0f);
   sl.rate = clampT(rate, 0.0f, 1.0f);
   sl.bypass = bypass;

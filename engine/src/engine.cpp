@@ -26,6 +26,7 @@ Engine::Engine(double sampleRate) : sr_(sampleRate) {
       tr_[t].fxSlots[sl].chorus.init(sr_);
       tr_[t].fxSlots[sl].phaser.init(sr_);
       tr_[t].fxSlots[sl].comp.init(sr_);
+      tr_[t].fxSlots[sl].pedal.init(sr_);
     }
   }
   applyProject();
@@ -505,8 +506,11 @@ void Engine::renderAudio(float* l, float* r, int n) {
   // A track that has had nothing to play for a while costs nothing: its channel strip and effects are skipped.
   // (None of them rings longer than this; delay and reverb are shared and keep running.)
   bool live[kNumTracks];
-  const int64_t idleAfter = int64_t(sr_ * 0.75);
   for (int t = 0; t < kNumTracks; ++t) {
+    // an echo or reverb pedal on the track keeps sounding long after the last note
+    bool rings = false;
+    for (int sl = 0; sl < kFxSlots; ++sl) rings = rings || (!effFx[t].slots[sl].bypass && Pedal::rings(effFx[t].slots[sl].type));
+    const int64_t idleAfter = int64_t(sr_ * (rings ? 12.0 : 0.75));
     bool sound = false;
     for (int i = 0; i < n && !sound; ++i) sound = tb[t][0][i] != 0.0f || tb[t][1][i] != 0.0f;
     TrackState& ts = tr_[t];
@@ -557,7 +561,9 @@ void Engine::renderAudio(float* l, float* r, int n) {
           case FxType::Compressor:
             st.comp.tick(xl, xr, fs.amount);
             break;
-          default: break;
+          default:                                   // the stompbox collection
+            st.pedal.tick(fs.type, xl, xr, fs.amount, fs.rate);
+            break;
         }
       }
       if (trackOuts) { trkL_[t][trkOff_ + i] = xl; if (trkR_[t]) trkR_[t][trkOff_ + i] = xr; }

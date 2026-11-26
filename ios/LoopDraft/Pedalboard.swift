@@ -20,6 +20,25 @@ private let PEDAL_SPECS: [PedalSpec] = [
     PedalSpec(typeId: 6, code: "DYNA", name: "COMP", top: Color(red: 0.76, green: 0.18, blue: 0.20), bottom: Color(red: 0.53, green: 0.11, blue: 0.12), ink: .white, param1: "SQUASH", param2: "")
 ]
 
+/// The pedals of Loop Master's collection. The phone does not offer them, but shows and plays them when a project brings them.
+private let MASTER_PEDAL_SPECS: [PedalSpec] = [
+    PedalSpec(typeId: 7, code: "DST", name: "DISTORTION", top: Color(red: 0.88, green: 0.40, blue: 0.11), bottom: Color(red: 0.66, green: 0.26, blue: 0.05), ink: .white, param1: "GAIN", param2: "TONE"),
+    PedalSpec(typeId: 8, code: "FUZZ", name: "FUZZ", top: Color(red: 0.48, green: 0.25, blue: 0.71), bottom: Color(red: 0.31, green: 0.14, blue: 0.50), ink: .white, param1: "FUZZ", param2: "TONE"),
+    PedalSpec(typeId: 9, code: "BST", name: "BOOSTER", top: Color(red: 0.91, green: 0.89, blue: 0.82), bottom: Color(red: 0.74, green: 0.71, blue: 0.61), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "BOOST", param2: "TREBLE"),
+    PedalSpec(typeId: 10, code: "TREM", name: "TREMOLO", top: Color(red: 0.24, green: 0.60, blue: 0.27), bottom: Color(red: 0.15, green: 0.41, blue: 0.17), ink: .white, param1: "DEPTH", param2: "SPEED"),
+    PedalSpec(typeId: 11, code: "VIB", name: "VIBRATO", top: Color(red: 0.18, green: 0.56, blue: 0.79), bottom: Color(red: 0.11, green: 0.37, blue: 0.55), ink: .white, param1: "DEPTH", param2: "SPEED"),
+    PedalSpec(typeId: 12, code: "FLG", name: "FLANGER", top: Color(red: 0.54, green: 0.35, blue: 0.84), bottom: Color(red: 0.36, green: 0.21, blue: 0.60), ink: .white, param1: "FEEDBK", param2: "SPEED"),
+    PedalSpec(typeId: 13, code: "ROTO", name: "ROTARY", top: Color(red: 0.55, green: 0.35, blue: 0.20), bottom: Color(red: 0.37, green: 0.23, blue: 0.11), ink: .white, param1: "DEPTH", param2: "SPEED"),
+    PedalSpec(typeId: 14, code: "WAH", name: "WAH", top: Color(red: 0.20, green: 0.21, blue: 0.24), bottom: Color(red: 0.11, green: 0.12, blue: 0.13), ink: .white, param1: "DEPTH", param2: "SPEED"),
+    PedalSpec(typeId: 15, code: "AWAH", name: "AUTO-WAH", top: Color(red: 0.89, green: 0.76, blue: 0.17), bottom: Color(red: 0.69, green: 0.57, blue: 0.06), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "SENS", param2: "PEAK"),
+    PedalSpec(typeId: 16, code: "OCT", name: "OCTAVER", top: Color(red: 0.42, green: 0.29, blue: 0.18), bottom: Color(red: 0.27, green: 0.19, blue: 0.11), ink: .white, param1: "SUB", param2: "TONE"),
+    PedalSpec(typeId: 17, code: "RING", name: "RING MOD", top: Color(red: 0.49, green: 0.53, blue: 0.58), bottom: Color(red: 0.32, green: 0.36, blue: 0.40), ink: .white, param1: "MIX", param2: "PITCH"),
+    PedalSpec(typeId: 18, code: "DLY", name: "DELAY", top: Color(red: 0.86, green: 0.90, blue: 0.95), bottom: Color(red: 0.66, green: 0.72, blue: 0.80), ink: Color(red: 0.10, green: 0.08, blue: 0.03), param1: "LEVEL", param2: "TIME"),
+    PedalSpec(typeId: 19, code: "TAPE", name: "TAPE ECHO", top: Color(red: 0.18, green: 0.37, blue: 0.27), bottom: Color(red: 0.11, green: 0.23, blue: 0.17), ink: .white, param1: "LEVEL", param2: "TIME"),
+    PedalSpec(typeId: 20, code: "VERB", name: "REVERB", top: Color(red: 0.37, green: 0.50, blue: 0.64), bottom: Color(red: 0.23, green: 0.33, blue: 0.46), ink: .white, param1: "LEVEL", param2: "SIZE"),
+    PedalSpec(typeId: 21, code: "GATE", name: "GATE", top: Color(red: 0.15, green: 0.16, blue: 0.18), bottom: Color(red: 0.07, green: 0.07, blue: 0.09), ink: .white, param1: "THRESH", param2: "DECAY")
+]
+
 struct GuitarPedalboardView: View {
     @Environment(\.skin) var skin
     @ObservedObject var state: EngineState
@@ -58,7 +77,7 @@ struct GuitarPedalboardView: View {
                         let fxRate = fd.count > 2 ? fd[2].floatValue : 0.4
                         let fxByp = fd.count > 3 ? (fd[3].floatValue > 0.5) : false
 
-                        if fxType > 0, let spec = PEDAL_SPECS.first(where: { $0.typeId == fxType }) {
+                        if fxType > 0, let spec = (PEDAL_SPECS + MASTER_PEDAL_SPECS).first(where: { $0.typeId == fxType }) {
                             stompbox(slot: slot, spec: spec, amt: fxAmt, rate: fxRate, bypass: fxByp)
                         } else {
                             emptyBay(slot: slot)

@@ -1545,6 +1545,106 @@ static void testHostClockMidiAndOutputs() {
   }
 }
 
+// The stompbox collection: every pedal does something, stays within bounds, dies away, and never allocates.
+static void testPedalCollection() {
+  const double sr = 48000.0;
+  const int block = 256;
+  Project base = makeDemoProject();
+  for (auto& sc : base.scenes) sc = Scene();
+  base.swing = 0.0f; base.bpm = 120;
+  for (auto& f : base.fx) { f.delaySend = 0.0f; f.revSend = 0.0f; f.drive = 0.0f; for (auto& sl : f.slots) sl.type = FxType::Off; }
+  SynthPattern& pat = base.scenes[0].synth[0];
+  for (int st = 0; st < 16; st += 4) { Note n; n.step = uint16_t(st); n.degree = int8_t(st / 4); n.len = 2; pat.notes[pat.count++] = n; }
+  for (int st = 0; st < 16; st += 4) base.scenes[0].drums.steps[0][st] = 2;
+
+  const auto render = [&](const Project& p, double playSeconds, double tailSeconds, std::vector<float>& out, double& tailPeak) {
+    Engine e(sr);
+    e.setProject(p);
+    e.play(0);
+    std::vector<float> l(static_cast<size_t>(block), 0.0f), r(static_cast<size_t>(block), 0.0f);
+    out.clear();
+    for (int b = 0; b < int(playSeconds * sr / block); ++b) { e.render(l.data(), r.data(), block); out.insert(out.end(), l.begin(), l.end()); }
+    e.stop();
+    tailPeak = 0.0;
+    const int tailBlocks = int(tailSeconds * sr / block);
+    for (int b = 0; b < tailBlocks; ++b) {
+      e.render(l.data(), r.data(), block);
+      if (b >= tailBlocks - 20) for (float x : l) tailPeak = std::max(tailPeak, double(std::fabs(x)));
+    }
+  };
+  std::vector<float> dry, wet;
+  double tail = 0.0;
+  render(base, 2.0, 1.0, dry, tail);
+  double dryRms = 0.0;
+  for (float x : dry) dryRms += double(x) * double(x);
+  dryRms = std::sqrt(dryRms / double(dry.size()));
+  CHECK(dryRms > 0.01);
+
+  for (int type = int(FxType::Distortion); type < kNumFxTypes; ++type) {
+    for (int track = 0; track < 2; ++track) {                  // on the drums and on the bass
+      Project p = base;
+      p.fx[track].slots[0].type = FxType(type);
+      p.fx[track].slots[0].amount = 0.7f;
+      p.fx[track].slots[0].rate = 0.5f;
+      render(p, 2.0, 14.0, wet, tail);
+      double rms = 0.0, diff = 0.0, peak = 0.0;
+      bool finite = true;
+      for (size_t i = 0; i < wet.size(); ++i) {
+        finite = finite && std::isfinite(wet[i]);
+        rms += double(wet[i]) * double(wet[i]);
+        diff += double(wet[i] - dry[i]) * double(wet[i] - dry[i]);
+        peak = std::max(peak, double(std::fabs(wet[i])));
+      }
+      rms = std::sqrt(rms / double(wet.size())); diff = std::sqrt(diff / double(wet.size()));
+      if (!finite || !(diff > dryRms * 0.01) || !(rms > dryRms * 0.2) || !(peak < 1.5) || !(tail < 2e-3))
+        std::printf("    pedal %d on track %d: rms %.4f (dry %.4f) diff %.4f peak %.3f tail %.5f\n", type, track, rms, dryRms, diff, peak, tail);
+      CHECK(finite);
+      CHECK(diff > dryRms * 0.01);                            // it changes the sound
+      CHECK(rms > dryRms * 0.2);                              // without swallowing it
+      CHECK(peak < 1.5);
+      CHECK(tail < 2e-3);                                     // and falls silent: no feedback that runs away
+    }
+  }
+  {  // all three slots of every track busy, pedals swapped while playing: no allocation on the audio thread
+    Project p = base;
+    Engine e(sr);
+    e.setProject(p);
+    e.play(0);
+    std::vector<float> l(static_cast<size_t>(block), 0.0f), r(static_cast<size_t>(block), 0.0f);
+    e.render(l.data(), r.data(), block);
+    std::vector<Project> variants;
+    for (int v = 0; v < 6; ++v) {
+      Project q = base;
+      for (int t = 0; t < kNumTracks; ++t)
+        for (int sl = 0; sl < kFxSlots; ++sl) q.fx[t].slots[sl].type = FxType(int(FxType::Distortion) + (v * 5 + t * 3 + sl) % (kNumFxTypes - int(FxType::Distortion)));
+      variants.push_back(q);
+    }
+    long during = 0;
+    for (int v = 0; v < 6; ++v) {
+      e.setProject(variants[size_t(v)]);                      // the control thread may allocate
+      g_allocs = 0; g_count = true;
+      for (int b = 0; b < 60; ++b) e.render(l.data(), r.data(), block);
+      g_count = false;
+      during += long(g_allocs);
+      e.collectGarbage();
+    }
+    CHECK_EQ(during, 0L);
+  }
+  {  // a preset file can name the new pedals, and unknown numbers from a newer build are switched off
+    Project p = base;
+    p.fx[1].slots[1].type = FxType::TapeEcho;
+    const std::string json = instrumentToJson(p, 0, "Echo Bass");
+    CHECK(json.find("tapeecho") != std::string::npos);
+    Project q = base;
+    std::string err;
+    CHECK(applyContent(json, q, ContentTarget(), err));
+    CHECK(q.fx[1].slots[1].type == FxType::TapeEcho);
+    q.fx[2].slots[0].type = FxType(200);
+    sanitize(q);
+    CHECK(q.fx[2].slots[0].type == FxType::Off);
+  }
+}
+
 int main() {
   const struct { const char* name; void (*fn)(); } tests[] = {
     {"scales and chords stay in key", testMusic},
@@ -1587,6 +1687,7 @@ int main() {
     {"presets and grooves as JSON", testContentJson},
     {"automation of effect slots and drum hardness", testAutomationOfFxSlotsAndHardness},
     {"host clock, MIDI notes, automation and separate outputs", testHostClockMidiAndOutputs},
+    {"the stompbox collection", testPedalCollection},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

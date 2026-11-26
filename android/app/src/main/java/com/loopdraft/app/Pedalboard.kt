@@ -57,7 +57,26 @@ val PEDAL_SPECS = listOf(
     PedalSpec(6, "DYNA", "COMP", Color(0xFFC22D32), Color(0xFF871B1F), Color(0xFFFFF2F2), "SQUASH", "")
 )
 
-fun pedalSpec(typeId: Int): PedalSpec? = PEDAL_SPECS.firstOrNull { it.typeId == typeId }
+// The pedals of Loop Master's collection. The phone does not offer them, but shows and plays them when a project brings them.
+val MASTER_PEDAL_SPECS = listOf(
+    PedalSpec(7, "DST", "DISTORTION", Color(0xFFE0661B), Color(0xFFA8430C), Color(0xFFF7F7F7), "GAIN", "TONE"),
+    PedalSpec(8, "FUZZ", "FUZZ", Color(0xFF7A3FB5), Color(0xFF4F2480), Color(0xFFF7F7F7), "FUZZ", "TONE"),
+    PedalSpec(9, "BST", "BOOSTER", Color(0xFFE8E2D0), Color(0xFFBDB59C), Color(0xFF1A1408), "BOOST", "TREBLE"),
+    PedalSpec(10, "TREM", "TREMOLO", Color(0xFF3E9A45), Color(0xFF25692B), Color(0xFFF7F7F7), "DEPTH", "SPEED"),
+    PedalSpec(11, "VIB", "VIBRATO", Color(0xFF2F8FC9), Color(0xFF1B5F8C), Color(0xFFF7F7F7), "DEPTH", "SPEED"),
+    PedalSpec(12, "FLG", "FLANGER", Color(0xFF8A5AD6), Color(0xFF5B3699), Color(0xFFF7F7F7), "FEEDBK", "SPEED"),
+    PedalSpec(13, "ROTO", "ROTARY", Color(0xFF8C5A32), Color(0xFF5E3A1D), Color(0xFFF7F7F7), "DEPTH", "SPEED"),
+    PedalSpec(14, "WAH", "WAH", Color(0xFF33363D), Color(0xFF1C1E22), Color(0xFFF7F7F7), "DEPTH", "SPEED"),
+    PedalSpec(15, "AWAH", "AUTO-WAH", Color(0xFFE3C22B), Color(0xFFB09210), Color(0xFF1A1408), "SENS", "PEAK"),
+    PedalSpec(16, "OCT", "OCTAVER", Color(0xFF6B4A2E), Color(0xFF45301D), Color(0xFFF7F7F7), "SUB", "TONE"),
+    PedalSpec(17, "RING", "RING MOD", Color(0xFF7D8794), Color(0xFF525B66), Color(0xFFF7F7F7), "MIX", "PITCH"),
+    PedalSpec(18, "DLY", "DELAY", Color(0xFFDCE6F2), Color(0xFFA9B8CC), Color(0xFF1A1408), "LEVEL", "TIME"),
+    PedalSpec(19, "TAPE", "TAPE ECHO", Color(0xFF2E5E46), Color(0xFF1B3B2B), Color(0xFFF7F7F7), "LEVEL", "TIME"),
+    PedalSpec(20, "VERB", "REVERB", Color(0xFF5E7FA3), Color(0xFF3B5575), Color(0xFFF7F7F7), "LEVEL", "SIZE"),
+    PedalSpec(21, "GATE", "GATE", Color(0xFF26282D), Color(0xFF121316), Color(0xFFF7F7F7), "THRESH", "DECAY")
+)
+
+fun pedalSpec(typeId: Int): PedalSpec? = PEDAL_SPECS.firstOrNull { it.typeId == typeId } ?: MASTER_PEDAL_SPECS.firstOrNull { it.typeId == typeId }
 
 private fun swapFxSlots(track: Int, a: Int, b: Int) {
     val da = Native.fxSlot(track, a)

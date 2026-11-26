@@ -26,6 +26,10 @@ The builds are not signed. On macOS, remove the download mark once after copying
 - **Tempo and transport** come from the host while FOLLOW HOST is lit. The pattern is locked to the host's bars.
 - **MIDI**: channel 10 plays the drum pads (General MIDI notes, or C4 to G4 for pad 1 to 8), channels 1 to 4 play
   Bass, Lead, Syn 3 and Syn 4. "MIDI: ..." in the top right sends every channel to one track instead.
+- **Pedals**: each track has three slots, the sound runs through them from left to right. Twenty-one pedals:
+  overdrive, distortion, fuzz, booster, bitcrush, compressor, gate, chorus, flanger, phaser, tremolo, vibrato,
+  rotary, ring mod, low-pass, wah, auto-wah, octaver, delay, tape echo and reverb. The phone apps play all of them
+  and offer the six standard ones.
 - **Outputs**: the main output carries the whole mix. Five more stereo outputs carry Drums, Bass, Lead, Syn 3 and
   Syn 4 on their own, after their channel strip and effects, without delay, reverb and the master limiter.
 - **Automation**: Master, and per track Level, Drive, Delay Send and Reverb Send; per synth Cutoff and Resonance;

@@ -229,7 +229,7 @@ bool choice(Rd& r, const JV& o, const std::string& path, const char* key, std::i
 const std::initializer_list<Choice> kWaves = {{"saw", 0}, {"square", 1}, {"triangle", 2}, {"sine", 3}, {"sqr", 1}, {"tri", 2}, {"sin", 3}};
 const std::initializer_list<Choice> kEngines = {{"subtractive", 0}, {"fm", 1}, {"pluck", 2}, {"vector", 3}, {"sub", 0}};
 const std::initializer_list<Choice> kLfoTargets = {{"off", 0}, {"cutoff", 1}, {"pitch", 2}, {"volume", 3}, {"amp", 3}};
-const std::initializer_list<Choice> kFxTypes = {{"off", 0}, {"overdrive", 1}, {"bitcrush", 2}, {"chorus", 3}, {"phaser", 4}, {"filter", 5}, {"compressor", 6}};
+const std::initializer_list<Choice> kFxTypes = {{"off", 0}, {"overdrive", 1}, {"bitcrush", 2}, {"chorus", 3}, {"phaser", 4}, {"filter", 5}, {"compressor", 6}, {"distortion", 7}, {"fuzz", 8}, {"booster", 9}, {"tremolo", 10}, {"vibrato", 11}, {"flanger", 12}, {"rotary", 13}, {"wah", 14}, {"autowah", 15}, {"octaver", 16}, {"ringmod", 17}, {"delay", 18}, {"tapeecho", 19}, {"reverb", 20}, {"gate", 21}};
 const std::initializer_list<Choice> kScales = {{"minor", 0}, {"major", 1}, {"dorian", 2}, {"pentatonic", 3}};
 const std::initializer_list<Choice> kRoots = {{"C", 0}, {"C#", 1}, {"D", 2}, {"D#", 3}, {"E", 4}, {"F", 5}, {"F#", 6}, {"G", 7}, {"G#", 8}, {"A", 9}, {"A#", 10}, {"B", 11},
                                               {"Db", 1}, {"Eb", 3}, {"Gb", 6}, {"Ab", 8}, {"Bb", 10}};
@@ -246,7 +246,8 @@ const std::initializer_list<Choice> kTracks = {{"bass", 0}, {"lead", 1}, {"syn3"
 const char* const kWaveNames[] = {"saw", "square", "triangle", "sine"};
 const char* const kEngineNames[] = {"subtractive", "fm", "pluck", "vector"};
 const char* const kLfoNames[] = {"off", "cutoff", "pitch", "volume"};
-const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor"};
+const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor", "distortion", "fuzz", "booster", "tremolo", "vibrato", "flanger", "rotary", "wah", "autowah", "octaver", "ringmod", "delay", "tapeecho", "reverb", "gate"};
+static_assert(sizeof(kFxNames) / sizeof(kFxNames[0]) == size_t(kNumFxTypes), "a name for every effect type");
 const char* const kScaleNames[] = {"minor", "major", "dorian", "pentatonic"};
 const char* const kRootNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const char* const kKitNames[] = {"808 Classic", "909 Punch", "Lo-Fi Acoustic", "FM Industrial", "Jungle Break",
@@ -607,7 +608,7 @@ void writeTrack(W& w, const TrackFx& f) {
   for (int i = 0; i <= last; ++i) {
     const FxSlot& sl = f.slots[i];
     w.sep();
-    w.s += "{ \"type\": " + W::quote(kFxNames[int(sl.type) <= 6 ? int(sl.type) : 0]) + ", \"amount\": " + W::number(sl.amount) +
+    w.s += "{ \"type\": " + W::quote(kFxNames[int(sl.type) < kNumFxTypes ? int(sl.type) : 0]) + ", \"amount\": " + W::number(sl.amount) +
            ", \"rate\": " + W::number(sl.rate) + (sl.bypass ? ", \"bypass\": true }" : " }");
   }
   w.close(']');

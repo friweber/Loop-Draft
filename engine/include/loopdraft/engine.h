@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "loopdraft/dsp.h"
+#include "loopdraft/pedals.h"
 #include "loopdraft/spsc_queue.h"
 #include "loopdraft/types.h"
 #include "loopdraft/voices.h"
@@ -90,7 +91,7 @@ class Engine {
     void* ptr = nullptr;
   };
   struct Trash { bool isProject; void* ptr; };
-  struct FxSlotState { Drive drive; Bitcrusher crush; Chorus chorus; Phaser phaser; Svf flt[2]; TrackComp comp; };
+  struct FxSlotState { Drive drive; Bitcrusher crush; Chorus chorus; Phaser phaser; Svf flt[2]; TrackComp comp; Pedal pedal; };
   struct TrackState { int64_t idle = 0; Smooth level, dSend, rSend; Drive drive; Shelf lo[2], hi[2]; FxSlotState fxSlots[kFxSlots]; float cLow = 1e9f, cHigh = 1e9f, cDrive = -1; };
   struct Suppress { bool on = false; int scene = 0, track = 0, row = 0, step = 0; };
   struct Ratchet { bool active = false; int pad = 0, hits = 0, done = 0; int64_t nextFrame = 0; double base = 0.0, interval = 0.0; };

@@ -24,7 +24,12 @@ enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
 enum class SynthMode : uint8_t { Subtractive, Fm, Pluck, Vector };
-enum class FxType     : uint8_t { Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor };
+enum class FxType     : uint8_t {
+  Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor,          // the standard pedals
+  // the stompbox collection (pedals.h)
+  Distortion, Fuzz, Booster, Tremolo, Vibrato, Flanger, Rotary, Wah, AutoWah, Octaver, RingMod, Delay, TapeEcho, Reverb, Gate
+};
+constexpr int kNumFxTypes = int(FxType::Gate) + 1;
 enum class DrumEngine : uint8_t {
   Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer,
   HardcoreGabber, WarehouseRumble, NeuroTechstep, EbmElectro, GlitchBreakcore
