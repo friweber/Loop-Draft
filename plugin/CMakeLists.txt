@@ -72,3 +72,12 @@ target_compile_definitions(LoopMaster PUBLIC
 target_link_libraries(LoopMaster
   PRIVATE loopdraft_engine LoopMasterData juce::juce_audio_utils
   PUBLIC juce::juce_recommended_config_flags)
+
+# Runs the processor like a host would: transport, outputs, automation, MIDI, state. Used by CI.
+option(LOOPMASTER_SELFTEST "Build the plugin self-test" OFF)
+if(LOOPMASTER_SELFTEST)
+  add_executable(LoopMasterSelfTest tests/SelfTest.cpp)
+  target_include_directories(LoopMasterSelfTest PRIVATE $<TARGET_PROPERTY:LoopMaster,INCLUDE_DIRECTORIES>)
+  target_compile_definitions(LoopMasterSelfTest PRIVATE $<TARGET_PROPERTY:LoopMaster,COMPILE_DEFINITIONS>)
+  target_link_libraries(LoopMasterSelfTest PRIVATE LoopMaster)
+endif()

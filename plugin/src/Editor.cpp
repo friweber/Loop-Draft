@@ -85,11 +85,13 @@ class ParamBar : public juce::Component {
       }
     };
     addAndMakeVisible(slider_);
+    slider_.updateText();                               // the name is part of the text from the start
   }
   void setIndex(int index) {
     if (index == index_) return;
     index_ = index;
     slider_.setDoubleClickReturnValue(true, double(ld::Session::defaultParam(pid_, index_)));
+    slider_.updateText();
   }
   void setLabel(const juce::String& label) { if (label != label_) { label_ = label; slider_.updateText(); } }
   // call with the lock held

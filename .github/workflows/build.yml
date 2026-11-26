@@ -248,7 +248,8 @@ jobs:
         run: |
           EXTRA=""
           if [ "${{ runner.os }}" = "macOS" ]; then EXTRA='-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64'; fi
-          cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release "$EXTRA" > configure.log 2>&1 || { tail -60 configure.log; exit 1; }
+          if [ "${{ runner.os }}" = "Linux" ]; then EXTRA='-DLOOPMASTER_SELFTEST=ON'; fi
+          cmake -S plugin -B plugin/build -DCMAKE_BUILD_TYPE=Release $EXTRA > configure.log 2>&1 || { tail -60 configure.log; exit 1; }
           tail -3 configure.log
       - name: Build
         shell: bash
@@ -298,6 +299,13 @@ jobs:
           tail -25 report/pluginval-${{ matrix.name }}.txt
           echo "pluginval exit code: $code" | tee -a report/pluginval-${{ matrix.name }}.txt
           exit $code
+      # The processor driven like a host drives it: transport, outputs, automation, MIDI, state.
+      - name: Self-test
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p report
+          set -o pipefail
+          xvfb-run -a plugin/build/LoopMasterSelfTest | tee report/selftest.txt
       - name: Pictures of the editor
         if: runner.os == 'Linux'
         continue-on-error: true
