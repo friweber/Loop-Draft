@@ -227,7 +227,8 @@ bool choice(Rd& r, const JV& o, const std::string& path, const char* key, std::i
 }
 
 const std::initializer_list<Choice> kWaves = {{"saw", 0}, {"square", 1}, {"triangle", 2}, {"sine", 3}, {"sqr", 1}, {"tri", 2}, {"sin", 3}};
-const std::initializer_list<Choice> kEngines = {{"subtractive", 0}, {"fm", 1}, {"pluck", 2}, {"vector", 3}, {"sub", 0}};
+const std::initializer_list<Choice> kEngines = {{"subtractive", 0}, {"fm", 1}, {"pluck", 2}, {"vector", 3}, {"sub", 0},
+                                                {"unison", 4}, {"organ", 5}, {"phase", 6}};
 const std::initializer_list<Choice> kLfoTargets = {{"off", 0}, {"cutoff", 1}, {"pitch", 2}, {"volume", 3}, {"amp", 3}};
 const std::initializer_list<Choice> kFxTypes = {{"off", 0}, {"overdrive", 1}, {"bitcrush", 2}, {"chorus", 3}, {"phaser", 4}, {"filter", 5}, {"compressor", 6}, {"distortion", 7}, {"fuzz", 8}, {"booster", 9}, {"tremolo", 10}, {"vibrato", 11}, {"flanger", 12}, {"rotary", 13}, {"wah", 14}, {"autowah", 15}, {"octaver", 16}, {"ringmod", 17}, {"delay", 18}, {"tapeecho", 19}, {"reverb", 20}, {"gate", 21},
     {"punch", 22}, {"crusher", 23}, {"slicer", 24}, {"gatedverb", 25}, {"boom", 26}, {"cloud", 27}, {"lofi", 28}, {"dubdelay", 29}, {"freqshift", 30}, {"resonator", 31}, {"shimmer", 32}};
@@ -245,7 +246,7 @@ const std::initializer_list<Choice> kPads = {{"kick", 0}, {"snare", 1}, {"clap",
                                              {"pad1", 0}, {"pad2", 1}, {"pad3", 2}, {"pad4", 3}, {"pad5", 4}, {"pad6", 5}, {"pad7", 6}, {"pad8", 7}};
 const std::initializer_list<Choice> kTracks = {{"bass", 0}, {"lead", 1}, {"syn3", 2}, {"syn4", 3}, {"synth1", 0}, {"synth2", 1}, {"synth3", 2}, {"synth4", 3}};
 const char* const kWaveNames[] = {"saw", "square", "triangle", "sine"};
-const char* const kEngineNames[] = {"subtractive", "fm", "pluck", "vector"};
+const char* const kEngineNames[] = {"subtractive", "fm", "pluck", "vector", "unison", "organ", "phase"};
 const char* const kLfoNames[] = {"off", "cutoff", "pitch", "volume"};
 const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor", "distortion", "fuzz", "booster", "tremolo", "vibrato", "flanger", "rotary", "wah", "autowah", "octaver", "ringmod", "delay", "tapeecho", "reverb", "gate",
                                "punch", "crusher", "slicer", "gatedverb", "boom", "cloud", "lofi", "dubdelay", "freqshift", "resonator", "shimmer"};
@@ -629,7 +630,7 @@ void writeTrack(W& w, const TrackFx& f) {
   w.close();
 }
 void writeInstrumentBody(W& w, const SynthParams& s, const TrackFx* fx) {
-  w.str("engine", kEngineNames[int(s.mode) <= 3 ? int(s.mode) : 0]);
+  w.str("engine", kEngineNames[int(s.mode) < kNumSynthModes ? int(s.mode) : 0]);
   w.str("osc1", kWaveNames[int(s.wave1) & 3]); w.str("osc2", kWaveNames[int(s.wave2) & 3]);
   w.num("detune", s.detune); w.num("cutoff", s.cutoff); w.num("res", s.res);
   w.num("attack", s.attack); w.num("decay", s.decay); w.num("sustain", s.sustain); w.num("release", s.release);

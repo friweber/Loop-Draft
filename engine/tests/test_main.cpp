@@ -1804,6 +1804,55 @@ static void testGroovesLanesLoopAndPreview() {
   }
 }
 
+// The synths of the collection: each one sounds, each one differently, and a preset can name each of them.
+static void testSynthCollection() {
+  const double sr = 48000.0;
+  std::vector<std::vector<float>> takes;
+  for (int mode = 0; mode < kNumSynthModes; ++mode) {
+    for (int shape = 0; shape < (mode == int(SynthMode::Phase) ? 4 : 1); ++shape) {
+      auto p = std::make_unique<Project>(makeDemoProject());
+      for (auto& sc : p->scenes) sc = Scene();
+      for (auto& f : p->fx) { f = TrackFx(); f.delaySend = 0.0f; f.revSend = 0.0f; }
+      SynthParams& sp = p->synths[0];
+      sp = SynthParams();
+      sp.mode = SynthMode(mode); sp.wave1 = Wave(shape); sp.cutoff = 6000.0f; sp.sustain = 0.8f; sp.fmIndex = 5.0f; sp.vecX = 0.7f; sp.vecY = 0.4f;
+      Note n; n.step = 0; n.degree = 0; n.len = 8;
+      Note m = n; m.step = 8; m.degree = 4; m.vel = 2;
+      p->scenes[0].synth[0].notes[0] = n; p->scenes[0].synth[0].notes[1] = m; p->scenes[0].synth[0].count = 2;
+      Engine e(sr);
+      e.setProject(*p);
+      e.play(0);
+      std::vector<float> l(size_t(sr * 1.5)), r(l.size());
+      for (size_t at = 0; at < l.size(); at += 256) e.render(l.data() + at, r.data() + at, int(std::min<size_t>(256, l.size() - at)));
+      double rms = 0.0; float peak = 0.0f; bool finite = true;
+      for (float x : l) { finite = finite && std::isfinite(x); rms += double(x) * double(x); peak = std::max(peak, std::fabs(x)); }
+      rms = std::sqrt(rms / double(l.size()));
+      CHECK(finite); CHECK(rms > 0.01); CHECK(rms < 0.6); CHECK(peak < 1.01f);
+      for (const auto& other : takes) {                          // no two of them are the same sound
+        double d = 0.0;
+        for (size_t i = 0; i < l.size(); ++i) d += double(l[i] - other[i]) * double(l[i] - other[i]);
+        CHECK(std::sqrt(d / double(l.size())) > 0.1 * rms);
+      }
+      takes.push_back(l);
+    }
+  }
+  static const char* const names[kNumSynthModes] = {"subtractive", "fm", "pluck", "vector", "unison", "organ", "phase"};
+  for (int mode = 0; mode < kNumSynthModes; ++mode) {
+    auto p = std::make_unique<Project>(makeDemoProject());
+    std::string err;
+    const std::string json = std::string(R"({"kind":"instrument","name":"x","engine":")") + names[mode] + R"("})";
+    CHECK(applyContent(json, *p, ContentTarget{}, err, nullptr));
+    CHECK_EQ(int(p->synths[0].mode), mode);
+  }
+  Session s(sr);
+  s.beginEdit(); s.setParam(P_SYN_MODE, 1, 6.0f);
+  CHECK(s.project().synths[1].mode == SynthMode::Phase);
+  CHECK(s.save("/tmp/ld_test_mode.ldp"));
+  Session back(sr);
+  CHECK(back.load("/tmp/ld_test_mode.ldp"));
+  CHECK(back.project().synths[1].mode == SynthMode::Phase);
+}
+
 static void testPedalCollection() {
   const double sr = 48000.0;
   const int block = 256;
@@ -2049,6 +2098,7 @@ int main() {
     {"presets and grooves as JSON", testContentJson},
     {"automation of effect slots and drum hardness", testAutomationOfFxSlotsAndHardness},
     {"host clock, MIDI notes, automation and separate outputs", testHostClockMidiAndOutputs},
+    {"the synth collection", testSynthCollection},
     {"the stompbox collection", testPedalCollection},
     {"grooves, bar loop, knob movements, song with a host, preview", testGroovesLanesLoopAndPreview},
   };

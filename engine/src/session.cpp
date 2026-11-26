@@ -67,7 +67,7 @@ void sanitize(Project& p) {
     s.release = clampT(fin(s.release, 0.08f), 0.01f, 3.0f); s.level = clampT(fin(s.level, 0.8f), 0.0f, 1.0f);
     s.lfoRate = clampT(fin(s.lfoRate, 3), 0.05f, 20.0f); s.lfoDepth = clampT(fin(s.lfoDepth, 0), 0.0f, 1.0f);
     s.octaveShift = int8_t(clampT<int>(s.octaveShift, -2, 2));
-    if (uint8_t(s.mode) > uint8_t(SynthMode::Vector)) s.mode = SynthMode::Subtractive;
+    if (uint8_t(s.mode) >= kNumSynthModes) s.mode = SynthMode::Subtractive;
     s.fold = clampT(fin(s.fold, 0.0f), 0.0f, 1.0f); s.slideTime = clampT(fin(s.slideTime, 0.06f), 0.005f, 0.5f);
     s.pluckBright = clampT(fin(s.pluckBright, 0.6f), 0.0f, 1.0f);
     s.vecX = clampT(fin(s.vecX, 0.5f), 0.0f, 1.0f); s.vecY = clampT(fin(s.vecY, 0.5f), 0.0f, 1.0f);

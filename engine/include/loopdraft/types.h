@@ -23,7 +23,17 @@ constexpr int kSynthVoices  = 8;
 enum class Scale     : uint8_t { Minor, Major, Dorian, Pentatonic };
 enum class Wave      : uint8_t { Saw, Square, Triangle, Sine };
 enum class LfoTarget : uint8_t { Off, Cutoff, Pitch, Amp };
-enum class SynthMode : uint8_t { Subtractive, Fm, Pluck, Vector };
+// The synths of the collection. Each is a different instrument that reuses the same set of stored controls:
+//   Subtractive  two oscillators into a filter
+//   Fm           two sine operators
+//   Pluck        a plucked string
+//   Vector       four sources, blended by X and Y
+//   Unison       seven detuned saws and a sub (detune = spread, vecX = how much of the stack, vecY = sub)
+//   Organ        drawbar harmonics (vecX = dark .. bright, vecY = hollow, fmIndex = percussion, fmModDecay = its length)
+//   Phase        phase distortion (osc1 = shape, fmIndex = how far it is bent, fmModDecay = how fast that fades,
+//                fmFeedback = how much of it stays, fmRatio = the resonant shape's sweep)
+enum class SynthMode : uint8_t { Subtractive, Fm, Pluck, Vector, Unison, Organ, Phase };
+constexpr int kNumSynthModes = 7;
 enum class FxType     : uint8_t {
   Off, Overdrive, Bitcrush, Chorus, Phaser, Filter, Compressor,          // the standard pedals
   // the stompbox collection (pedals.h)

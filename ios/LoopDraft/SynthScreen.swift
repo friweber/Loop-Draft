@@ -9,7 +9,7 @@ struct SynthScreen: View {
     private var activeSynths: Int { min(max(Int(state.bridge.getParam(ParamId.ACTIVE_SYNTHS, index: 0).rounded()), 2), 4) }
     private var syn: Int32 { min(max(state.synth, 0), Int32(activeSynths - 1)) }
     private var trackName: String { TRACK_NAMES[Int(syn) + 1] }
-    private var synMode: Int { min(max(Int(state.bridge.getParam(ParamId.SYN_MODE, index: syn).rounded()), 0), 3) }
+    private var synMode: Int { min(max(Int(state.bridge.getParam(ParamId.SYN_MODE, index: syn).rounded()), 0), 6) }
     private var lfoTarget: Int { Int(state.bridge.getParam(ParamId.SYN_LFO_TARGET, index: syn).rounded()) }
     private var bars: Int { max(1, Int(state.bridge.sceneBars(state.scene))) }
     private var page: Int { min(max(Int(state.rollPage), 0), bars * 2 - 1) }
@@ -66,7 +66,7 @@ struct SynthScreen: View {
 
     private var quickTonePanel: some View {
         let curInst = Int(state.bridge.getParam(ParamId.SYN_INSTRUMENT, index: syn).rounded())
-        let modeName = ["SUB", "FM", "PLUCK", "VECTOR"][synMode]
+        let modeName = ["SUB", "FM", "PLUCK", "VECTOR", "UNISON", "ORGAN", "PHASE"][synMode]
         let s = syn
         return ModulePanel("Quick Tone: \(trackName) (\(modeName))", accent: skin.secondary) {
             trackSelectorRow
@@ -156,7 +156,7 @@ struct SynthScreen: View {
     private var engineButtons: some View {
         let s = syn
         let cur = synMode
-        let names = ["SUBTRACTIVE", "FM 2-OP", "PLUCK", "VECTOR"]
+        let names = ["SUBTRACTIVE", "FM 2-OP", "PLUCK", "VECTOR", "UNISON", "ORGAN", "PHASE"]
         return HStack(spacing: 4) {
             ForEach(0..<names.count, id: \.self) { m in
                 HwButton(text: names[m], on: cur == m, ledColor: skin.secondary, height: 28) {

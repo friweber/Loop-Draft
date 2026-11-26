@@ -67,6 +67,7 @@ class Synth {
     float acc = 0;                         // accent: extra filter opening, fades quickly
     float ph3 = 0, ph4 = 0, inc3 = 0, inc4 = 0, vx = -1, vy = -1;   // Vector: FM modulator, sub, smoothed position
     float ksDelay = 0, ksLast = 0, ksGain = 0; int ksPos = 0; bool ksReady = false;   // Pluck string
+    float us[6] = {};                      // Unison: the six saws around the middle one
     int64_t gate = 0;
     uint64_t age = 0, born = 0;
     Svf flt;

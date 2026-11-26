@@ -1458,7 +1458,7 @@ fun SynthTab(s: AppState) {
     val skin = LocalSkin.current
     val bars = remember(s.rev, s.scene) { Native.sceneBars(s.scene) }
     val page = s.rollPage.coerceIn(0, bars * 2 - 1)
-    val mode = remember(s.rev, s.synth) { Native.getParam(P.SYN_MODE, s.synth).roundToInt().coerceIn(0, 3) }
+    val mode = remember(s.rev, s.synth) { Native.getParam(P.SYN_MODE, s.synth).roundToInt().coerceIn(0, 6) }
     val isFm = mode == 1
     val wave1 = remember(s.rev, s.synth) { Native.getParam(P.SYN_WAVE1, s.synth).roundToInt() }
     val cutoff = remember(s.rev, s.synth) { Native.getParam(P.SYN_CUTOFF, s.synth) }
@@ -1528,7 +1528,7 @@ fun SynthTab(s: AppState) {
 
     val quickMacroPanel: @Composable () -> Unit = {
         ModulePanel(
-            title = "Quick Tone: ${TRACK_NAMES[s.synth + 1]} (${listOf("SUB", "FM", "PLUCK", "VECTOR")[mode]})",
+            title = "Quick Tone: ${TRACK_NAMES[s.synth + 1]} (${listOf("SUB", "FM", "PLUCK", "VECTOR", "UNISON", "ORGAN", "PHASE")[mode]})",
             accent = skin.secondary
         ) {
             trackSelectorRow()
@@ -1561,7 +1561,7 @@ fun SynthTab(s: AppState) {
                 fmIndex = fmIndex,
                 fmRatio = fmRatio
             )
-            Choice(s, "Engine", P.SYN_MODE, s.synth, listOf("Subtractive", "FM 2-Op", "Pluck", "Vector"), accent = skin.secondary)
+            Choice(s, "Engine", P.SYN_MODE, s.synth, listOf("Subtractive", "FM 2-Op", "Pluck", "Vector", "Unison", "Organ", "Phase"), accent = skin.secondary)
 
             if (mode == 2) {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

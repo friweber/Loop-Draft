@@ -140,6 +140,51 @@ void Synth::process(float* out, int n, const SynthParams& p) {
   const float accMul = std::exp(-16.0f / (0.12f * sr));
   const float foldGain = 1.0f + 5.0f * (p.fold < 0 ? 0 : (p.fold > 1 ? 1 : p.fold));
   const bool pluck = p.mode == SynthMode::Pluck, vector = p.mode == SynthMode::Vector;
+  const bool unison = p.mode == SynthMode::Unison, organ = p.mode == SynthMode::Organ, phaseDist = p.mode == SynthMode::Phase;
+  const auto unit = [](float x) { return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x); };
+  // Unison: six saws spread around the middle one, up to half a semitone either way
+  float uniMul[6] = {1, 1, 1, 1, 1, 1};
+  const float uniSide = unit(p.vecX), uniSub = unit(p.vecY);
+  if (unison) {
+    const float spread = (std::fabs(p.detune) * 1.2f + 4.0f + p.feelMotion * 14.0f) / 1200.0f;
+    static const float at[6] = {-1.0f, -0.62f, -0.27f, 0.31f, 0.66f, 1.0f};
+    for (int k = 0; k < 6; ++k) uniMul[k] = std::pow(2.0f, spread * at[k]);
+  }
+  // Organ: how loud each harmonic is. X goes from dark to bright, Y takes the even ones out.
+  static const float orgHarm[6] = {1.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
+  float orgLevel[6], orgSub = 0.0f, orgNorm = 1.0f;
+  if (organ) {
+    const float tilt = 2.6f - 2.4f * unit(p.vecX), hollow = 1.0f - 0.95f * unit(p.vecY);
+    float sum = 0.0f;
+    for (int k = 0; k < 6; ++k) {
+      orgLevel[k] = std::pow(orgHarm[k], -tilt) * (k == 1 || k == 3 || k == 4 || k == 5 ? hollow : 1.0f);
+      sum += orgLevel[k];
+    }
+    orgSub = 0.5f * (1.0f - 0.6f * unit(p.vecX));
+    orgNorm = 1.0f / (sum + orgSub);
+  }
+  // Phase distortion: how far the wave is bent, and how much of that is left once the note has settled
+  const float pdAmount = unit(p.fmIndex / 8.0f), pdStay = unit(p.fmFeedback);
+  const auto bend = [](Wave shape, float t, float d, float sweep) {
+    switch (shape) {
+      case Wave::Saw: {                            // a sine whose first half is squeezed: towards a saw
+        const float knee = 0.5f - 0.49f * d;
+        const float w = t < knee ? 0.5f * t / knee : 0.5f + 0.5f * (t - knee) / (1.0f - knee);
+        return -sinTurns(w + 0.25f);
+      }
+      case Wave::Square: {                         // each half hurries and then waits: towards a square
+        const float h = t < 0.5f ? 0.0f : 0.5f, u = (t - h) * 2.0f, e = u / (1.0f - 0.97f * d);
+        return -sinTurns(h + 0.5f * (e > 1.0f ? 1.0f : e) + 0.25f);
+      }
+      case Wave::Triangle:                         // a faster sine under a falling window: the resonant sweep
+        return sinTurns(t * (1.0f + d * sweep)) * (1.0f - t) * 1.6f;
+      default: {                                   // the whole wave hurries and then waits: a narrow pulse
+        const float e = t / (1.0f - 0.95f * d);
+        return -sinTurns((e > 1.0f ? 1.0f : e) + 0.25f);
+      }
+    }
+  };
+  const float pdSweep = 1.0f + (p.fmRatio < 0.5f ? 0.5f : p.fmRatio) * 2.0f;
   const float bright = p.pluckBright < 0 ? 0 : (p.pluckBright > 1 ? 1 : p.pluckBright);
   const float ksBlend = 0.5f * (1.0f - bright);      // how much each trip round the string smooths it
   const bool warm = p.feelWarmth > 0.55f;
@@ -191,7 +236,11 @@ void Synth::process(float* out, int n, const SynthParams& p) {
             v.ksPos = len; v.ksLast = 0.0f; v.ksReady = true;
           }
         }
-        v.inc2 = (p.mode == SynthMode::Fm) ? (v.inc1 * p.fmRatio) : (v.inc1 * detuneMul);
+        v.inc2 = (p.mode == SynthMode::Fm) ? (v.inc1 * p.fmRatio) : (unison || organ ? v.inc1 * 0.5f : v.inc1 * detuneMul);
+        if (unison && v.age == 0) {                  // the saws start apart, each note differently
+          Rng rng(0x51EDu + uint32_t(v.born) * 2246822519u);
+          for (float& ph : v.us) ph = 0.5f + 0.5f * rng.next();
+        }
         v.ampStep = (ampT - v.amp) / 16.0f;
       }
       v.amp += v.ampStep;
@@ -221,6 +270,24 @@ void Synth::process(float* out, int n, const SynthParams& p) {
         x = 0.8f * ((1.0f - v.vx) * ((1.0f - v.vy) * a + v.vy * c) + v.vx * ((1.0f - v.vy) * b + v.vy * d));
         v.ph3 += v.inc3; if (v.ph3 >= 1.0f) v.ph3 -= std::floor(v.ph3);
         v.ph4 += v.inc4; if (v.ph4 >= 1.0f) v.ph4 -= std::floor(v.ph4);
+      } else if (unison) {
+        const Wave w = p.wave1 == Wave::Square ? Wave::Square : Wave::Saw;
+        float side = 0.0f;
+        for (int k = 0; k < 6; ++k) {
+          const float inc = v.inc1 * uniMul[k];
+          side += osc(w, v.us[k], inc);
+          v.us[k] += inc; if (v.us[k] >= 1.0f) v.us[k] -= std::floor(v.us[k]);
+        }
+        x = (osc(w, v.ph1, v.inc1) * (0.75f - 0.35f * uniSide) + side * uniSide * 0.26f + sinTurns(v.ph2) * uniSub * 0.7f) * 0.8f;
+      } else if (organ) {
+        float sum = sinTurns(v.ph2) * orgSub;
+        for (int k = 0; k < 6; ++k) sum += sinTurns(v.ph1 * orgHarm[k]) * orgLevel[k];
+        x = sum * orgNorm * 1.6f + sinTurns(v.ph1 * 3.0f) * pdAmount * v.modEnv * 0.5f;   // the percussion: a short third harmonic
+        v.modEnv *= modDecMul;
+      } else if (phaseDist) {
+        const float d = pdAmount * (pdStay + (1.0f - pdStay) * v.modEnv);
+        x = 0.5f * (bend(p.wave1, v.ph1, d, pdSweep * 7.0f) + bend(p.wave1, v.ph2, d, pdSweep * 7.0f));
+        v.modEnv *= modDecMul;
       } else {
         x = 0.5f * (osc(p.wave1, v.ph1, v.inc1) + osc(p.wave2, v.ph2, v.inc2));
       }
