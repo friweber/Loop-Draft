@@ -26,14 +26,28 @@ The builds are not signed. On macOS, remove the download mark once after copying
 - **Tempo and transport** come from the host while FOLLOW HOST is lit. The pattern is locked to the host's bars.
 - **MIDI**: channel 10 plays the drum pads (General MIDI notes, or C4 to G4 for pad 1 to 8), channels 1 to 4 play
   Bass, Lead, Syn 3 and Syn 4. "MIDI: ..." in the top right sends every channel to one track instead.
-- **Pedals**: each track has three slots, the sound runs through them from left to right. Twenty-one pedals:
-  overdrive, distortion, fuzz, booster, bitcrush, compressor, gate, chorus, flanger, phaser, tremolo, vibrato,
-  rotary, ring mod, low-pass, wah, auto-wah, octaver, delay, tape echo and reverb. Each has up to four knobs and
-  a character switch (table below). The phone apps play all of it and offer the six standard ones with two knobs.
+- **Grooves**: eight of them, A to H, each 1 to 16 bars long. DRUMS and SYNTH are the bar editors: the numbers
+  open a bar, `+ BAR`, `- BAR` and `x2` change the length (`x2` repeats what is there). While LOOP BAR is lit, only
+  the bar that is open plays, so you can work on it; unlit, the whole groove plays.
+- **Patterns**: the list beside both editors holds the library's grooves and the `.mid` files of a folder you choose
+  (MIDI FOLDER). A click plays a pattern without changing anything; A to H under the list puts it into that groove.
+  If pattern and groove differ in length, the shorter one is repeated. MIDI drum files are read by General MIDI
+  drum notes; melodic files are moved to the nearest notes of the project's scale.
+- **Pedals**: each track has six slots, the sound runs through them from left to right; the strip on top shows the
+  whole board, a click on it shows that half. Twenty-one pedals with up to four knobs and a character switch each
+  (table below). The phone apps play all of it and show the first three slots with two knobs.
+- **Knob movements**: light REC KNOBS, let it play, and hold and move a knob or a bar: the movement is written into
+  the groove that is sounding, one value per beat. Up to eight per groove. The SONG page shows them; you can draw
+  them there and CLEAR them. Works for track level, drive, EQ and sends, the synth's sound controls and every pedal
+  knob. While a groove moves a knob, that movement wins over the host's automation of the same control.
+- **Song**: the SONG page is the timeline: blocks of grooves in a row, as wide as they are long. With PLAY THE SONG
+  lit and FOLLOW HOST on, the song is tied to the host's bars from bar 1: wherever the host plays, that part of the
+  song sounds. After the last block it is silent, or starts over (AFTER THE END).
+- **PLAY** works on its own when no host leads, and also in a host as long as the host stands still.
 - **Outputs**: the main output carries the whole mix. Five more stereo outputs carry Drums, Bass, Lead, Syn 3 and
   Syn 4 on their own, after their channel strip and effects, without delay, reverb and the master limiter.
 - **Automation**: Master, and per track Level, Drive, Delay Send and Reverb Send; per synth Cutoff and Resonance;
-  the Scene.
+  the groove (A to H).
 - **The project is stored in the host's session.** OPEN and SAVE exchange `.ldp` project files with the phone apps.
 
 ## The pedals

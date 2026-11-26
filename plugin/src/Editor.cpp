@@ -1502,7 +1502,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       g.setFont(juce::Font(juce::FontOptions(18.0f, juce::Font::bold)));
       g.drawText(kSceneNames[sc], box.reduced(6, 2), juce::Justification::topLeft, false);
       g.setFont(juce::Font(juce::FontOptions(10.5f, juce::Font::bold)));
-      g.drawText("bar " + juce::String(barNo), box.reduced(6, 3), juce::Justification::bottomLeft, false);
+      g.drawText((box.getWidth() < 64 ? juce::String() : juce::String("bar ")) + juce::String(barNo), box.reduced(6, 3), juce::Justification::bottomLeft, false);
       if (live && e.chainPos() == c) {                         // where it is playing
         const int st = juce::jmax(0, e.currentStep());
         g.setColour(juce::Colours::white);
