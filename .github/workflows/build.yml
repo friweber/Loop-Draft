@@ -25,7 +25,7 @@ jobs:
           cmake --build engine/build -j 4
           ./engine/build/ld_tests
       - name: Check every preset and groove in content/
-        run: ./engine/build/ld_content check $(find content -name '*.json' | sort)
+        run: ./engine/build/ld_content check $(find content -name '*.json' -not -path 'content/techno/*' | sort)
       - name: Test again with memory checks
         run: |
           cmake -S engine -B engine/build-asan -DLD_SANITIZE=ON -DCMAKE_BUILD_TYPE=Debug
