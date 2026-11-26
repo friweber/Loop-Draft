@@ -246,7 +246,35 @@ class SoundPanel : public juce::Component {
       }
       return;
     }
-    // the sections flow from left to right and wrap
+    // drums: the sections flow from left to right and wrap
+    const int rows = 3;
+    const int rowH = juce::jlimit(84, 128, (r.getHeight() - (rows - 1) * 8) / rows);
+    const int kw = juce::jlimit(52, 70, (r.getWidth() - 40) / 13);
+    int x = r.getX(), y = r.getY(), pool = 0;
+    for (auto& sec : sections) {
+      const int btnCols = (int(sec.buttons.size()) + 1) / 2, bw = sec.wide ? 80 : 112;
+      // a section with many controls gets narrower knobs, so all of it fits in one row
+      const int kws = sec.knobs.empty() ? kw : juce::jmin(kw, (r.getWidth() - 16 - btnCols * bw) / int(sec.knobs.size()));
+      const int w = 16 + int(sec.knobs.size()) * kws + btnCols * bw;
+      if ((x + w > r.getRight() && x > r.getX()) || sec.newRow) { x = r.getX(); y += rowH + 8; }
+      sec.box = juce::Rectangle<int>(x, y, juce::jmin(w, r.getWidth()), rowH);
+      auto in = sec.box.reduced(8, 4).withTrimmedTop(16);
+      for (size_t i = 0; i < sec.knobs.size(); ++i) {
+        if (pool < kPool) knobs[pool]->setBounds(in.removeFromLeft(kws).withSizeKeepingCentre(kws - 4, juce::jmin(in.getHeight(), kws + 18)));
+        ++pool;
+      }
+      for (size_t i = 0; i < sec.buttons.size(); i += 2) {
+        auto colm = in.removeFromLeft(bw).reduced(3, 0);
+        const int bh = juce::jmin(26, (colm.getHeight() - 4) / 2);
+        auto both = colm.withSizeKeepingCentre(colm.getWidth(), bh * 2 + 4);
+        sec.buttons[i]->setBounds(both.removeFromTop(bh));
+        both.removeFromTop(4);
+        if (i + 1 < sec.buttons.size()) sec.buttons[i + 1]->setBounds(both.removeFromTop(bh));
+      }
+      x += w + 8;
+    }
+  }
+
   void paint(juce::Graphics& g) override {
     if (!built) return;
     const SynthFace& f = skin().faces[face];
