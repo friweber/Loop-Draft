@@ -94,13 +94,18 @@ void sanitize(Project& p) {
   for (auto& sc : p.scenes) {
     sc.bars = clampT(sc.bars, 1, kMaxBars);
     for (auto& row : sc.drums.steps) for (auto& v : row) if (v > 5) v = 1;
+    for (auto& ln : sc.lanes) {
+      if (ln.paramId < -1 || ln.paramId > P_LAST) ln.paramId = -1;
+      ln.index = int16_t(clampT<int>(ln.index, 0, kNumPads - 1));
+      for (auto& v : ln.points) v = fin(v, 0.0f);
+    }
     for (auto& pat : sc.synth) {
       pat.count = clampT(pat.count, 0, kMaxNotes);
       for (int i = 0; i < pat.count; ++i) {
         Note& n = pat.notes[i];
         if (n.step >= kMaxSteps) n.step = kMaxSteps - 1;
         n.degree = int8_t(clampT<int>(n.degree, -21, 35));
-        n.len = uint8_t(clampT<int>(n.len, 1, kMaxSteps)); n.vel = uint8_t(n.vel == 2 ? 2 : 1);
+        n.len = uint8_t(clampT<int>(n.len, 1, 255)); n.vel = uint8_t(n.vel == 2 ? 2 : 1);
       }
     }
   }
@@ -110,7 +115,7 @@ void sanitize(Project& p) {
     for (int t = 0; t < kNumTracks; ++t) {
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {
         auto& al = p.chainAuto[i].tracks[t][ln];
-        if (al.paramId < -1 || al.paramId > P_FX_SLOT3_P4) al.paramId = -1;   // the highest id that can be automated
+        if (al.paramId < -1 || al.paramId > P_LAST) al.paramId = -1;   // the highest id that can be automated
         al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
       }
     }
@@ -122,6 +127,7 @@ Session::Session(double sampleRate) : engine_(sampleRate), proj_(makeDemoProject
 }
 
 void Session::commit() {
+  previewing_ = false;                             // the engine gets the real project again
   sanitize(proj_);
   syncKit();
   engine_.setProject(proj_);
@@ -261,20 +267,12 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_FX_EQ_HIGH: return &fx().eqHigh;
     case P_FX_DELAY: return &fx().delaySend;
     case P_FX_REVERB: return &fx().revSend;
-    case P_FX_SLOT1_AMOUNT: return &fx().slots[0].amount;
-    case P_FX_SLOT1_RATE: return &fx().slots[0].rate;
-    case P_FX_SLOT2_AMOUNT: return &fx().slots[1].amount;
-    case P_FX_SLOT2_RATE: return &fx().slots[1].rate;
-    case P_FX_SLOT3_AMOUNT: return &fx().slots[2].amount;
-    case P_FX_SLOT3_RATE: return &fx().slots[2].rate;
-    case P_FX_SLOT1_P3: return &fx().slots[0].p3;
-    case P_FX_SLOT1_P4: return &fx().slots[0].p4;
-    case P_FX_SLOT2_P3: return &fx().slots[1].p3;
-    case P_FX_SLOT2_P4: return &fx().slots[1].p4;
-    case P_FX_SLOT3_P3: return &fx().slots[2].p3;
-    case P_FX_SLOT3_P4: return &fx().slots[2].p4;
     case P_FX_MUTE: kind = 4; return reinterpret_cast<float*>(&fx().mute);
-    default: scratch = 0; return &scratch;
+    default: {
+      int slot, knob;
+      if (fxSlotParam(id, slot, knob)) return &fxSlotKnob(fx().slots[slot], knob);
+      scratch = 0; return &scratch;
+    }
   }
 }
 
@@ -366,6 +364,140 @@ bool Session::toggleNote(int scene, int synth, int step, int degree, bool accent
 void Session::setSceneBars(int scene, int bars) {
   if (!sceneOk(scene)) return;
   beginEdit(); proj_.scenes[scene].bars = bars; commit();
+}
+
+// Repeats what the first `from` bars hold until `to` bars are full (drums, notes and knob movements).
+static void tileScene(Scene& sc, int from, int to) {
+  from = clampT(from, 1, kMaxBars); to = clampT(to, 1, kMaxBars);
+  if (to <= from) return;
+  const int src = from * kStepsPerBar, dst = to * kStepsPerBar;
+  for (auto& row : sc.drums.steps) for (int st = src; st < dst; ++st) row[st] = row[st % src];
+  for (auto& pat : sc.synth) {
+    const int n = pat.count;
+    int kept = 0;
+    for (int i = 0; i < n; ++i) if (pat.notes[i].step < src) pat.notes[kept++] = pat.notes[i];   // what lay beyond is replaced
+    pat.count = kept;
+    for (int rep = 1; rep * src < dst; ++rep)
+      for (int i = 0; i < kept && pat.count < kMaxNotes; ++i) {
+        Note nt = pat.notes[i];
+        const int st = int(nt.step) + rep * src;
+        if (st >= dst) continue;
+        nt.step = uint16_t(st);
+        pat.notes[pat.count++] = nt;
+      }
+  }
+  for (auto& ln : sc.lanes) {
+    if (ln.paramId < 0) continue;
+    for (int pt = from * 4 + 1; pt <= to * 4; ++pt) ln.points[pt] = ln.points[(pt - 1) % (from * 4) + 1];
+  }
+}
+void Session::growScene(int scene, int bars) {
+  if (!sceneOk(scene)) return;
+  Scene& sc = proj_.scenes[scene];
+  bars = clampT(bars, 1, kMaxBars);
+  if (bars <= sc.bars) return;
+  beginEdit();
+  tileScene(sc, sc.bars, bars);
+  sc.bars = bars;
+  commit();
+}
+void Session::putDrums(int scene, const DrumPattern& d, int bars) {
+  if (!sceneOk(scene)) return;
+  beginEdit();
+  Scene& sc = proj_.scenes[scene];
+  bars = clampT(bars, 1, kMaxBars);
+  const int total = bars > sc.bars ? bars : sc.bars;
+  Scene in;                                        // the new drums, repeated to the groove's length
+  in.drums = d; tileScene(in, bars, total);
+  sc.drums = Scene{}.drums;
+  Scene keep = sc;                                 // the rest of the groove, repeated to the new length
+  tileScene(keep, sc.bars, total);
+  keep.drums = in.drums; keep.bars = total;
+  sc = keep;
+  commit();
+}
+void Session::putSynth(int scene, int synth, const SynthPattern& pat, int bars) {
+  if (!sceneOk(scene) || synth < 0 || synth >= kNumSynths) return;
+  beginEdit();
+  Scene& sc = proj_.scenes[scene];
+  bars = clampT(bars, 1, kMaxBars);
+  const int total = bars > sc.bars ? bars : sc.bars;
+  Scene in;
+  in.synth[synth] = pat; tileScene(in, bars, total);
+  Scene keep = sc;
+  tileScene(keep, sc.bars, total);
+  keep.synth[synth] = in.synth[synth]; keep.bars = total;
+  sc = keep;
+  commit();
+}
+// part: -1 the whole groove, 0 its drums, 1 .. its synths. The project itself stays as it is; only what sounds changes.
+void Session::preview(const Scene* sc, int part) {
+  if (!sc) { if (previewing_) { previewing_ = false; engine_.setProject(proj_); } return; }
+  auto tmp = std::make_unique<Project>(proj_);
+  for (auto& dst : tmp->scenes) {
+    if (part < 0) dst = *sc;
+    else {
+      Scene one;
+      one.bars = sc->bars;
+      if (part == 0) one.drums = sc->drums; else if (part <= kNumSynths) one.synth[part - 1] = sc->synth[part - 1];
+      dst = one;                                   // on its own, so you hear what you are choosing
+    }
+  }
+  sanitize(*tmp);
+  engine_.setProject(*tmp);
+  previewing_ = true;
+}
+
+// ---- knob movements inside a groove ----
+int Session::findLane(int scene, int paramId, int index) const {
+  if (!sceneOk(scene)) return -1;
+  for (int i = 0; i < kSceneLanes; ++i) {
+    const SceneLane& ln = proj_.scenes[scene].lanes[i];
+    if (ln.paramId == paramId && ln.index == index) return i;
+  }
+  return -1;
+}
+int Session::writeLanePoint(int scene, int paramId, int index, int point, float value, bool undoStep) {
+  if (!sceneOk(scene) || paramId < 0 || paramId > P_LAST || point < 0 || point >= kLanePoints) return -1;
+  int lane = findLane(scene, paramId, index);
+  if (lane < 0) {
+    for (int i = 0; i < kSceneLanes && lane < 0; ++i) if (proj_.scenes[scene].lanes[i].paramId < 0) lane = i;
+    if (lane < 0) return -1;                       // all lanes of this groove are taken
+    if (undoStep) beginEdit();
+    SceneLane& ln = proj_.scenes[scene].lanes[lane];
+    ln.paramId = int16_t(paramId); ln.index = int16_t(index);
+    const float now = getParam(paramId, index);
+    for (auto& v : ln.points) v = now;             // a new lane starts as the knob stands
+  } else if (undoStep) beginEdit();
+  proj_.scenes[scene].lanes[lane].points[point] = value;
+  commit();
+  return lane;
+}
+void Session::clearLane(int scene, int lane) {
+  if (!sceneOk(scene) || lane < 0 || lane >= kSceneLanes) return;
+  beginEdit(); proj_.scenes[scene].lanes[lane] = SceneLane{}; commit();
+}
+void Session::chainInsert(int pos, int scene) {
+  if (!sceneOk(scene) || proj_.chainLen >= kMaxChain) return;
+  pos = clampT(pos, 0, proj_.chainLen);
+  beginEdit();
+  for (int i = proj_.chainLen; i > pos; --i) { proj_.chain[i] = proj_.chain[i - 1]; proj_.chainAuto[i] = proj_.chainAuto[i - 1]; }
+  proj_.chain[pos] = scene; proj_.chainAuto[pos] = ChainAuto{};
+  ++proj_.chainLen;
+  commit();
+}
+void Session::chainSet(int pos, int scene) {
+  if (!sceneOk(scene) || pos < 0 || pos >= proj_.chainLen) return;
+  beginEdit(); proj_.chain[pos] = scene; commit();
+}
+void Session::chainMove(int from, int to) {
+  if (from < 0 || from >= proj_.chainLen || to < 0 || to >= proj_.chainLen || from == to) return;
+  beginEdit();
+  const int sc = proj_.chain[from]; const ChainAuto ca = proj_.chainAuto[from];
+  const int d = to > from ? 1 : -1;
+  for (int i = from; i != to; i += d) { proj_.chain[i] = proj_.chain[i + d]; proj_.chainAuto[i] = proj_.chainAuto[i + d]; }
+  proj_.chain[to] = sc; proj_.chainAuto[to] = ca;
+  commit();
 }
 void Session::copyScene(int from, int to) {
   if (!sceneOk(from) || !sceneOk(to) || from == to) return;

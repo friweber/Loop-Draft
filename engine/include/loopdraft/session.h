@@ -66,6 +66,22 @@ class Session {
   // true if the note now exists. slide: adds the note as a slide note, or switches slide on/off on an existing one.
   bool toggleNote(int scene, int synth, int step, int degree, bool accent, int len = 1, bool slide = false);
   void setSceneBars(int scene, int bars);
+  void growScene(int scene, int bars);             // longer, and the new bars repeat what is there
+  // A pattern from the browser goes into a groove. If the groove and the pattern differ in length, the shorter
+  // one is repeated, so the groove stays whole.
+  void putDrums(int scene, const DrumPattern& d, int bars);
+  void putSynth(int scene, int synth, const SynthPattern& pat, int bars);
+  // Listening before choosing: the engine plays `sc` (part: -1 all of it, 0 drums, 1.. a synth) in place of every
+  // groove; the project is untouched. preview(nullptr) or any edit ends it.
+  void preview(const Scene* sc, int part = -1);
+  bool previewing() const { return previewing_; }
+  // Knob movements inside a groove (SceneLane). point: 0 .. kLanePoints - 1, one per beat.
+  int  findLane(int scene, int paramId, int index) const;
+  int  writeLanePoint(int scene, int paramId, int index, int point, float value, bool undoStep = true);   // the lane, or -1 if all are taken
+  void clearLane(int scene, int lane);
+  void chainInsert(int pos, int scene);
+  void chainSet(int pos, int scene);
+  void chainMove(int from, int to);
   void copyScene(int from, int to);
   void clearScene(int scene);
   void chainAdd(int scene);
@@ -107,7 +123,7 @@ class Session {
   Engine engine_;
   Project proj_;
   std::vector<Project> undo_, redo_;
-  bool dirty_ = false;
+  bool dirty_ = false, previewing_ = false;
 };
 
 }  // namespace ld

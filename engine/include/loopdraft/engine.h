@@ -80,6 +80,11 @@ class Engine {
   int  currentStep() const  { return aStep_.load(std::memory_order_relaxed); }
   int  currentScene() const { return aScene_.load(std::memory_order_relaxed); }
   int  chainPos() const     { return aChainPos_.load(std::memory_order_relaxed); }
+  // Only this bar of the groove goes round (-1: the whole groove). Not in song mode.
+  void setLoopBar(int bar)  { aLoopBar_.store(bar, std::memory_order_relaxed); }
+  int  loopBar() const      { return aLoopBar_.load(std::memory_order_relaxed); }
+  // With a host: does the song start over after its last groove (as on the phone), or is it silent from there on?
+  void setSongLoop(bool on) { aSongLoop_.store(on, std::memory_order_relaxed); }
   int  queuedScene() const  { return aPending_.load(std::memory_order_relaxed); }
   float peak(int ch) const  { return (ch ? aPeakR_ : aPeakL_).load(std::memory_order_relaxed); }
   double sampleRate() const { return sr_; }
@@ -109,6 +114,8 @@ class Engine {
   void stopNow();
   void seekHost(double pos16);
   bool hostAgrees() const;
+  int loopStart(int steps) const;
+  int64_t songSteps() const;
 
   double sr_;
   SpscQueue<Cmd> cmds_{1024};
@@ -150,7 +157,8 @@ class Engine {
   float* trkR_[kNumTracks] = {};
   int trkOff_ = 0;
 
-  std::atomic<bool> aPlaying_{false};
+  std::atomic<bool> aPlaying_{false}, aSongLoop_{true};
+  std::atomic<int> aLoopBar_{-1};
   std::atomic<int> aStep_{-1}, aScene_{0}, aChainPos_{0}, aPending_{-1};
   std::atomic<float> aPeakL_{0}, aPeakR_{0};
 };

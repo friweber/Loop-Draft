@@ -6,16 +6,16 @@
 
 namespace ld {
 
-constexpr int kNumScenes    = 4;
+constexpr int kNumScenes    = 8;                        // grooves A .. H (4 until Loop Master 0.3)
 constexpr int kNumPads      = 8;
 constexpr int kStepsPerBar  = 16;
-constexpr int kMaxBars      = 8;
-constexpr int kMaxSteps     = kStepsPerBar * kMaxBars;  // 128
+constexpr int kMaxBars      = 16;                       // (8 until then)
+constexpr int kMaxSteps     = kStepsPerBar * kMaxBars;  // 256
 constexpr int kNumSynths    = 4;                        // 0=Bass, 1=Lead, 2=Synth 3, 3=Synth 4
 constexpr int kNumTracks    = 1 + kNumSynths;           // track 0 = Drums, 1..4 = Synths
 constexpr int kMaxNotes     = 256;                      // per synth pattern
 constexpr int kMaxChain     = 64;
-constexpr int kFxSlots      = 3;                        // modular per-track FX chain slots
+constexpr int kFxSlots      = 6;                        // modular per-track FX chain slots
 constexpr int kAutoPerTrack = 3;                        // up to 3 free-choice automations per track per chain slot
 constexpr int kDrumVoices   = 16;
 constexpr int kSynthVoices  = 8;
@@ -58,6 +58,11 @@ enum Param : int {
   P_FX_SLOT1_AMOUNT = 81, P_FX_SLOT1_RATE, P_FX_SLOT2_AMOUNT, P_FX_SLOT2_RATE, P_FX_SLOT3_AMOUNT, P_FX_SLOT3_RATE,
   // the third and fourth knob of each slot
   P_FX_SLOT1_P3 = 87, P_FX_SLOT1_P4, P_FX_SLOT2_P3, P_FX_SLOT2_P4, P_FX_SLOT3_P3, P_FX_SLOT3_P4,
+  // slots 4 .. 6: four ids each, in the order amount, rate, p3, p4
+  P_FX_SLOT4_AMOUNT = 93, P_FX_SLOT4_RATE, P_FX_SLOT4_P3, P_FX_SLOT4_P4,
+  P_FX_SLOT5_AMOUNT = 97, P_FX_SLOT5_RATE, P_FX_SLOT5_P3, P_FX_SLOT5_P4,
+  P_FX_SLOT6_AMOUNT = 101, P_FX_SLOT6_RATE, P_FX_SLOT6_P3, P_FX_SLOT6_P4,
+  P_LAST = P_FX_SLOT6_P4,
   P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
 };
 
@@ -133,6 +138,8 @@ constexpr int kMaxFxVoices = 4;
 // How many characters each pedal has, in the order of FxType.
 constexpr uint8_t kFxVoices[] = {1, 4, 1, 4, 4, 3, 4, 4, 4, 3, 4, 2, 3, 2, 3, 3, 2, 2, 3, 3, 4, 2};
 
+// Which slot and which of its knobs (0 amount, 1 rate, 2 p3, 3 p4) a parameter id stands for. False if it is not a slot knob.
+inline bool fxSlotParam(int id, int& slot, int& knob);
 struct TrackFx {
   float level = 0.8f;
   float drive = 0.1f;        // 0 .. 1 (built-in preamp drive)
@@ -167,10 +174,20 @@ struct ChainAuto {
   AutoLane tracks[kNumTracks][kAutoPerTrack];
 };
 
+// A knob that moves while a groove plays: one value per beat, straight lines in between. The values are in the
+// parameter's own unit, as getParam() gives them. The last point is the end of the last bar.
+constexpr int kSceneLanes = 8;
+constexpr int kLanePoints = kMaxBars * 4 + 1;
+struct SceneLane {
+  int16_t paramId = -1;      // -1 = not in use
+  int16_t index = 0;         // track (P_FX_*), synth (P_SYN_*), or 0
+  float points[kLanePoints] = {};
+};
 struct Scene {
   int32_t bars = 1;          // 1 .. kMaxBars, shared by all tracks of the scene
   DrumPattern drums;
   SynthPattern synth[kNumSynths];
+  SceneLane lanes[kSceneLanes];
 };
 
 struct Project {
@@ -227,5 +244,20 @@ inline float swingOffset(float swing, int step) { return (step & 1) ? swing : 0.
 int scaleSize(Scale s);
 int degreeToMidi(const Project& p, int octaveShift, int degree);
 int chordMidis(const Project& p, const SynthParams& sp, int degree, int out[3]);
+
+inline bool fxSlotParam(int id, int& slot, int& knob) {
+  if (id >= P_FX_SLOT1_AMOUNT && id <= P_FX_SLOT3_RATE) { slot = (id - P_FX_SLOT1_AMOUNT) / 2; knob = (id - P_FX_SLOT1_AMOUNT) % 2; return true; }
+  if (id >= P_FX_SLOT1_P3 && id <= P_FX_SLOT3_P4) { slot = (id - P_FX_SLOT1_P3) / 2; knob = 2 + (id - P_FX_SLOT1_P3) % 2; return true; }
+  if (id >= P_FX_SLOT4_AMOUNT && id <= P_FX_SLOT6_P4) { slot = 3 + (id - P_FX_SLOT4_AMOUNT) / 4; knob = (id - P_FX_SLOT4_AMOUNT) % 4; return true; }
+  return false;
+}
+// The id of knob 0 .. 3 of slot 0 .. kFxSlots - 1.
+inline int fxSlotParamId(int slot, int knob) {
+  if (slot >= 3) return P_FX_SLOT4_AMOUNT + (slot - 3) * 4 + knob;
+  return knob < 2 ? P_FX_SLOT1_AMOUNT + slot * 2 + knob : P_FX_SLOT1_P3 + slot * 2 + (knob - 2);
+}
+// Is `index` of this parameter a synth (true) or a track / nothing (false)?
+inline bool isSynthParam(int id) { return (id >= P_SYN_WAVE1 && id < P_FX_LEVEL) || id == P_SYN_INSTRUMENT || id == P_SYN_WARMTH || id == P_SYN_MOTION || (id >= P_SYN_FOLD && id <= P_SYN_VEC_Y); }
+inline float& fxSlotKnob(FxSlot& s, int knob) { return knob == 0 ? s.amount : (knob == 1 ? s.rate : (knob == 2 ? s.p3 : s.p4)); }
 
 }  // namespace ld

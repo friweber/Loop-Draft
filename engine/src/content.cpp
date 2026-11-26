@@ -537,6 +537,7 @@ bool readGroove(Rd& r, const JV& o, const std::string& path, Project& p, const C
             degree = d;
           }
           if (step + len > steps) len = steps - step;
+          if (len > 255) len = 255;
           for (int q = 0; q < pat.count; ++q)
             if (pat.notes[q].step == step && pat.notes[q].degree == degree) return r.fail(kp, "the same note is listed twice at this step");
           Note& nt = pat.notes[pat.count++];

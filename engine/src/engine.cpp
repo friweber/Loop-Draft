@@ -190,6 +190,11 @@ void Engine::hostTransport(bool playing, double quarterNotes, double bpm) {
   }
   const double sl = stepLen();
   const double pos = quarterNotes * 4.0;         // in sixteenths
+  if (songMode_ && !aSongLoop_.load(std::memory_order_relaxed) && (pos < -1e-6 || pos >= double(songSteps()) - 1e-6)) {
+    if (playing_) { stopNow(); aPlaying_.store(false, std::memory_order_relaxed); }   // before or after the song: silence
+    hostNext_ = -1;
+    return;
+  }
   const int64_t expectNext = int64_t(std::ceil(pos - 1e-6));
   // Still in step with the host (one behind is a swung step that is due): only the timing is renewed, so nothing
   // drifts when the tempo moves. Otherwise the host jumped, looped or just started.
@@ -207,6 +212,8 @@ bool Engine::hostAgrees() const {
   const Project& p = *proj_;
   if (!songMode_) {
     const int steps = sceneSteps(p.scenes[scene_]);
+    const int ls = loopStart(steps);
+    if (ls >= 0) return ls + int(((hostNext_ % kStepsPerBar) + kStepsPerBar) % kStepsPerBar) == step_;
     return int(((hostNext_ % steps) + steps) % steps) == step_;
   }
   int64_t total = 0;
@@ -219,6 +226,17 @@ bool Engine::hostAgrees() const {
     rel -= st;
   }
   return false;
+}
+
+// The bar that goes round on its own, as its first step; -1 when the whole groove plays.
+int Engine::loopStart(int steps) const {
+  const int bar = aLoopBar_.load(std::memory_order_relaxed);
+  return songMode_ || bar < 0 || bar * kStepsPerBar >= steps ? -1 : bar * kStepsPerBar;
+}
+int64_t Engine::songSteps() const {
+  int64_t total = 0;
+  for (int c = 0; c < proj_->chainLen; ++c) total += sceneSteps(proj_->scenes[proj_->chain[c]]);
+  return total < 1 ? 1 : total;
 }
 
 void Engine::seekHost(double pos) {
@@ -244,6 +262,8 @@ void Engine::seekHost(double pos) {
   } else {
     steps = sceneSteps(p.scenes[scene]);
     rel = ((g % steps) + steps) % steps;
+    const int ls = loopStart(steps);
+    if (ls >= 0) rel = ls + ((g % kStepsPerBar) + kStepsPerBar) % kStepsPerBar;
   }
   playing_ = true;
   for (auto& s : sup_) s.on = false;
@@ -256,6 +276,8 @@ void Engine::seekHost(double pos) {
     step_ = int(rel); hostNext_ = g; stepBase_ = double(frame_);
   } else {                                        // inside a step: the next one is the first to sound
     step_ = int(rel) + 1; hostNext_ = g + 1; stepBase_ = double(frame_) + (1.0 - frac) * sl;
+    const int ls = loopStart(steps);
+    if (ls >= 0 && step_ >= ls + kStepsPerBar) step_ = ls;
     if (step_ >= steps) {
       step_ = 0;
       if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; }
@@ -337,6 +359,8 @@ void Engine::fireStep() {
   const Scene& sc = p.scenes[scene_];
   const int steps = sceneSteps(sc);
   if (step_ >= steps) step_ = 0;
+  const int ls = loopStart(steps);
+  if (ls >= 0 && (step_ < ls || step_ >= ls + kStepsPerBar)) step_ = ls;
   const double sl = stepLen();
   if (step_ == 0 && songMode_) { autoPos_ = chainPos_; autoScene_ = scene_; autoStart_ = nextFire_; }   // a song slot starts sounding
 
@@ -378,9 +402,18 @@ void Engine::fireStep() {
 
   stepBase_ += sl;
   ++step_;
+  if (ls >= 0 && step_ >= ls + kStepsPerBar) step_ = ls;
   if (step_ >= steps) {                         // end of the scene: loop, or move along the song chain
     step_ = 0;
-    if (songMode_) { chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_]; }
+    if (songMode_) {
+      if (hostSync_ && chainPos_ + 1 >= p.chainLen && !aSongLoop_.load(std::memory_order_relaxed)) {
+        stopNow();                              // the song is over; the host plays on without us
+        aPlaying_.store(false, std::memory_order_relaxed);
+        nextFire_ = std::numeric_limits<int64_t>::max() / 2;
+        return;
+      }
+      chainPos_ = (chainPos_ + 1) % p.chainLen; scene_ = p.chain[chainPos_];
+    }
   }
   nextFire_ = std::llround(stepBase_ + double(swingOffset(p.swing, step_)) * sl);
 }
@@ -392,8 +425,54 @@ void Engine::renderAudio(float* l, float* r, int n) {
   for (int s = 0; s < kNumSynths; ++s) effSynth[s] = p.synths[s];
   for (int t = 0; t < kNumTracks; ++t) effFx[t] = p.fx[t];
 
+  const auto clampF = [](float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); };
+  // One automated value takes the place of the project's own. t: the track.
+  const auto automate = [&](int t, int id, float lin) {
+    // Track FX parameters (work on Drums AND any Synth track)
+    switch (id) {
+      case P_FX_LEVEL: effFx[t].level     = clampF(lin, 0.0f, 1.0f); break;
+      case P_FX_DRIVE: effFx[t].drive     = clampF(lin, 0.0f, 1.0f); break;
+      case P_FX_EQ_LOW: effFx[t].eqLow     = clampF(lin, -12.0f, 12.0f); break;
+      case P_FX_EQ_HIGH: effFx[t].eqHigh    = clampF(lin, -12.0f, 12.0f); break;
+      case P_FX_DELAY: effFx[t].delaySend = clampF(lin, 0.0f, 0.8f); break;
+      case P_FX_REVERB: effFx[t].revSend   = clampF(lin, 0.0f, 0.8f); break;
+      case P_KIT_HARDNESS: if (t == 0) effFx[0].drive = clampF(lin, 0.0f, 1.0f); break;   // hardness is the drum track's drive
+      default: {
+        int slot, knob;
+        if (fxSlotParam(id, slot, knob)) fxSlotKnob(effFx[t].slots[slot], knob) = clampF(lin, 0.0f, 1.0f);
+        break;
+      }
+    }
+    // Synth parameters (when t >= 1)
+    if (t >= 1 && t - 1 < kNumSynths) {
+      SynthParams& sp = effSynth[t - 1];
+      switch (id) {
+        case P_SYN_DETUNE: sp.detune     = clampF(lin, -50.0f, 50.0f); break;
+        case P_SYN_CUTOFF: sp.cutoff = clampF(lin, 60.0f, 12000.0f); break;
+        case P_SYN_RES: sp.res        = clampF(lin, 0.5f, 15.0f); break;
+        case P_SYN_DECAY: sp.decay      = clampF(lin, 0.02f, 3.0f); break;
+        case P_SYN_ATTACK: sp.attack    = clampF(lin, 0.001f, 1.0f); break;
+        case P_SYN_SUSTAIN: sp.sustain  = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_RELEASE: sp.release  = clampF(lin, 0.01f, 3.0f); break;
+        case P_SYN_LEVEL: sp.level      = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_LFO_RATE: sp.lfoRate    = clampF(lin, 0.05f, 20.0f); break;
+        case P_SYN_LFO_DEPTH: sp.lfoDepth   = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_FM_RATIO: sp.fmRatio    = clampF(lin, 0.5f, 8.0f); break;
+        case P_SYN_FM_INDEX: sp.fmIndex    = clampF(lin, 0.0f, 8.0f); break;
+        case P_SYN_FM_DECAY: sp.fmModDecay = clampF(lin, 0.01f, 3.0f); break;
+        case P_SYN_FM_FB: sp.fmFeedback = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_WARMTH: sp.feelWarmth = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_MOTION: sp.feelMotion = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_FOLD: sp.fold = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_VEC_X: sp.vecX = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_VEC_Y: sp.vecY = clampF(lin, 0.0f, 1.0f); break;
+        case P_SYN_PLUCK_BRIGHT: sp.pluckBright = clampF(lin, 0.0f, 1.0f); break;
+        default: break;
+      }
+    }
+  };
   // Song automation: each lane sweeps one parameter from start to end across the song slot that is sounding now.
-  // Up to kAutoPerTrack lanes per track. render() cuts blocks on a fixed 64-frame grid while this is active,
+  // Up to kAutoPerTrack lanes per track. render() cuts blocks on a fixed 64-frame grid while automation is active,
   // so the result does not depend on the audio block size.
   if (playing_ && songMode_ && autoPos_ >= 0 && autoPos_ < p.chainLen) {
     const double totalSlotFrames = double(sceneSteps(p.scenes[autoScene_ < 0 || autoScene_ >= kNumScenes ? 0 : autoScene_])) * stepLen();
@@ -401,68 +480,34 @@ void Engine::renderAudio(float* l, float* r, int n) {
     double u = totalSlotFrames > 1.0 ? double(gridFrame) / totalSlotFrames : 0.0;
     if (u < 0.0) u = 0.0; else if (u > 1.0) u = 1.0;
     const ChainAuto& ca = p.chainAuto[autoPos_];
-    const auto clampF = [](float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); };
     for (int t = 0; t < kNumTracks; ++t) {
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {
         const AutoLane& al = ca.tracks[t][ln];
         if (al.paramId < 0) continue;
-        const float lin = al.startVal + float(u) * (al.endVal - al.startVal);
-        // Track FX parameters (work on Drums AND any Synth track)
-        switch (al.paramId) {
-          case P_FX_LEVEL: effFx[t].level     = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_DRIVE: effFx[t].drive     = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_EQ_LOW: effFx[t].eqLow     = clampF(lin, -12.0f, 12.0f); break;
-          case P_FX_EQ_HIGH: effFx[t].eqHigh    = clampF(lin, -12.0f, 12.0f); break;
-          case P_FX_DELAY: effFx[t].delaySend = clampF(lin, 0.0f, 0.8f); break;
-          case P_FX_REVERB: effFx[t].revSend   = clampF(lin, 0.0f, 0.8f); break;
-          case P_FX_SLOT1_AMOUNT: effFx[t].slots[0].amount = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT1_RATE: effFx[t].slots[0].rate = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT2_AMOUNT: effFx[t].slots[1].amount = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT2_RATE: effFx[t].slots[1].rate = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT3_AMOUNT: effFx[t].slots[2].amount = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT3_RATE: effFx[t].slots[2].rate = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT1_P3: effFx[t].slots[0].p3 = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT1_P4: effFx[t].slots[0].p4 = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT2_P3: effFx[t].slots[1].p3 = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT2_P4: effFx[t].slots[1].p4 = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT3_P3: effFx[t].slots[2].p3 = clampF(lin, 0.0f, 1.0f); break;
-          case P_FX_SLOT3_P4: effFx[t].slots[2].p4 = clampF(lin, 0.0f, 1.0f); break;
-          case P_KIT_HARDNESS: if (t == 0) effFx[0].drive = clampF(lin, 0.0f, 1.0f); break;   // hardness is the drum track's drive
-          default: break;
-        }
-        // Synth parameters (when t >= 1)
-        if (t >= 1 && t - 1 < kNumSynths) {
-          SynthParams& sp = effSynth[t - 1];
-          switch (al.paramId) {
-            case P_SYN_DETUNE: sp.detune     = clampF(lin, -50.0f, 50.0f); break;
-            case P_SYN_CUTOFF: { // Cutoff: exponential sweep
-              const float s0 = clampF(al.startVal, 60.0f, 12000.0f);
-              const float s1 = clampF(al.endVal, 60.0f, 12000.0f);
-              sp.cutoff = s0 * std::pow(s1 / s0, float(u));
-              break;
-            }
-            case P_SYN_RES: sp.res        = clampF(lin, 0.5f, 15.0f); break;
-            case P_SYN_DECAY: sp.decay      = clampF(lin, 0.02f, 3.0f); break;
-            case P_SYN_ATTACK: sp.attack    = clampF(lin, 0.001f, 1.0f); break;
-            case P_SYN_SUSTAIN: sp.sustain  = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_RELEASE: sp.release  = clampF(lin, 0.01f, 3.0f); break;
-            case P_SYN_LEVEL: sp.level      = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_LFO_RATE: sp.lfoRate    = clampF(lin, 0.05f, 20.0f); break;
-            case P_SYN_LFO_DEPTH: sp.lfoDepth   = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_FM_RATIO: sp.fmRatio    = clampF(lin, 0.5f, 8.0f); break;
-            case P_SYN_FM_INDEX: sp.fmIndex    = clampF(lin, 0.0f, 8.0f); break;
-            case P_SYN_FM_DECAY: sp.fmModDecay = clampF(lin, 0.01f, 3.0f); break;
-            case P_SYN_FM_FB: sp.fmFeedback = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_WARMTH: sp.feelWarmth = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_MOTION: sp.feelMotion = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_FOLD: sp.fold = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_VEC_X: sp.vecX = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_VEC_Y: sp.vecY = clampF(lin, 0.0f, 1.0f); break;
-            case P_SYN_PLUCK_BRIGHT: sp.pluckBright = clampF(lin, 0.0f, 1.0f); break;
-            default: break;
-          }
-        }
+        if (al.paramId == P_SYN_CUTOFF) {                      // the cutoff sweeps in octaves, not in hertz
+          const float s0 = clampF(al.startVal, 60.0f, 12000.0f), s1 = clampF(al.endVal, 60.0f, 12000.0f);
+          automate(t, al.paramId, s0 * std::pow(s1 / s0, float(u)));
+        } else automate(t, al.paramId, al.startVal + float(u) * (al.endVal - al.startVal));
       }
+    }
+  }
+  // Knob movements of the groove that is sounding: one value per beat, straight lines in between. They come after
+  // the song's sweeps, so inside a groove the groove's own movement is what you hear.
+  if (playing_ && lastScene_ >= 0 && lastScene_ < kNumScenes && frame_ >= lastFire_ && double(frame_ - lastFire_) < 4.0 * stepLen()) {
+    const Scene& sc = p.scenes[lastScene_];
+    const int64_t gridFrame = lastFire_ + ((frame_ - lastFire_) / 64) * 64;
+    double beat = (double(lastStep_) + double(gridFrame - lastFire_) / stepLen()) * 0.25;
+    const double beats = double(sceneSteps(sc)) * 0.25;
+    if (beat > beats) beat = beats;
+    if (beat < 0.0) beat = 0.0;
+    int b0 = int(beat);
+    if (b0 >= kLanePoints - 1) b0 = kLanePoints - 2;
+    const float fr = float(beat - double(b0));
+    for (const SceneLane& ln : sc.lanes) {
+      if (ln.paramId < 0) continue;
+      const int t = isSynthParam(ln.paramId) ? 1 + ln.index : ln.index;
+      if (t < 0 || t >= kNumTracks) continue;
+      automate(t, ln.paramId, ln.points[b0] + fr * (ln.points[b0 + 1] - ln.points[b0]));
     }
   }
   // Host automation: these values replace the project's own.
@@ -618,6 +663,11 @@ void Engine::render(float* outL, float* outR, int frames) {
       if (songMode_) {                          // automation grid, see renderAudio
         const int g = 64 - int(((frame_ - autoStart_) % 64 + 64) % 64);
         if (g < n) n = g;
+      }
+      if (frame_ >= lastFire_ && lastScene_ >= 0 && lastScene_ < kNumScenes) {   // the same for a groove's knob movements
+        bool lanes = false;
+        for (const SceneLane& ln : proj_->scenes[lastScene_].lanes) lanes = lanes || ln.paramId >= 0;
+        if (lanes) { const int g = 64 - int((frame_ - lastFire_) % 64); if (g < n) n = g; }
       }
     }
     if (n > kBlock) n = kBlock;

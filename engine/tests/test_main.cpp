@@ -413,7 +413,7 @@ static void testSessionUndoSaveLoad() {
   s.beginEdit(); s.setParam(P_SYN_CHORD, 1, 1); s.setParam(P_SCALE, 0, 1); s.setParam(P_SYN_OCTAVE, 0, -2); s.setParam(P_FX_MUTE, 2, 1);
   CHECK(s.project().synths[1].chord && s.project().scale == Scale::Major && s.project().synths[0].octaveShift == -2 && s.project().fx[2].mute);
   CHECK(s.getParam(P_SYN_CHORD, 1) == 1.0f && s.getParam(P_SYN_OCTAVE, 0) == -2.0f);
-  s.setSceneBars(2, 8); s.setSceneBars(3, 99); CHECK_EQ(s.project().scenes[2].bars, 8); CHECK_EQ(s.project().scenes[3].bars, 8);
+  s.setSceneBars(2, 8); s.setSceneBars(3, 99); CHECK_EQ(s.project().scenes[2].bars, 8); CHECK_EQ(s.project().scenes[3].bars, kMaxBars);
   s.copyScene(1, 3); CHECK_EQ(s.project().scenes[3].drums.steps[1][4], 1);
   s.chainAdd(2); CHECK_EQ(s.project().chainLen, 5); s.chainRemove(0); CHECK_EQ(s.project().chain[0], 1);
   s.clearScene(1); CHECK_EQ(s.project().scenes[1].synth[1].count, 0);
@@ -1300,7 +1300,7 @@ static void testContentJson() {
   bad(R"({"kind":"instrument","name":"x","cutoff":"bright"})", "cutoff: must be a number");
   bad(R"({"kind":"instrument","name":"x","lfo":{"target":"filter"}})", "lfo.target: \"filter\" is not one of: off, cutoff, pitch, volume");
   bad(R"({"kind":"instrument","name":"x","track":{"fx":[{"amount":0.5}]}})", "track.fx[0]: needs a \"type\"");
-  bad(R"({"kind":"instrument","name":"x","track":{"fx":[{"type":"chorus"},{"type":"phaser"},{"type":"filter"},{"type":"bitcrush"}]}})", "3 effect slots");
+  bad(R"({"kind":"instrument","name":"x","track":{"fx":[{"type":"chorus"},{"type":"phaser"},{"type":"filter"},{"type":"bitcrush"},{"type":"wah"},{"type":"gate"},{"type":"fuzz"}]}})", "6 effect slots");
   bad(R"({"kind":"drumkit","name":"x","kit":"jungle","pads":{"kick":{"synth":{"pitch":50}}}})", "the break slicer has no synthesized pads");
   bad(R"({"kind":"drumkit","name":"x","pads":{"kick":{"synth":{"pitch":5}}}})", "pads.kick.synth.pitch: 5 is outside 25 .. 1200");
   // unknown keys are not errors, they are reported
@@ -1546,6 +1546,202 @@ static void testHostClockMidiAndOutputs() {
 }
 
 // The stompbox collection: every pedal does something, stays within bounds, dies away, and never allocates.
+// Eight grooves of up to sixteen bars, six pedals, one bar going round, knob movements inside a groove,
+// the song with a host, listening before choosing.
+static void testGroovesLanesLoopAndPreview() {
+  const double sr = 48000.0;
+  const int block = 256;
+  std::vector<float> l(static_cast<size_t>(block), 0.0f), r(static_cast<size_t>(block), 0.0f);
+  const auto rmsOf = [&](Engine& e, int blocks) {
+    double sum = 0.0;
+    for (int b = 0; b < blocks; ++b) { e.render(l.data(), r.data(), block); for (float x : l) sum += double(x) * double(x); }
+    return std::sqrt(sum / double(blocks * block));
+  };
+  {  // the file keeps all of it, and the six knobs of slot six are parameters like the others
+    Session a(sr);
+    a.setSceneBars(7, 16); a.setDrumStep(7, 3, 250, 2); a.toggleNote(7, 1, 255, 4, true, 1);
+    a.setFxSlot(4, 5, int(FxType::Reverb), 0.3f, 0.6f, false); a.setFxVoice(4, 5, 2);
+    a.beginEdit(); a.setParam(P_FX_SLOT6_P4, 4, 0.9f); a.setParam(P_FX_SLOT4_RATE, 0, 0.11f);
+    CHECK(a.getParam(fxSlotParamId(5, 3), 4) == 0.9f && a.project().fx[4].slots[5].p4 == 0.9f && a.project().fx[0].slots[3].rate == 0.11f);
+    for (int slot = 0; slot < kFxSlots; ++slot) for (int knob = 0; knob < 4; ++knob) {
+      int sl = -1, kn = -1;
+      CHECK(fxSlotParam(fxSlotParamId(slot, knob), sl, kn) && sl == slot && kn == knob);
+    }
+    CHECK_EQ(a.writeLanePoint(7, P_SYN_CUTOFF, 0, 64, 5000.0f), 0);
+    CHECK_EQ(a.writeLanePoint(7, P_FX_SLOT6_P4, 4, 3, 0.25f), 1);
+    CHECK_EQ(a.findLane(7, P_SYN_CUTOFF, 0), 0);
+    CHECK(a.project().scenes[7].lanes[0].points[0] == a.getParam(P_SYN_CUTOFF, 0));      // a new lane starts as the knob stands
+    a.chainAdd(7); a.chainInsert(0, 5); a.chainMove(0, 2);
+    CHECK_EQ(a.project().chain[2], 5); CHECK_EQ(a.project().chain[0], 0);
+    const char* path = "/tmp/ld_test_groove.ldp";
+    CHECK(a.save(path));
+    Session b(sr);
+    CHECK(b.load(path));
+    const Project& p = b.project();
+    CHECK_EQ(p.scenes[7].bars, 16); CHECK_EQ(p.scenes[7].drums.steps[3][250], 2); CHECK_EQ(p.scenes[7].synth[1].notes[0].step, 255);
+    CHECK(p.fx[4].slots[5].type == FxType::Reverb && p.fx[4].slots[5].voice == 2 && p.fx[4].slots[5].p4 == 0.9f);
+    CHECK(p.scenes[7].lanes[0].paramId == P_SYN_CUTOFF && p.scenes[7].lanes[0].points[64] == 5000.0f);
+    CHECK(p.scenes[7].lanes[1].paramId == P_FX_SLOT6_P4 && p.scenes[7].lanes[1].index == 4 && p.scenes[7].lanes[1].points[3] == 0.25f);
+    CHECK_EQ(p.chain[2], 5); CHECK_EQ(p.chain[p.chainLen - 1], 7);
+    b.clearLane(7, 0);
+    CHECK_EQ(b.findLane(7, P_SYN_CUTOFF, 0), -1);
+  }
+  {  // a file from before: its drums were one record of 8 x 128 steps
+    const char* path = "/tmp/ld_test_olddrums.ldp";
+    FILE* f = std::fopen(path, "wb");
+    CHECK(f != nullptr);
+    if (f) {
+      const char magic[8] = {'L', 'D', 'P', 'R', 'O', 'J', 0, 1};
+      const uint32_t head[2] = {7, 0};
+      std::fwrite(magic, 1, 8, f); std::fwrite(head, 4, 2, f);
+      std::vector<uint8_t> drums(8 * 128, 0);
+      drums[size_t(2 * 128 + 127)] = 2; drums[size_t(7 * 128 + 5)] = 1;
+      const char* key = "sc1.drums";
+      const uint16_t kl = 9; const uint32_t n = 1024;
+      std::fwrite(&kl, 2, 1, f); std::fwrite(key, 1, kl, f); std::fwrite(&n, 4, 1, f); std::fwrite(drums.data(), 1, n, f);
+      const unsigned char end[9] = {3, 0, 'e', 'n', 'd', 0, 0, 0, 0};
+      std::fwrite(end, 1, 9, f); std::fclose(f);
+      auto p = std::make_unique<Project>();
+      CHECK(readProjectFile(path, *p, nullptr));
+      CHECK_EQ(p->scenes[1].drums.steps[2][127], 2); CHECK_EQ(p->scenes[1].drums.steps[7][5], 1); CHECK_EQ(p->scenes[1].drums.steps[2][128], 0);
+    }
+  }
+  {  // longer grooves repeat what is there; a pattern from the browser fits itself to the groove
+    Session s(sr);
+    s.clearScene(2); s.setSceneBars(2, 1);
+    s.setDrumStep(2, 0, 4, 1); s.toggleNote(2, 0, 2, 3, false, 2);
+    s.writeLanePoint(2, P_FX_LEVEL, 0, 2, 0.2f);
+    s.growScene(2, 4);
+    const Scene& sc = s.project().scenes[2];
+    CHECK_EQ(sc.bars, 4); CHECK_EQ(sc.drums.steps[0][4 + 48], 1); CHECK_EQ(sc.drums.steps[0][5 + 48], 0);
+    CHECK_EQ(sc.synth[0].count, 4); CHECK_EQ(sc.synth[0].notes[3].step, 2 + 48);
+    CHECK(sc.lanes[0].points[2 + 12] == 0.2f && sc.lanes[0].points[3 + 12] != 0.2f);
+    DrumPattern two;
+    two.steps[1][0] = 2; two.steps[1][20] = 1;
+    s.putDrums(2, two, 2);                                  // two bars into four: twice
+    CHECK_EQ(s.project().scenes[2].bars, 4); CHECK_EQ(s.project().scenes[2].drums.steps[1][32], 2); CHECK_EQ(s.project().scenes[2].drums.steps[1][52], 1);
+    CHECK_EQ(s.project().scenes[2].drums.steps[0][4], 0);   // the old drums are gone
+    CHECK_EQ(s.project().scenes[2].synth[0].count, 4);      // the bass is not
+    SynthPattern eight;
+    Note n; n.step = 100; n.degree = 2;
+    eight.notes[0] = n; eight.count = 1;
+    s.putSynth(2, 1, eight, 8);                             // eight bars into four: the groove grows, the rest repeats
+    CHECK_EQ(s.project().scenes[2].bars, 8); CHECK_EQ(s.project().scenes[2].synth[1].notes[0].step, 100);
+    CHECK_EQ(s.project().scenes[2].drums.steps[1][64 + 52], 1); CHECK_EQ(s.project().scenes[2].synth[0].count, 8);
+    CHECK(s.undo()); CHECK_EQ(s.project().scenes[2].bars, 4);
+  }
+  Project base = makeDemoProject();
+  for (auto& sc : base.scenes) sc = Scene();
+  base.swing = 0.0f; base.bpm = 120;
+  for (auto& f : base.fx) { f.delaySend = 0.0f; f.revSend = 0.0f; }
+  {  // one bar goes round: own transport, and with a host
+    Project p = base;
+    p.scenes[0].bars = 4;
+    p.scenes[0].drums.steps[0][0] = 2;                      // a kick in bar one only
+    Engine e(sr);
+    e.setProject(p);
+    e.setLoopBar(2);
+    e.play(0);
+    for (int b = 0; b < 800; ++b) { e.render(l.data(), r.data(), block); const int st = e.currentStep(); CHECK(st < 0 || (st >= 32 && st < 48)); }
+    e.stop(); e.render(l.data(), r.data(), block);
+    for (int b = 0; b < 200; ++b) e.render(l.data(), r.data(), block);
+    e.play(0);
+    CHECK(rmsOf(e, 400) < 1e-4);                            // bar three is empty
+    e.setLoopBar(-1);
+    CHECK(rmsOf(e, 800) > 1e-3);                            // the whole groove again: the kick is back
+    e.stop(); e.render(l.data(), r.data(), block);
+    e.setLoopBar(1);
+    double qn = 9.0;                                        // the host stands in bar three, beat two
+    for (int b = 0; b < 300; ++b) {
+      e.hostTransport(true, qn, 120.0); e.render(l.data(), r.data(), block);
+      qn += double(block) * 120.0 / (60.0 * sr);
+      const int st = e.currentStep();
+      CHECK(st >= 16 && st < 32);
+      if (b == 0) CHECK_EQ(st, 16 + 4);
+    }
+    e.setLoopBar(9);                                        // a bar the groove does not have: the whole groove plays
+    for (int b = 0; b < 3; ++b) { e.hostTransport(true, qn, 120.0); e.render(l.data(), r.data(), block); qn += double(block) * 120.0 / (60.0 * sr); }
+    CHECK_EQ(e.currentStep(), int(std::floor(qn * 4.0 - 1e-9)) % 64);
+  }
+  {  // a knob that moves inside the groove: the drums fade over two bars, the same at every block size
+    Project p = base;
+    p.scenes[0].bars = 2;
+    for (int st = 0; st < 32; st += 2) p.scenes[0].drums.steps[3][st] = 1;
+    SceneLane& ln = p.scenes[0].lanes[0];
+    ln.paramId = P_FX_LEVEL; ln.index = 0;
+    for (int pt = 0; pt < kLanePoints; ++pt) ln.points[pt] = pt >= 8 ? 0.0f : 1.0f - float(pt) / 8.0f;
+    const auto take = [&](int blk, std::vector<float>& out) {
+      Engine e(sr);
+      e.setProject(p);
+      e.play(0);
+      out.assign(size_t(4.0 * sr), 0.0f);                   // two bars at 120 are four seconds
+      std::vector<float> rr(out.size());
+      for (size_t at = 0; at < out.size(); at += size_t(blk)) e.render(out.data() + at, rr.data() + at, int(std::min(size_t(blk), out.size() - at)));
+    };
+    std::vector<float> a, b;
+    take(64, a); take(480, b);
+    CHECK(a == b);
+    const auto part = [&](double from, double to) { double sum = 0.0; for (size_t i = size_t(from * sr); i < size_t(to * sr); ++i) sum += double(a[i]) * double(a[i]); return std::sqrt(sum / ((to - from) * sr)); };
+    CHECK(part(0.0, 0.5) > 3.0 * part(3.0, 3.5));
+    CHECK(part(1.0, 1.5) > 1.15 * part(2.0, 2.5) && part(2.0, 2.5) > 1.3 * part(3.0, 3.5));
+    p.scenes[0].lanes[0].paramId = -1;
+    take(64, b);
+    CHECK(part(3.0, 3.5) < 0.4 * std::sqrt([&] { double sum = 0.0; for (size_t i = size_t(3.0 * sr); i < size_t(3.5 * sr); ++i) sum += double(b[i]) * double(b[i]); return sum / (0.5 * sr); }()));
+  }
+  {  // the song with a host: after the last groove it is silent, and it comes back when the host goes back
+    Project p = base;
+    p.scenes[0].bars = 1; p.scenes[1].bars = 1;
+    for (int st = 0; st < 16; st += 4) { p.scenes[0].drums.steps[0][st] = 2; p.scenes[1].drums.steps[1][st] = 2; }
+    p.chain[0] = 0; p.chain[1] = 1; p.chainLen = 2;         // two bars = eight quarter notes
+    Engine e(sr);
+    e.setProject(p);
+    e.setSongMode(true); e.setSongLoop(false);
+    double qn = 0.0;
+    const auto run = [&](int blocks) {
+      double sum = 0.0;
+      for (int b = 0; b < blocks; ++b) {
+        e.hostTransport(true, qn, 120.0); e.render(l.data(), r.data(), block);
+        for (float x : l) sum += double(x) * double(x);
+        qn += double(block) * 120.0 / (60.0 * sr);
+      }
+      return std::sqrt(sum / double(blocks * block));
+    };
+    CHECK(run(700) > 1e-3);                                 // 3.7 s: inside the song
+    CHECK(e.isPlaying()); CHECK_EQ(e.chainPos(), 1);
+    run(200);                                               // past 4 s: over
+    CHECK(!e.isPlaying());
+    run(600);                                               // the last hit rings out
+    CHECK(run(300) < 1e-5);
+    qn = 2.0;
+    CHECK(run(100) > 1e-3);
+    CHECK(e.isPlaying()); CHECK_EQ(e.chainPos(), 0);
+    e.setSongLoop(true);                                    // as on the phone: round and round
+    qn = 9.0; run(4);
+    CHECK(e.isPlaying()); CHECK_EQ(e.chainPos(), 0); CHECK_EQ(e.currentStep(), 4);
+  }
+  {  // listening before choosing leaves the project alone
+    Session s(sr);
+    const auto before = std::make_unique<Project>(s.project());
+    Scene cand;
+    cand.bars = 1;
+    for (int st = 0; st < 16; ++st) cand.drums.steps[4][st] = 2;
+    Note n; n.step = 0; n.degree = 0; n.len = 8;
+    cand.synth[0].notes[0] = n; cand.synth[0].count = 1;
+    s.preview(&cand, 0);
+    CHECK(s.previewing());
+    CHECK(std::memcmp(static_cast<const void*>(&s.project()), static_cast<const void*>(before.get()), sizeof(Project)) == 0);
+    s.engine().play(3);
+    double heard = 0.0;
+    for (int b = 0; b < 100; ++b) { s.engine().render(l.data(), r.data(), block); for (float x : l) heard += double(x) * double(x); }
+    CHECK(heard > 1e-3);
+    s.preview(nullptr);
+    CHECK(!s.previewing());
+    s.preview(&cand, 1);
+    s.setDrumStep(0, 0, 0, 1);                              // an edit ends it too
+    CHECK(!s.previewing());
+  }
+}
+
 static void testPedalCollection() {
   const double sr = 48000.0;
   const int block = 256;
@@ -1736,6 +1932,7 @@ int main() {
     {"automation of effect slots and drum hardness", testAutomationOfFxSlotsAndHardness},
     {"host clock, MIDI notes, automation and separate outputs", testHostClockMidiAndOutputs},
     {"the stompbox collection", testPedalCollection},
+    {"grooves, bar loop, knob movements, song with a host, preview", testGroovesLanesLoopAndPreview},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

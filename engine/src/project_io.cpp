@@ -25,10 +25,22 @@ constexpr uint32_t kFileVersion = 7;   // 5: no closing "end" record. 6: before 
 
 // ------------------------------------------------------------------ frozen layouts of versions 1 and 4
 
+// What a groove looked like while there were four of them with at most eight bars.
+namespace old {
+constexpr int kScenes = 4, kSteps = 128;
+struct DrumPattern { uint8_t steps[kNumPads][kSteps]; };
+template <int Synths> struct Scene { int32_t bars; DrumPattern drums; SynthPattern synth[Synths]; };
+static_assert(sizeof(DrumPattern) == 1024 && sizeof(SynthPattern) == 1540, "frozen pattern layout");
+void copyDrums(ld::DrumPattern& d, const DrumPattern& o) {
+  for (int pad = 0; pad < kNumPads; ++pad) std::memcpy(d.steps[pad], o.steps[pad], kSteps);
+}
+}  // namespace old
+
 namespace legacy {
 constexpr int kSynths = 2, kTracks = 3;
+constexpr int kNumScenes = old::kScenes;
 struct TrackFx { float level, drive, eqLow, eqHigh, delaySend, revSend; bool mute; };
-struct Scene { int32_t bars; DrumPattern drums; SynthPattern synth[kSynths]; };
+using Scene = old::Scene<kSynths>;
 
 void copyCommon(ld::Project& p, const TrackFx* fx, const Scene* scenes, const int32_t* chain, int32_t chainLen) {
   for (int i = 0; i < kTracks; ++i) {
@@ -37,7 +49,7 @@ void copyCommon(ld::Project& p, const TrackFx* fx, const Scene* scenes, const in
     d.delaySend = fx[i].delaySend; d.revSend = fx[i].revSend; d.mute = fx[i].mute;
   }
   for (int i = 0; i < kNumScenes; ++i) {
-    p.scenes[i].bars = scenes[i].bars; p.scenes[i].drums = scenes[i].drums;
+    p.scenes[i].bars = scenes[i].bars; old::copyDrums(p.scenes[i].drums, scenes[i].drums);
     for (int y = 0; y < kSynths; ++y) p.scenes[i].synth[y] = scenes[i].synth[y];
   }
   for (int i = 0; i < kMaxChain; ++i) p.chain[i] = chain[i];
@@ -95,7 +107,7 @@ struct Project {
   float bpm, swing; int32_t root; Scale scale; int32_t octave; int32_t activeSynths;
   DrumEngine drumEngine; float junglePitch, jungleTight, jungleCrunch;
   ld::PadParams pads[kNumPads]; SynthParams synths[4]; TrackFx fx[5];
-  float delayFeedback, master; ld::Scene scenes[kNumScenes]; int32_t chain[kMaxChain];
+  float delayFeedback, master; old::Scene<4> scenes[old::kScenes]; int32_t chain[kMaxChain];
   ld::ChainAuto chainAuto[kMaxChain]; int32_t chainLen;
 };
 static_assert(sizeof(Project) == 41520, "raw version 5 layout changed");
@@ -114,7 +126,10 @@ ld::Project upgrade(const v5raw::Project& o) {
     for (int sl = 0; sl < 3; ++sl) { d.slots[sl].type = x.slots[sl].type; d.slots[sl].amount = x.slots[sl].amount; d.slots[sl].rate = x.slots[sl].rate; d.slots[sl].bypass = x.slots[sl].bypass; }
   }
   p.delayFeedback = o.delayFeedback; p.master = o.master;
-  std::memcpy(static_cast<void*>(p.scenes), o.scenes, sizeof(p.scenes));
+  for (int i = 0; i < old::kScenes; ++i) {
+    p.scenes[i].bars = o.scenes[i].bars; old::copyDrums(p.scenes[i].drums, o.scenes[i].drums);
+    for (int y = 0; y < 4; ++y) p.scenes[i].synth[y] = o.scenes[i].synth[y];
+  }
   std::memcpy(p.chain, o.chain, sizeof(p.chain));
   std::memcpy(static_cast<void*>(p.chainAuto), o.chainAuto, sizeof(p.chainAuto));
   p.chainLen = o.chainLen;
@@ -215,7 +230,11 @@ template <class V> void fields(V& v, Project& p) {
     }
     for (int i = 0; i < kNumScenes; ++i) {
       std::snprintf(k, sizeof(k), "alt.sc%d.drums", i);
-      v.blob(k, p.altDrums[i].steps, sizeof(p.altDrums[i].steps), sizeof(p.altDrums[i].steps));
+      v.oldDrums(k, i, p.altDrums[i]);
+      for (int pad = 0; pad < kNumPads; ++pad) {
+        std::snprintf(k, sizeof(k), "alt.sc%d.dr%d", i, pad);
+        v.blob(k, p.altDrums[i].steps[pad], kMaxSteps, kMaxSteps);
+      }
     }
   }
   for (int i = 0; i < kNumSynths; ++i) {
@@ -241,7 +260,20 @@ template <class V> void fields(V& v, Project& p) {
   for (int i = 0; i < kNumScenes; ++i) {
     Scene& sc = p.scenes[i];
     std::snprintf(k, sizeof(k), "sc%d.bars", i); v.f(k, sc.bars);
-    std::snprintf(k, sizeof(k), "sc%d.drums", i); v.blob(k, sc.drums.steps, sizeof(sc.drums.steps), sizeof(sc.drums.steps));
+    // The drums: one record per pad. Before grooves grew to 16 bars it was one record of 8 x 128 steps; that one
+    // is still written for the first four grooves, so an app that has not been updated yet finds its drums.
+    std::snprintf(k, sizeof(k), "sc%d.drums", i); v.oldDrums(k, i, sc.drums);
+    for (int pad = 0; pad < kNumPads; ++pad) {
+      std::snprintf(k, sizeof(k), "sc%d.dr%d", i, pad);
+      v.blob(k, sc.drums.steps[pad], kMaxSteps, kMaxSteps);
+    }
+    for (int ln = 0; ln < kSceneLanes; ++ln) {
+      SceneLane& lane = sc.lanes[ln];
+      if (v.writing && lane.paramId < 0) continue;
+      std::snprintf(pre, sizeof(pre), "sc%d.lane%d", i, ln);
+      LD_F(pre, lane, paramId); LD_F(pre, lane, index);
+      std::snprintf(k, sizeof(k), "sc%d.lane%d.points", i, ln); v.blob(k, lane.points, sizeof(lane.points), sizeof(lane.points));
+    }
     for (int y = 0; y < kNumSynths; ++y) {
       SynthPattern& pat = sc.synth[y];
       if (v.writing && pat.count <= 0) continue;                 // empty patterns are simply left out
@@ -272,6 +304,12 @@ struct Writer {
   }
   template <class T> void f(const char* key, T& x) { raw(key, &x, uint32_t(sizeof(T))); }
   void blob(const char* key, void* data, uint32_t, uint32_t used) { raw(key, data, used); }
+  void oldDrums(const char* key, int scene, DrumPattern& d) {
+    if (scene >= old::kScenes) return;
+    old::DrumPattern o;
+    for (int pad = 0; pad < kNumPads; ++pad) std::memcpy(o.steps[pad], d.steps[pad], old::kSteps);
+    raw(key, &o, uint32_t(sizeof(o)));
+  }
 };
 
 struct Reader {
@@ -280,6 +318,8 @@ struct Reader {
   const bool writing = false;
   template <class T> void f(const char* key, T& x) { slots[key] = Slot{&x, uint32_t(sizeof(T)), true}; }
   void blob(const char* key, void* data, uint32_t capacity, uint32_t) { slots[key] = Slot{data, capacity, false}; }
+  std::unordered_map<std::string, DrumPattern*> drums;      // the records of the old drum layout
+  void oldDrums(const char* key, int, DrumPattern& d) { drums[key] = &d; }
 };
 
 // needEnd: the file must close with an "end" record, so one that was cut off is never taken for complete.
@@ -297,6 +337,11 @@ bool readRecords(FILE* f, Project& p, bool needEnd) {
     if (needEnd && n == 0 && std::strcmp(key, "end") == 0) return true;
     buf.resize(n);
     if (n && std::fread(buf.data(), 1, n, f) != n) return false;
+    const auto od = r.drums.find(key);
+    if (od != r.drums.end()) {                                        // 8 x 128 steps; newer records that follow win
+      if (n == sizeof(old::DrumPattern)) old::copyDrums(*od->second, *reinterpret_cast<const old::DrumPattern*>(buf.data()));
+      continue;
+    }
     const auto it = r.slots.find(key);
     if (it == r.slots.end()) continue;                                // written by a newer version: ignore
     const Reader::Slot& s = it->second;
