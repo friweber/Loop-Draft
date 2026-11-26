@@ -78,6 +78,7 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   int liveLearning() const { return learn_.load(); }
   void liveForget(int target);
   juce::String liveMapName(int target) const;          // "CC 21", "C#2", or nothing
+  int skin = 0;                                        // which look the synths wear (see kSkins in the editor)
   bool liveMode = false, guideSeen = false, fewerControls = false;   // editor settings kept with the project
   juce::String midiFolder;                             // where the pattern browser looks for .mid files (editor thread)
   // The control the user is holding right now, so its movement can be written into the groove (editor thread).

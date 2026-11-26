@@ -666,10 +666,14 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       m.addItem(2, "Guide: how this page works");
       m.addSeparator();
       m.addItem(3, "Fewer pedal controls", true, p.fewerControls);
+      juce::PopupMenu skins;                                   // the look of the synths; one so far
+      for (int i = 0; i < kNumSkins; ++i) skins.addItem(100 + i, kSkins[i].name, true, i == juce::jlimit(0, kNumSkins - 1, p.skin));
+      m.addSubMenu("Skin", skins);
       m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuBtn), [this](int r) {
         if (r == 1) setLive(true);
         else if (r == 2) guide.show(tab);
         else if (r == 3) p.fewerControls = !p.fewerControls;
+        else if (r >= 100) { p.skin = r - 100; repaint(); }
       });
     });
     for (int i = 0; i < 8; ++i) {

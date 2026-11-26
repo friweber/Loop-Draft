@@ -4,27 +4,44 @@
 // own name and colour. The row on top is the shelf; a click takes another synth out and puts it on the table.
 // DRUMS: the pad that is selected (its sound, or a drum synthesized from scratch) and the break machine.
 
+// A skin is everything about the look of the synths that is not the synth itself: the colours of each front panel,
+// where its three displays and its groups of controls sit, the colours of the displays. There is one skin so far,
+// "Original"; another one is another entry in kSkins, and MENU > Skin lists them all.
 struct SynthFace {
   const char* code;
   const char* name;
   const char* about;
-  juce::uint32 top, bottom, cap;
-  bool lightInk;
+  juce::uint32 top, bottom, cap;        // the panel from top to bottom, and the knob caps
+  bool lightInk;                        // light lettering on a dark panel, or the other way round
+  juce::uint32 trace;                   // the colour of what the displays draw
+  int order[3];                         // which column comes first: 0 the synth's own part, 1 the filter, 2 the envelope
+  bool displaysOnTop;                   // the displays above their knobs, or below them like a console
 };
-const SynthFace kSynthFaces[ld::kNumSynthModes] = {
-  {"LM-A", "Analog", "Two oscillators into a filter. Basses, leads, pads: the all-rounder.", 0xff2d2a26, 0xff191715, 0xffe8792b, true},
-  {"LM-F", "FM Two", "Two sine operators, one bending the other. Bells, electric pianos, metallic basses.", 0xff1f5a4c, 0xff11362d, 0xffd9f2e6, true},
-  {"LM-S", "String", "A plucked string. Guitars, harps, kalimbas, slap basses.", 0xff7a5230, 0xff4d321b, 0xfff1ead8, true},
-  {"LM-V", "Vector", "Four sound sources in the corners; X and Y blend between them. Moving, morphing sounds.", 0xff24406e, 0xff142645, 0xffffca28, true},
-  {"LM-U", "Unison", "Seven detuned saws and a sub. Supersaw leads, hoovers, reese basses, big pads.", 0xff6b2a5e, 0xff401638, 0xfff7d6ef, true},
-  {"LM-D", "Drawbar", "An organ built from harmonics, with a percussive click. House organs, stabs, soft pads.", 0xffe6dcc3, 0xffbdb08f, 0xff5a2d1a, false},
-  {"LM-P", "Phase", "A sine wave bent out of shape, more at the start of each note. Digital basses, brass, resonant sweeps.", 0xffc3c9d1, 0xff8d95a0, 0xff1e4fa3, false},
+struct Skin {
+  const char* name;
+  SynthFace faces[ld::kNumSynthModes];
+  juce::uint32 displayBack, displayGrid;
+  float corner;                         // how round the panels are
 };
+const Skin kSkins[] = {
+  {"Original",
+   {{"LM-A", "Analog", "Two oscillators into a filter. Basses, leads, pads: the all-rounder.", 0xff2d2a26, 0xff191715, 0xffe8792b, true, 0xffff9a4a, {0, 1, 2}, true},
+    {"LM-F", "FM Two", "Two sine operators, one bending the other. Bells, electric pianos, metallic basses.", 0xff1f5a4c, 0xff11362d, 0xffd9f2e6, true, 0xff6dffcf, {0, 2, 1}, true},
+    {"LM-S", "String", "A plucked string. Guitars, harps, kalimbas, slap basses.", 0xff7a5230, 0xff4d321b, 0xfff1ead8, true, 0xffffd9a0, {0, 1, 2}, false},
+    {"LM-V", "Vector", "Four sound sources in the corners; X and Y blend between them. Moving, morphing sounds.", 0xff24406e, 0xff142645, 0xffffca28, true, 0xffffd84a, {1, 0, 2}, true},
+    {"LM-U", "Unison", "Seven detuned saws and a sub. Supersaw leads, hoovers, reese basses, big pads.", 0xff6b2a5e, 0xff401638, 0xfff7d6ef, true, 0xffff8fe6, {2, 0, 1}, true},
+    {"LM-D", "Drawbar", "An organ built from harmonics, with a percussive click. House organs, stabs, soft pads.", 0xffe6dcc3, 0xffbdb08f, 0xff5a2d1a, false, 0xffffb35c, {0, 2, 1}, false},
+    {"LM-P", "Phase", "A sine wave bent out of shape, more at the start of each note. Digital basses, brass, resonant sweeps.", 0xffc3c9d1, 0xff8d95a0, 0xff1e4fa3, false, 0xff5cc8ff, {1, 2, 0}, true}},
+   0xff0b0d0e, 0x24ffffff, 10.0f},
+};
+constexpr int kNumSkins = int(sizeof(kSkins) / sizeof(kSkins[0]));
 
 class SoundPanel : public juce::Component {
  public:
   std::function<int()> sceneNow;                               // the groove that is open
   std::function<void(const juce::String&)> say;                // a line for the bottom of the window
+
+  const Skin& skin() const { return kSkins[juce::jlimit(0, kNumSkins - 1, p.skin)]; }
 
   explicit SoundPanel(LoopMasterProcessor& proc) : p(proc) {
     for (int i = 0; i < kPool; ++i) addChildComponent(knobs.add(new Knob(p, ld::P_SYN_CUTOFF)));
@@ -100,6 +117,8 @@ class SoundPanel : public juce::Component {
   void tick() {
     if (!isVisible()) return;
     ld::Session& s = p.session();
+    clock += 1.0f / 30.0f;
+    if (!drums) { sp = s.project().synths[synth]; repaint(); }      // the displays move
     for (auto* k : knobs) if (k->isVisible()) k->refresh();
     if (drums) {
       reverseBtn.setToggleState(s.getParam(ld::P_PAD_REVERSE, pad) > 0.5f, juce::dontSendNotification);
@@ -134,19 +153,37 @@ class SoundPanel : public juce::Component {
   juce::String helpAt(juce::Point<int> at) const {
     if (!drums)
       for (int i = 0; i < ld::kNumSynthModes; ++i)
-        if (shelf[i].contains(at)) return juce::String(kSynthFaces[i].name) + ": " + kSynthFaces[i].about + " A click puts it on the table.";
+        if (shelf[i].contains(at)) return juce::String(skin().faces[i].name) + ": " + skin().faces[i].about + " A click puts it on the table.";
     if (drums && waveArea.contains(at)) return "The sound of the selected pad, from its start to its end.";
+    if (!drums) {
+      if (disp[0].contains(at)) return face == 3 ? juce::String("The four sources in the corners. Drag the dot: where it is, is what you hear.")
+                                                 : juce::String("What this synth's wave looks like right now. Turn its knobs and watch it change.");
+      if (disp[1].contains(at)) return "The filter: everything to the right of the slope is taken away. The peak is the resonance.";
+      if (disp[2].contains(at)) return "The shape of each note in time: how it comes in, falls, holds and fades.";
+    }
     return {};
   }
 
+  void dragVector(const juce::MouseEvent& ev, bool first) {
+    const auto pad2 = vectorPad();
+    const float x = juce::jlimit(0.0f, 1.0f, float(ev.x - pad2.getX()) / float(juce::jmax(1, pad2.getWidth())));
+    const float y = juce::jlimit(0.0f, 1.0f, float(ev.y - pad2.getY()) / float(juce::jmax(1, pad2.getHeight())));
+    const juce::ScopedLock sl(p.lock());
+    if (first) p.session().beginEdit();
+    p.session().setParam(ld::P_SYN_VEC_X, synth, x);
+    p.session().setParam(ld::P_SYN_VEC_Y, synth, y);
+  }
+  void mouseDrag(const juce::MouseEvent& ev) override { if (dragXY) dragVector(ev, false); }
+  void mouseUp(const juce::MouseEvent&) override { dragXY = false; }
   void mouseDown(const juce::MouseEvent& ev) override {
     if (drums) return;
+    if (face == 3 && disp[0].contains(ev.getPosition())) { dragXY = true; dragVector(ev, true); return; }
     for (int i = 0; i < ld::kNumSynthModes; ++i)
       if (shelf[i].contains(ev.getPosition()) && i != face) {
         const juce::ScopedLock sl(p.lock());
         p.session().beginEdit();
         p.session().setParam(ld::P_SYN_MODE, synth, float(i));
-        if (say) say(juce::String(kSynthFaces[i].name) + " is on the table. " + kSynthFaces[i].about);
+        if (say) say(juce::String(skin().faces[i].name) + " is on the table. " + skin().faces[i].about);
         return;
       }
   }
@@ -166,38 +203,53 @@ class SoundPanel : public juce::Component {
       r = r.reduced(12, 8);
       r.removeFromTop(34);                                      // the synth's name, painted
     }
-    // the sections flow from left to right and wrap
-    const int rows = drums ? 3 : 2;
-    const int rowH = juce::jlimit(84, 128, (r.getHeight() - (rows - 1) * 8) / rows);
-    const int kw = juce::jlimit(52, 70, (r.getWidth() - 40) / 13);
-    int x = r.getX(), y = r.getY(), pool = 0;
-    for (auto& sec : sections) {
-      const int btnCols = (int(sec.buttons.size()) + 1) / 2, bw = sec.wide ? 80 : 112;
-      // a section with many controls gets narrower knobs, so all of it fits in one row
-      const int kws = sec.knobs.empty() ? kw : juce::jmin(kw, (r.getWidth() - 16 - btnCols * bw) / int(sec.knobs.size()));
-      const int w = 16 + int(sec.knobs.size()) * kws + btnCols * bw;
-      if ((x + w > r.getRight() && x > r.getX()) || sec.newRow) { x = r.getX(); y += rowH + 8; }
-      sec.box = juce::Rectangle<int>(x, y, juce::jmin(w, r.getWidth()), rowH);
-      auto in = sec.box.reduced(8, 4).withTrimmedTop(16);
-      for (size_t i = 0; i < sec.knobs.size(); ++i) {
-        if (pool < kPool) knobs[pool]->setBounds(in.removeFromLeft(kws).withSizeKeepingCentre(kws - 4, juce::jmin(in.getHeight(), kws + 18)));
-        ++pool;
+    if (!drums) {                                               // three columns, each a display with its controls, and a row below
+      const SynthFace& f = skin().faces[face];
+      const int rowH = juce::jlimit(84, 112, r.getHeight() / 4), bottomH = rowH;
+      auto bottom = r.removeFromBottom(bottomH);
+      r.removeFromBottom(8);
+      const int dispH = juce::jmax(60, r.getHeight() - rowH - 6);
+      const int wide = r.getWidth() * 42 / 100, narrow = (r.getWidth() - wide - 16) / 2;
+      int x = r.getX(), pool = 0;
+      juce::Rectangle<int> colBox[3];
+      for (int c = 0; c < 3; ++c) {
+        const int which = f.order[c], w = which == 0 ? wide : narrow;
+        juce::Rectangle<int> column(x, r.getY(), w, r.getHeight());
+        disp[which] = f.displaysOnTop ? column.removeFromTop(dispH) : column.removeFromBottom(dispH);
+        if (f.displaysOnTop) column.removeFromTop(6); else column.removeFromBottom(6);
+        colBox[which] = column;
+        x += w + 8;
       }
-      for (size_t i = 0; i < sec.buttons.size(); i += 2) {
-        auto colm = in.removeFromLeft(bw).reduced(3, 0);
-        const int bh = juce::jmin(26, (colm.getHeight() - 4) / 2);
-        auto both = colm.withSizeKeepingCentre(colm.getWidth(), bh * 2 + 4);
-        sec.buttons[i]->setBounds(both.removeFromTop(bh));
-        both.removeFromTop(4);
-        if (i + 1 < sec.buttons.size()) sec.buttons[i + 1]->setBounds(both.removeFromTop(bh));
+      int bx = bottom.getX();
+      for (auto& sec : sections) {
+        const int n = int(sec.knobs.size()), btnCols = (int(sec.buttons.size()) + 1) / 2;
+        if (sec.slot < 3) sec.box = colBox[sec.slot];
+        else {
+          const int w = 16 + n * 62 + btnCols * 124;
+          sec.box = juce::Rectangle<int>(bx, bottom.getY(), juce::jmin(w, bottom.getRight() - bx), bottom.getHeight());
+          bx += w + 8;
+        }
+        auto in = sec.box.reduced(8, 4).withTrimmedTop(16);
+        const int kws = n == 0 ? 60 : juce::jlimit(40, 66, (in.getWidth() - btnCols * 118) / n);
+        for (int i = 0; i < n; ++i) {
+          if (pool < kPool) knobs[pool]->setBounds(in.removeFromLeft(kws).withSizeKeepingCentre(kws - 4, juce::jmin(in.getHeight(), kws + 18)));
+          ++pool;
+        }
+        for (size_t i = 0; i < sec.buttons.size(); i += 2) {
+          auto colm = in.removeFromLeft(118).reduced(3, 0);
+          const int bh = juce::jmin(26, (colm.getHeight() - 4) / 2);
+          auto both = colm.withSizeKeepingCentre(colm.getWidth(), bh * 2 + 4);
+          sec.buttons[i]->setBounds(both.removeFromTop(bh));
+          both.removeFromTop(4);
+          if (i + 1 < sec.buttons.size()) sec.buttons[i + 1]->setBounds(both.removeFromTop(bh));
+        }
       }
-      x += w + 8;
+      return;
     }
-  }
-
+    // the sections flow from left to right and wrap
   void paint(juce::Graphics& g) override {
     if (!built) return;
-    const SynthFace& f = kSynthFaces[face];
+    const SynthFace& f = skin().faces[face];
     juce::Colour ink = col::silk, dim = col::muted, boxFill = col::recess, boxLine = col::line;
     if (drums) {
       g.setColour(juce::Colour(0xff0d0f10));
@@ -216,7 +268,7 @@ class SoundPanel : public juce::Component {
     } else {
       // the shelf
       for (int i = 0; i < ld::kNumSynthModes; ++i) {
-        const SynthFace& sf = kSynthFaces[i];
+        const SynthFace& sf = skin().faces[i];
         const auto b = shelf[i].toFloat();
         g.setGradientFill(juce::ColourGradient(juce::Colour(sf.top), b.getX(), b.getY(), juce::Colour(sf.bottom), b.getX(), b.getBottom(), false));
         g.fillRoundedRectangle(b, 5.0f);
@@ -232,11 +284,11 @@ class SoundPanel : public juce::Component {
       // the synth on the table
       const auto t = tableArea.toFloat();
       g.setGradientFill(juce::ColourGradient(juce::Colour(f.top), t.getX(), t.getY(), juce::Colour(f.bottom), t.getX(), t.getBottom(), false));
-      g.fillRoundedRectangle(t, 10.0f);
+      g.fillRoundedRectangle(t, skin().corner);
       g.setColour(juce::Colours::black.withAlpha(0.5f));
-      g.drawRoundedRectangle(t.reduced(1.0f), 10.0f, 2.0f);
+      g.drawRoundedRectangle(t.reduced(1.0f), skin().corner, 2.0f);
       g.setColour(juce::Colours::white.withAlpha(0.15f));
-      g.drawRoundedRectangle(t.reduced(4.0f), 7.0f, 1.0f);
+      g.drawRoundedRectangle(t.reduced(4.0f), skin().corner - 3.0f, 1.0f);
       ink = f.lightInk ? juce::Colour(0xfff4f1e8) : juce::Colour(0xff1a1408);
       dim = ink.withAlpha(0.7f);
       boxFill = juce::Colours::black.withAlpha(f.lightInk ? 0.22f : 0.08f);
@@ -250,6 +302,7 @@ class SoundPanel : public juce::Component {
       g.setFont(juce::Font(juce::FontOptions(12.0f)));
       g.drawText(juce::String(f.code) + "   " + f.about, tableArea.getX() + 190, tableArea.getY() + 10, tableArea.getWidth() - 206, 26, juce::Justification::centredLeft, true);
     }
+    if (!drums) paintDisplays(g);
     for (const auto& sec : sections) {
       g.setColour(boxFill);
       g.fillRoundedRectangle(sec.box.toFloat(), 6.0f);
@@ -262,8 +315,229 @@ class SoundPanel : public juce::Component {
   }
 
  private:
+  // ---- the displays: what the synth is doing, drawn from its controls as they stand ----
+  static float frac(float t) { return t - std::floor(t); }
+  static float shape(ld::Wave w, float t) {
+    t = frac(t);
+    switch (w) {
+      case ld::Wave::Saw: return 2.0f * t - 1.0f;
+      case ld::Wave::Square: return t < 0.5f ? 1.0f : -1.0f;
+      case ld::Wave::Triangle: return 4.0f * std::abs(t - 0.5f) - 1.0f;
+      default: return std::sin(juce::MathConstants<float>::twoPi * t);
+    }
+  }
+  // How bright a note is at this moment of the display's own slow pulse: 1 when it starts, fading as the synth's
+  // "fade" control says. This is what makes the FM and Phase pictures breathe.
+  float pulse() const { return std::exp(-std::fmod(clock, 1.8f) / juce::jmax(0.02f, sp.fmModDecay)); }
+  juce::Rectangle<int> vectorPad() const {
+    const int side = juce::jmin(disp[0].getHeight() - 14, disp[0].getWidth() * 45 / 100);
+    return juce::Rectangle<int>(disp[0].getX() + 10, disp[0].getCentreY() - side / 2, side, side);
+  }
+  // One sample of the synth's wave, t in cycles.
+  float waveAt(float t) const {
+    const float two = juce::MathConstants<float>::twoPi, det = sp.detune / 1200.0f;
+    float x = 0.0f;
+    switch (face) {
+      case 1: x = std::sin(two * t + sp.fmIndex * pulse() * std::sin(two * t * sp.fmRatio)); break;
+      case 3: {
+        const float a = shape(sp.wave1, t), b = shape(sp.wave2, t * (1.0f + det) + clock * det * 30.0f);
+        const float c = std::sin(two * t + sp.fmIndex * pulse() * std::sin(two * t * sp.fmRatio)), d = shape(ld::Wave::Square, t * 0.5f);
+        x = 0.8f * ((1.0f - sp.vecX) * ((1.0f - sp.vecY) * a + sp.vecY * c) + sp.vecX * ((1.0f - sp.vecY) * b + sp.vecY * d));
+        break;
+      }
+      case 4: {
+        static const float at[6] = {-1.0f, -0.62f, -0.27f, 0.31f, 0.66f, 1.0f};
+        const float spread = (std::abs(sp.detune) * 1.2f + 4.0f) / 1200.0f;
+        const ld::Wave w = sp.wave1 == ld::Wave::Square ? ld::Wave::Square : ld::Wave::Saw;
+        float side = 0.0f;
+        for (int k = 0; k < 6; ++k) side += shape(w, t * (1.0f + spread * at[k]) + clock * spread * at[k] * 60.0f + 0.13f * float(k));
+        x = shape(w, t) * (0.75f - 0.35f * sp.vecX) + side * sp.vecX * 0.26f + std::sin(two * t * 0.5f) * sp.vecY * 0.7f;
+        break;
+      }
+      case 5: {
+        static const float harm[6] = {1.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
+        float sum = std::sin(two * t * 0.5f) * drawbar(0), norm = drawbar(0);
+        for (int k = 0; k < 6; ++k) { sum += std::sin(two * t * harm[k]) * drawbar(k + 1); norm += drawbar(k + 1); }
+        x = sum / juce::jmax(0.2f, norm) * 1.6f;
+        break;
+      }
+      case 6: {
+        const float d = juce::jlimit(0.0f, 1.0f, sp.fmIndex / 8.0f) * (sp.fmFeedback + (1.0f - sp.fmFeedback) * pulse());
+        const float u = frac(t);
+        if (sp.wave1 == ld::Wave::Saw) { const float knee = 0.5f - 0.49f * d; x = -std::cos(two * (u < knee ? 0.5f * u / knee : 0.5f + 0.5f * (u - knee) / (1.0f - knee))); }
+        else if (sp.wave1 == ld::Wave::Square) { const float h = u < 0.5f ? 0.0f : 0.5f; x = -std::cos(two * (h + 0.5f * juce::jmin(1.0f, (u - h) * 2.0f / (1.0f - 0.97f * d)))); }
+        else if (sp.wave1 == ld::Wave::Triangle) x = std::sin(two * u * (1.0f + d * (1.0f + sp.fmRatio * 2.0f) * 7.0f)) * (1.0f - u) * 1.3f;
+        else x = -std::cos(two * juce::jmin(1.0f, u / (1.0f - 0.95f * d)));
+        break;
+      }
+      default: x = 0.5f * (shape(sp.wave1, t) + shape(sp.wave2, t * (1.0f + det) + clock * det * 30.0f)); break;
+    }
+    if (sp.fold > 0.01f) x = std::sin(two * x * (1.0f + 5.0f * sp.fold) * 0.25f);
+    return juce::jlimit(-1.0f, 1.0f, x);
+  }
+  // The level of an organ drawbar: 0 the sub, 1 .. 6 the harmonics. The same sums as the engine's.
+  float drawbar(int k) const {
+    static const float harm[6] = {1.0f, 2.0f, 3.0f, 4.0f, 6.0f, 8.0f};
+    if (k == 0) return 0.5f * (1.0f - 0.6f * sp.vecX);
+    const int h = k - 1;
+    return std::pow(harm[h], -(2.6f - 2.4f * sp.vecX)) * (h == 1 || h == 3 || h == 4 || h == 5 ? 1.0f - 0.95f * sp.vecY : 1.0f);
+  }
+
+  void paintDisplays(juce::Graphics& g) {
+    const Skin& sk = skin();
+    const SynthFace& f = sk.faces[face];
+    const juce::Colour trace(f.trace), back(sk.displayBack), grid(sk.displayGrid);
+    static const char* const ownTitle[ld::kNumSynthModes] = {"THE TWO OSCILLATORS, ADDED", "ONE OPERATOR BENDS THE OTHER", "THE STRING", "DRAG THE DOT", "SEVEN VOICES DRIFTING", "THE DRAWBARS", "A SINE, BENT"};
+    const char* const titles[3] = {ownTitle[face], "FILTER", face == 2 ? "HOW LONG IT RINGS" : "ENVELOPE"};
+    for (int d = 0; d < 3; ++d) {
+      const auto b = disp[d].toFloat();
+      g.setColour(back);
+      g.fillRoundedRectangle(b, 6.0f);
+      g.setColour(juce::Colours::black.withAlpha(0.6f));
+      g.drawRoundedRectangle(b.reduced(0.5f), 6.0f, 1.5f);
+      g.setColour(grid);
+      g.fillRect(b.getX() + 6.0f, b.getCentreY(), b.getWidth() - 12.0f, 1.0f);
+      g.setColour(trace.withAlpha(0.6f));
+      g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+      g.drawText(titles[d], disp[d].reduced(8, 4), juce::Justification::topLeft, false);
+    }
+    const float two = juce::MathConstants<float>::twoPi;
+    const auto glow = [&](const juce::Path& path, float width) {     // a bright line with a soft one behind it
+      g.setColour(trace.withAlpha(0.22f));
+      g.strokePath(path, juce::PathStrokeType(width + 4.0f));
+      g.setColour(trace);
+      g.strokePath(path, juce::PathStrokeType(width));
+    };
+    // ---- the synth's own display
+    {
+      auto area = disp[0].reduced(10, 16).toFloat();
+      if (face == 3) {                                          // Vector: the pad with its four corners
+        const auto pad2 = vectorPad().toFloat();
+        g.setColour(grid);
+        g.drawRect(pad2, 1.0f);
+        g.drawLine(pad2.getX(), pad2.getCentreY(), pad2.getRight(), pad2.getCentreY(), 1.0f);
+        g.drawLine(pad2.getCentreX(), pad2.getY(), pad2.getCentreX(), pad2.getBottom(), 1.0f);
+        g.setColour(trace.withAlpha(0.75f));
+        g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+        g.drawText("OSC 1", pad2.reduced(4.0f), juce::Justification::topLeft, false);
+        g.drawText("OSC 2", pad2.reduced(4.0f), juce::Justification::topRight, false);
+        g.drawText("FM", pad2.reduced(4.0f), juce::Justification::bottomLeft, false);
+        g.drawText("SUB", pad2.reduced(4.0f), juce::Justification::bottomRight, false);
+        const float dx = pad2.getX() + sp.vecX * pad2.getWidth(), dy = pad2.getY() + sp.vecY * pad2.getHeight();
+        g.setColour(trace.withAlpha(0.25f));
+        g.fillEllipse(dx - 13.0f, dy - 13.0f, 26.0f, 26.0f);
+        g.setColour(trace);
+        g.fillEllipse(dx - 6.0f, dy - 6.0f, 12.0f, 12.0f);
+        area = area.withTrimmedLeft(pad2.getWidth() + 14.0f);
+      }
+      if (face == 5) {                                          // Drawbar: seven bars pulled out as far as they sound
+        const float bw = juce::jmin(18.0f, area.getWidth() * 0.3f / 7.0f);
+        for (int k = 0; k < 7; ++k) {
+          const float lv = juce::jlimit(0.0f, 1.0f, drawbar(k) * (k == 0 ? 1.6f : 1.0f));
+          const juce::Rectangle<float> slot(area.getX() + float(k) * (bw + 5.0f), area.getY(), bw, area.getHeight());
+          g.setColour(grid);
+          g.fillRect(slot.withWidth(2.0f).withX(slot.getCentreX() - 1.0f));
+          g.setColour(k == 0 || k == 1 ? juce::Colour(0xff8a4a2a) : (k == 2 || k == 4 || k == 5 || k == 6 ? juce::Colour(0xfff1ead8) : juce::Colour(0xff1d1b18)));
+          g.fillRoundedRectangle(slot.getX(), slot.getY() + (slot.getHeight() - 14.0f) * lv, bw, 14.0f, 3.0f);
+          g.setColour(trace.withAlpha(0.5f));
+          g.fillRect(slot.getCentreX() - 1.0f, slot.getY(), 2.0f, (slot.getHeight() - 14.0f) * lv);
+        }
+        area = area.withTrimmedLeft(7.0f * (bw + 5.0f) + 10.0f);
+      }
+      juce::Path wave;
+      const int n = juce::jmax(8, int(area.getWidth()));
+      if (face == 2) {                                          // String: it swings between its two ends and dies away
+        const float ring = juce::jmax(0.1f, sp.decay * 1.5f), age = std::fmod(clock, ring + 0.7f), fade = std::exp(-3.0f * age / ring);
+        const int harmonics = 1 + int(sp.pluckBright * 7.0f);
+        for (int i = 0; i <= n; ++i) {
+          const float u = float(i) / float(n);
+          float y = 0.0f;
+          for (int hmn = 1; hmn <= harmonics; ++hmn) y += std::sin(juce::MathConstants<float>::pi * float(hmn) * u) * std::cos(two * float(hmn) * clock * 2.2f) / float(hmn) * std::exp(-float(hmn - 1) * age * 2.0f);
+          const float px = area.getX() + area.getWidth() * u, py = area.getCentreY() - y * fade * area.getHeight() * 0.42f;
+          if (i == 0) wave.startNewSubPath(px, py); else wave.lineTo(px, py);
+        }
+        g.setColour(trace);
+        g.fillEllipse(area.getX() - 4.0f, area.getCentreY() - 4.0f, 8.0f, 8.0f);
+        g.fillEllipse(area.getRight() - 4.0f, area.getCentreY() - 4.0f, 8.0f, 8.0f);
+      } else {
+        const float cycles = face == 4 ? 4.0f : 2.0f;
+        if (face == 6) {                                        // Phase: the plain sine it started as, faint, behind it
+          juce::Path plain;
+          for (int i = 0; i <= n; ++i) {
+            const float px = area.getX() + float(i), py = area.getCentreY() + std::cos(two * cycles * float(i) / float(n)) * area.getHeight() * 0.42f;
+            if (i == 0) plain.startNewSubPath(px, py); else plain.lineTo(px, py);
+          }
+          g.setColour(trace.withAlpha(0.25f));
+          g.strokePath(plain, juce::PathStrokeType(1.2f));
+        }
+        for (int i = 0; i <= n; ++i) {
+          const float px = area.getX() + float(i), py = area.getCentreY() - waveAt(cycles * float(i) / float(n)) * area.getHeight() * 0.42f;
+          if (i == 0) wave.startNewSubPath(px, py); else wave.lineTo(px, py);
+        }
+      }
+      glow(wave, 1.8f);
+    }
+    // ---- the filter: what is let through, from low notes on the left to high on the right
+    {
+      const auto area = disp[1].reduced(10, 16).toFloat();
+      float fc = sp.cutoff * std::pow(2.0f, (0.5f - sp.feelWarmth) * 1.1f);
+      if (sp.lfoTarget == ld::LfoTarget::Cutoff && sp.lfoDepth > 0.0f) fc *= std::pow(2.0f, std::sin(two * clock * sp.lfoRate) * sp.lfoDepth * 1.5f);   // the wobble, as it happens
+      fc = juce::jlimit(40.0f, 16000.0f, fc);
+      const float q = juce::jmax(0.5f, sp.res);
+      juce::Path curve, fill;
+      const int n = juce::jmax(8, int(area.getWidth()));
+      for (int i = 0; i <= n; ++i) {
+        const float hz = 30.0f * std::pow(16000.0f / 30.0f, float(i) / float(n)), r = hz / fc;
+        const float mag = 1.0f / std::sqrt((1.0f - r * r) * (1.0f - r * r) + (r / q) * (r / q));
+        const float db = juce::jlimit(-30.0f, 24.0f, 20.0f * std::log10(juce::jmax(1e-4f, mag)));
+        const float px = area.getX() + float(i), py = area.getY() + area.getHeight() * (1.0f - (db + 30.0f) / 54.0f);
+        if (i == 0) { curve.startNewSubPath(px, py); fill.startNewSubPath(px, area.getBottom()); fill.lineTo(px, py); } else { curve.lineTo(px, py); fill.lineTo(px, py); }
+      }
+      fill.lineTo(area.getRight(), area.getBottom());
+      fill.closeSubPath();
+      g.setColour(trace.withAlpha(0.16f));
+      g.fillPath(fill);
+      glow(curve, 1.8f);
+    }
+    // ---- the envelope: one note, from its start to after its end
+    {
+      const auto area = disp[2].reduced(10, 16).toFloat();
+      juce::Path env;
+      float dotX = 0.0f, dotY = 0.0f;
+      const float cycle = std::fmod(clock, 2.4f) / 2.4f;         // a dot runs along it, again and again
+      if (face == 2) {
+        const float ring = juce::jmax(0.1f, sp.decay);
+        for (int i = 0; i <= 60; ++i) {
+          const float u = float(i) / 60.0f, y = std::exp(-u * 4.5f / juce::jlimit(0.15f, 1.0f, ring / 1.5f));
+          const float px = area.getX() + area.getWidth() * u, py = area.getBottom() - y * area.getHeight();
+          if (i == 0) env.startNewSubPath(px, py); else env.lineTo(px, py);
+          if (std::abs(u - cycle) < 0.009f) { dotX = px; dotY = py; }
+        }
+      } else {
+        const auto wd = [](float secs) { return std::sqrt(juce::jlimit(0.001f, 3.0f, secs)); };     // short times still show
+        const float a = wd(sp.attack), d = wd(sp.decay), h = 0.6f, r = wd(sp.release), total = a + d + h + r;
+        const float xs[5] = {0.0f, a / total, (a + d) / total, (a + d + h) / total, 1.0f}, ys[5] = {0.0f, 1.0f, sp.sustain, sp.sustain, 0.0f};
+        for (int i = 0; i < 5; ++i) {
+          const float px = area.getX() + area.getWidth() * xs[i], py = area.getBottom() - ys[i] * area.getHeight();
+          if (i == 0) env.startNewSubPath(px, py); else env.lineTo(px, py);
+        }
+        for (int i = 0; i < 4; ++i)
+          if (cycle >= xs[i] && cycle <= xs[i + 1]) {
+            const float t = (cycle - xs[i]) / juce::jmax(1e-4f, xs[i + 1] - xs[i]);
+            dotX = area.getX() + area.getWidth() * cycle; dotY = area.getBottom() - (ys[i] + (ys[i + 1] - ys[i]) * t) * area.getHeight();
+          }
+        g.setColour(trace.withAlpha(0.5f));
+        g.setFont(juce::Font(juce::FontOptions(9.5f, juce::Font::bold)));
+        static const char* const parts[4] = {"A", "D", "S", "R"};
+        for (int i = 0; i < 4; ++i) g.drawText(parts[i], int(area.getX() + area.getWidth() * (xs[i] + xs[i + 1]) * 0.5f) - 8, int(area.getBottom()) - 1, 16, 12, juce::Justification::centred, false);
+      }
+      glow(env, 1.8f);
+      if (dotX > 0.0f) { g.setColour(juce::Colours::white); g.fillEllipse(dotX - 4.0f, dotY - 4.0f, 8.0f, 8.0f); }
+    }
+  }
+
   struct Spec { const char* label; int pid; float lo, hi, centre; juce::String (*fmt)(float); const char* about; };
-  struct Section { juce::String title; std::vector<Spec> knobs; std::vector<juce::TextButton*> buttons; juce::Rectangle<int> box; bool newRow = false, wide = false; };
+  struct Section { juce::String title; std::vector<Spec> knobs; std::vector<juce::TextButton*> buttons; juce::Rectangle<int> box; bool newRow = false, wide = false; int slot = 3; };
 
   void cycle(int pid, int count) {
     const juce::ScopedLock sl(p.lock());
@@ -358,8 +632,9 @@ class SoundPanel : public juce::Component {
                           {}, {}, false, false});
       sections.push_back({"OUT", {S{"Level", ld::P_SYN_LEVEL, 0.0f, 1.0f, 0.0f, fmtPct, "how loud this synth is"}}, {&octBtn}, {}, false, false});
     }
+    if (!drums && sections.size() >= 3) { sections[0].slot = 0; sections[1].slot = 1; sections[2].slot = 2; }
     // hand the knobs out
-    const SynthFace& f = kSynthFaces[face];
+    const SynthFace& f = skin().faces[face];
     const juce::Colour cap = drums ? col::pads[pad % 8] : juce::Colour(f.cap);
     const juce::Colour ink = drums ? col::silk : (f.lightInk ? juce::Colour(0xfff4f1e8) : juce::Colour(0xff1a1408));
     int pool = 0;
@@ -386,6 +661,9 @@ class SoundPanel : public juce::Component {
   juce::Rectangle<int> shelf[ld::kNumSynthModes], tableArea, waveArea;
   float wave[kWave] = {};
   int waveN = 0, frame = 0;
-  bool drums = true, built = false, breakOn = false, wasCustom = false;
+  bool drums = true, built = false, breakOn = false, wasCustom = false, dragXY = false;
+  juce::Rectangle<int> disp[3];                                // the synth's own display, the filter's, the envelope's
+  ld::SynthParams sp;                                          // what the displays draw, copied every tick
+  float clock = 0.0f;
   int pad = 0, synth = 0, face = 0;
 };

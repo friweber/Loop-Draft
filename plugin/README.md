@@ -52,6 +52,12 @@ The builds are not signed. On macOS, remove the download mark once after copying
     points and eleven knobs), and the **break machine** for jungle and breakbeat: it cuts a breakbeat (the built-in
     one, a WAV of yours, or this groove's own drums) into eight slices, one per pad. WRITE BREAK puts the slices
     into the grid in their original order as a starting point.
+  - Every synth has three displays that move with its knobs: its own wave (FM and Phase breathe as their bend
+    fades, the Unison voices drift, the string swings, the Vector dot can be dragged, the organ shows its drawbars),
+    the filter's curve, and the shape of a note. Each synth arranges them differently.
+  - **Skins**: the colours of each synth, the order of its columns and where the displays sit are one entry in
+    `kSkins` (`plugin/src/SoundPanel.inc`). There is one skin, "Original"; MENU > Skin lists them. A new skin is a new
+    entry there. So far a skin covers the synth panels only; the rest of the window still has fixed colours.
 - **Patterns**: a click in the pattern list selects. Only while LISTEN is lit does a click also play.
 - **Knob movements**: besides REC KNOBS, ADD A MOVEMENT on the SONG page picks any control from a list. The selected
   movement opens in a large editor: draw it, or use FLAT, RISE, FALL, HILL, STEPS.

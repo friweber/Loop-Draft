@@ -332,6 +332,7 @@ void LoopMasterProcessor::getStateInformation(juce::MemoryBlock& destData) {
   root.setProperty("liveMode", liveMode, nullptr);
   root.setProperty("guideSeen", guideSeen, nullptr);
   root.setProperty("fewerControls", fewerControls, nullptr);
+  root.setProperty("skin", skin, nullptr);
   {
     juce::String map;
     for (const auto& lm : liveMap_) map << lm.kind << ":" << lm.ch << ":" << lm.num << ",";
@@ -363,6 +364,7 @@ void LoopMasterProcessor::setStateInformation(const void* data, int sizeInBytes)
   liveMode = bool(root.getProperty("liveMode", false));
   guideSeen = bool(root.getProperty("guideSeen", false));
   fewerControls = bool(root.getProperty("fewerControls", false));
+  skin = int(root.getProperty("skin", 0));
   {
     juce::StringArray parts;
     parts.addTokens(root.getProperty("liveMap", juce::String()).toString(), ",", "");
