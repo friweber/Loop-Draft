@@ -85,6 +85,8 @@ void sanitize(Project& p) {
     f.delaySend = clampT(fin(f.delaySend, 0), 0.0f, 1.0f); f.revSend = clampT(fin(f.revSend, 0), 0.0f, 1.0f);
     for (auto& sl : f.slots) {
       if (int(sl.type) >= kNumFxTypes) sl.type = FxType::Off;
+      if (sl.voice >= kFxVoices[int(sl.type)]) sl.voice = 0;
+      sl.p3 = clampT(sl.p3, 0.0f, 1.0f); sl.p4 = clampT(sl.p4, 0.0f, 1.0f);
       sl.amount = clampT(fin(sl.amount, 0.5f), 0.0f, 1.0f);
       sl.rate = clampT(fin(sl.rate, 0.4f), 0.0f, 1.0f);
     }
@@ -108,7 +110,7 @@ void sanitize(Project& p) {
     for (int t = 0; t < kNumTracks; ++t) {
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {
         auto& al = p.chainAuto[i].tracks[t][ln];
-        if (al.paramId < -1 || al.paramId > P_FX_SLOT3_RATE) al.paramId = -1;   // the highest id that can be automated
+        if (al.paramId < -1 || al.paramId > P_FX_SLOT3_P4) al.paramId = -1;   // the highest id that can be automated
         al.startVal = fin(al.startVal, 0.0f); al.endVal = fin(al.endVal, 0.0f);
       }
     }
@@ -265,6 +267,12 @@ static float* field(Project& p, int id, int index, bool& isInt, int& kind) {
     case P_FX_SLOT2_RATE: return &fx().slots[1].rate;
     case P_FX_SLOT3_AMOUNT: return &fx().slots[2].amount;
     case P_FX_SLOT3_RATE: return &fx().slots[2].rate;
+    case P_FX_SLOT1_P3: return &fx().slots[0].p3;
+    case P_FX_SLOT1_P4: return &fx().slots[0].p4;
+    case P_FX_SLOT2_P3: return &fx().slots[1].p3;
+    case P_FX_SLOT2_P4: return &fx().slots[1].p4;
+    case P_FX_SLOT3_P3: return &fx().slots[2].p3;
+    case P_FX_SLOT3_P4: return &fx().slots[2].p4;
     case P_FX_MUTE: kind = 4; return reinterpret_cast<float*>(&fx().mute);
     default: scratch = 0; return &scratch;
   }
@@ -385,11 +393,26 @@ void Session::setFxSlot(int track, int slot, int type, float amount, float rate,
   if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
   if (undoStep) beginEdit();
   auto& sl = proj_.fx[track].slots[slot];
-  sl.type = FxType(clampT(type, 0, kNumFxTypes - 1));
+  const FxType newType = FxType(clampT(type, 0, kNumFxTypes - 1));
+  if (newType != sl.type) { sl.voice = 0; sl.p3 = 0.5f; sl.p4 = 0.5f; }   // another pedal starts neutral
+  sl.type = newType;
   sl.amount = clampT(amount, 0.0f, 1.0f);
   sl.rate = clampT(rate, 0.0f, 1.0f);
   sl.bypass = bypass;
   commit();
+}
+void Session::setFxVoice(int track, int slot, int voice) {
+  if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
+  beginEdit();
+  auto& sl = proj_.fx[track].slots[slot];
+  sl.voice = uint8_t(clampT(voice, 0, int(kFxVoices[int(sl.type)]) - 1));
+  commit();
+}
+void Session::setFxSlotFull(int track, int slot, const FxSlot& s, bool undoStep) {
+  if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
+  if (undoStep) beginEdit();
+  proj_.fx[track].slots[slot] = s;
+  commit();                                       // sanitize puts anything out of range right
 }
 void Session::setActiveSynths(int count) {
   beginEdit();

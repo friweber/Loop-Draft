@@ -279,7 +279,7 @@ bool readTrack(Rd& r, const JV& o, const std::string& path, TrackFx& fx) {
       const JV& e = a->a[i];
       const std::string ep = idx(fp, i);
       if (e.t != JV::Obj) return r.fail(ep, "must be an object { ... }");
-      unknownKeys(r, e, ep, {"type", "amount", "rate", "bypass"});
+      unknownKeys(r, e, ep, {"type", "amount", "rate", "bypass", "voice", "p3", "p4"});
       int type = 0;
       bool has = false;
       if (!choice(r, e, ep, "type", kFxTypes, type, &has)) return false;
@@ -287,6 +287,9 @@ bool readTrack(Rd& r, const JV& o, const std::string& path, TrackFx& fx) {
       FxSlot& sl = fx.slots[i];
       sl.type = FxType(type);
       if (!num(r, e, ep, "amount", 0, 1, sl.amount) || !num(r, e, ep, "rate", 0, 1, sl.rate) || !boolean(r, e, ep, "bypass", sl.bypass)) return false;
+      float voice = 0.0f;
+      if (!num(r, e, ep, "voice", 0, kMaxFxVoices - 1, voice) || !num(r, e, ep, "p3", 0, 1, sl.p3) || !num(r, e, ep, "p4", 0, 1, sl.p4)) return false;
+      sl.voice = uint8_t(voice + 0.5f);
     }
   }
   return true;
@@ -609,7 +612,10 @@ void writeTrack(W& w, const TrackFx& f) {
     const FxSlot& sl = f.slots[i];
     w.sep();
     w.s += "{ \"type\": " + W::quote(kFxNames[int(sl.type) < kNumFxTypes ? int(sl.type) : 0]) + ", \"amount\": " + W::number(sl.amount) +
-           ", \"rate\": " + W::number(sl.rate) + (sl.bypass ? ", \"bypass\": true }" : " }");
+           ", \"rate\": " + W::number(sl.rate) +
+           (sl.voice ? ", \"voice\": " + std::to_string(int(sl.voice)) : std::string()) +
+           (sl.p3 != 0.5f ? ", \"p3\": " + W::number(sl.p3) : std::string()) + (sl.p4 != 0.5f ? ", \"p4\": " + W::number(sl.p4) : std::string()) +
+           (sl.bypass ? ", \"bypass\": true }" : " }");
   }
   w.close(']');
   w.close();

@@ -56,6 +56,8 @@ enum Param : int {
   P_DSYN_FM, P_DSYN_FMRATIO, P_DSYN_DRIVE, P_DSYN_CLICK, P_DSYN_LEN,
   // the two controls of each effect slot of a track (index = track)
   P_FX_SLOT1_AMOUNT = 81, P_FX_SLOT1_RATE, P_FX_SLOT2_AMOUNT, P_FX_SLOT2_RATE, P_FX_SLOT3_AMOUNT, P_FX_SLOT3_RATE,
+  // the third and fourth knob of each slot
+  P_FX_SLOT1_P3 = 87, P_FX_SLOT1_P4, P_FX_SLOT2_P3, P_FX_SLOT2_P4, P_FX_SLOT3_P3, P_FX_SLOT3_P4,
   P_FX_LEVEL = 40, P_FX_DRIVE, P_FX_EQ_LOW, P_FX_EQ_HIGH, P_FX_DELAY, P_FX_REVERB, P_FX_MUTE
 };
 
@@ -123,7 +125,13 @@ struct FxSlot {
   float amount = 0.5f;       // 0 .. 1 (drive/depth/mix/cutoff)
   float rate = 0.4f;         // 0 .. 1 (LFO rate / crush rate / resonance)
   bool bypass = false;
+  uint8_t voice = 0;         // the pedal's character switch, see pedals.h. 0 on a standard pedal is the sound it always had
+  float p3 = 0.5f;           // 0 .. 1, third and fourth knob. What they do depends on the pedal; 0.5 is the neutral setting
+  float p4 = 0.5f;
 };
+constexpr int kMaxFxVoices = 4;
+// How many characters each pedal has, in the order of FxType.
+constexpr uint8_t kFxVoices[] = {1, 4, 1, 4, 4, 3, 4, 4, 4, 3, 4, 2, 3, 2, 3, 3, 2, 2, 3, 3, 4, 2};
 
 struct TrackFx {
   float level = 0.8f;

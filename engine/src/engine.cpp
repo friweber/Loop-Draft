@@ -421,6 +421,12 @@ void Engine::renderAudio(float* l, float* r, int n) {
           case P_FX_SLOT2_RATE: effFx[t].slots[1].rate = clampF(lin, 0.0f, 1.0f); break;
           case P_FX_SLOT3_AMOUNT: effFx[t].slots[2].amount = clampF(lin, 0.0f, 1.0f); break;
           case P_FX_SLOT3_RATE: effFx[t].slots[2].rate = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT1_P3: effFx[t].slots[0].p3 = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT1_P4: effFx[t].slots[0].p4 = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT2_P3: effFx[t].slots[1].p3 = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT2_P4: effFx[t].slots[1].p4 = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT3_P3: effFx[t].slots[2].p3 = clampF(lin, 0.0f, 1.0f); break;
+          case P_FX_SLOT3_P4: effFx[t].slots[2].p4 = clampF(lin, 0.0f, 1.0f); break;
           case P_KIT_HARDNESS: if (t == 0) effFx[0].drive = clampF(lin, 0.0f, 1.0f); break;   // hardness is the drum track's drive
           default: break;
         }
@@ -510,13 +516,14 @@ void Engine::renderAudio(float* l, float* r, int n) {
     // an echo or reverb pedal on the track keeps sounding long after the last note
     bool rings = false;
     for (int sl = 0; sl < kFxSlots; ++sl) rings = rings || (!effFx[t].slots[sl].bypass && Pedal::rings(effFx[t].slots[sl].type));
-    const int64_t idleAfter = int64_t(sr_ * (rings ? 12.0 : 0.75));
+    const int64_t idleAfter = int64_t(sr_ * (rings ? 20.0 : 0.75));
     bool sound = false;
     for (int i = 0; i < n && !sound; ++i) sound = tb[t][0][i] != 0.0f || tb[t][1][i] != 0.0f;
     TrackState& ts = tr_[t];
     if (sound) ts.idle = 0; else if (ts.idle < idleAfter) ts.idle += n;
     live[t] = ts.idle < idleAfter;
     if (!live[t]) {                                // a silent track takes new fader positions at once: no glide when it wakes up
+      for (int sl = 0; sl < kFxSlots; ++sl) ts.fxSlots[sl].pedal.sleep();   // and its pedals start clean
       ts.level.reset(effFx[t].mute ? 0.0f : effFx[t].level);
       ts.dSend.reset(effFx[t].delaySend); ts.rSend.reset(effFx[t].revSend);
     }
@@ -535,35 +542,39 @@ void Engine::renderAudio(float* l, float* r, int n) {
         const FxSlot& fs = fx.slots[sl];
         if (fs.bypass || fs.type == FxType::Off) continue;
         FxSlotState& st = ts.fxSlots[sl];
-        switch (fs.type) {
-          case FxType::Overdrive:
-            if (i == 0) st.drive.set(fs.amount);
-            xl = st.drive.tick(xl); xr = st.drive.tick(xr);
-            break;
-          case FxType::Bitcrush:
-            st.crush.tick(xl, xr, fs.amount, fs.rate);
-            break;
-          case FxType::Chorus:
-            st.chorus.tick(xl, xr, fs.amount, fs.rate);
-            break;
-          case FxType::Phaser:
-            st.phaser.tick(xl, xr, fs.amount, fs.rate);
-            break;
-          case FxType::Filter: {
-            if (i == 0) {
-              const float cf = 100.0f * std::pow(100.0f, fs.amount);
-              const float q = 0.7f + fs.rate * 8.0f;
-              st.flt[0].set(sr_, cf, q); st.flt[1].set(sr_, cf, q);
+        // A standard pedal on character 0 sounds as it always has; its third knob is its level.
+        if (fs.voice == 0 && uint8_t(fs.type) <= uint8_t(FxType::Compressor)) {
+          switch (fs.type) {
+            case FxType::Overdrive:
+              if (i == 0) st.drive.set(fs.amount);
+              xl = st.drive.tick(xl); xr = st.drive.tick(xr);
+              break;
+            case FxType::Bitcrush:
+              st.crush.tick(xl, xr, fs.amount, fs.rate);
+              break;
+            case FxType::Chorus:
+              st.chorus.tick(xl, xr, fs.amount, fs.rate);
+              break;
+            case FxType::Phaser:
+              st.phaser.tick(xl, xr, fs.amount, fs.rate);
+              break;
+            case FxType::Filter: {
+              if (i == 0) {
+                const float cf = 100.0f * std::pow(100.0f, fs.amount);
+                const float q = 0.7f + fs.rate * 8.0f;
+                st.flt[0].set(sr_, cf, q); st.flt[1].set(sr_, cf, q);
+              }
+              xl = st.flt[0].low(xl); xr = st.flt[1].low(xr);
+              break;
             }
-            xl = st.flt[0].low(xl); xr = st.flt[1].low(xr);
-            break;
+            case FxType::Compressor:
+              st.comp.tick(xl, xr, fs.amount);
+              break;
+            default: break;
           }
-          case FxType::Compressor:
-            st.comp.tick(xl, xr, fs.amount);
-            break;
-          default:                                   // the stompbox collection
-            st.pedal.tick(fs.type, xl, xr, fs.amount, fs.rate);
-            break;
+          if (fs.p3 != 0.5f) { xl *= fs.p3 * 2.0f; xr *= fs.p3 * 2.0f; }
+        } else {
+          st.pedal.tick(fs.type, fs.voice, xl, xr, fs.amount, fs.rate, fs.p3, fs.p4);
         }
       }
       if (trackOuts) { trkL_[t][trkOff_ + i] = xl; if (trkR_[t]) trkR_[t][trkOff_ + i] = xr; }

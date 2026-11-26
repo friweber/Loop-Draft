@@ -1605,6 +1605,54 @@ static void testPedalCollection() {
       CHECK(tail < 2e-3);                                     // and falls silent: no feedback that runs away
     }
   }
+  // every character of every pedal, with the knobs in the middle and with all of them at either end
+  for (int type = 1; type < kNumFxTypes; ++type) {
+    std::vector<float> first;
+    for (int voice = 0; voice < int(kFxVoices[type]); ++voice) {
+      for (int set = 0; set < 3; ++set) {
+        Project p = base;
+        FxSlot& sl = p.fx[1].slots[0];
+        sl.type = FxType(type); sl.voice = uint8_t(voice);
+        sl.amount = set == 0 ? 0.7f : (set == 1 ? 1.0f : 0.0f); sl.rate = set == 0 ? 0.5f : (set == 1 ? 1.0f : 0.0f);
+        sl.p3 = set == 0 ? 0.5f : (set == 1 ? 1.0f : 0.0f); sl.p4 = sl.p3;
+        render(p, 2.0, set == 0 ? (Pedal::rings(FxType(type)) ? 19.0 : 2.0) : 0.5, wet, tail);
+        double rms = 0.0, peak = 0.0, diff = 0.0;
+        bool finite = true;
+        for (size_t i = 0; i < wet.size(); ++i) {
+          finite = finite && std::isfinite(wet[i]);
+          rms += double(wet[i]) * double(wet[i]);
+          peak = std::max(peak, double(std::fabs(wet[i])));
+          if (set == 0 && voice > 0) diff += double(wet[i] - first[i]) * double(wet[i] - first[i]);
+        }
+        rms = std::sqrt(rms / double(wet.size())); diff = std::sqrt(diff / double(wet.size()));
+        const bool legacy = voice == 0 && type <= int(FxType::Compressor);   // unchanged on purpose
+        const bool ok = finite && peak < 2.0 && (set != 0 || (rms > dryRms * 0.25 && (legacy || rms < dryRms * 3.0) && tail < 2e-3 && (voice == 0 || type == int(FxType::Gate) || diff > dryRms * 0.02)));
+        if (std::getenv("LD_PEDAL_TABLE") && set == 0) std::printf("    %2d/%d  x%.2f  peak %.2f\n", type, voice, rms / dryRms, peak);
+        if (!ok) std::printf("    pedal %d character %d knobs %d: rms %.4f (dry %.4f) peak %.3f tail %.5f differs %.4f\n", type, voice, set, rms, dryRms, peak, tail, diff);
+        CHECK(ok);                       // finite, not too loud; in the middle also: about as loud as dry, silent in the end, its own sound
+        if (set == 0 && voice == 0) first = wet;
+      }
+    }
+  }
+  {  // a standard pedal on its first character with the new knobs untouched is the pedal old projects have
+    Session ses(sr);
+    ses.setFxSlot(1, 0, int(FxType::Phaser), 0.6f, 0.4f, false);
+    ses.setParam(P_FX_SLOT1_P3, 1, 0.8f); ses.setFxVoice(1, 0, 3);
+    CHECK(ses.project().fx[1].slots[0].voice == 3 && ses.project().fx[1].slots[0].p3 == 0.8f);
+    ses.setFxSlot(1, 0, int(FxType::Phaser), 0.2f, 0.4f, false);           // what the phone apps do when a knob moves
+    CHECK(ses.project().fx[1].slots[0].voice == 3 && ses.project().fx[1].slots[0].p3 == 0.8f);
+    ses.setFxVoice(1, 0, 9);
+    CHECK(ses.project().fx[1].slots[0].voice == 3);
+    const std::string path = "/tmp/ld_pedalvoice.ldp";
+    CHECK(ses.save(path.c_str()));
+    Session back(sr);
+    CHECK(back.load(path.c_str()));
+    CHECK(back.project().fx[1].slots[0].voice == 3 && back.project().fx[1].slots[0].p3 == 0.8f && back.project().fx[1].slots[0].p4 == 0.5f);
+    ses.setFxSlot(1, 0, int(FxType::Wah), 0.2f, 0.4f, false);              // another pedal starts neutral
+    CHECK(ses.project().fx[1].slots[0].voice == 0 && ses.project().fx[1].slots[0].p3 == 0.5f);
+    ses.setFxVoice(1, 0, 3);
+    CHECK(ses.project().fx[1].slots[0].voice == 2);                       // the wah has three
+  }
   {  // all three slots of every track busy, pedals swapped while playing: no allocation on the audio thread
     Project p = base;
     Engine e(sr);
@@ -1616,7 +1664,7 @@ static void testPedalCollection() {
     for (int v = 0; v < 6; ++v) {
       Project q = base;
       for (int t = 0; t < kNumTracks; ++t)
-        for (int sl = 0; sl < kFxSlots; ++sl) q.fx[t].slots[sl].type = FxType(int(FxType::Distortion) + (v * 5 + t * 3 + sl) % (kNumFxTypes - int(FxType::Distortion)));
+        for (int sl = 0; sl < kFxSlots; ++sl) { q.fx[t].slots[sl].type = FxType(1 + (v * 5 + t * 3 + sl) % (kNumFxTypes - 1)); q.fx[t].slots[sl].voice = uint8_t((v + sl) % kFxVoices[int(q.fx[t].slots[sl].type)]); }
       variants.push_back(q);
     }
     long during = 0;

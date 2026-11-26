@@ -88,10 +88,13 @@ struct SynthParams {                               // as it was then; today's st
   InstrumentPreset instrument; float feelWarmth, feelMotion;
 };
 static_assert(sizeof(SynthParams) == 76 && sizeof(SynthParams) <= sizeof(ld::SynthParams), "raw version 5 synth layout");
+struct FxSlot { FxType type; float amount, rate; bool bypass; };          // before pedals had a character switch and four knobs
+struct TrackFx { float level, drive, eqLow, eqHigh, delaySend, revSend; bool mute; FxSlot slots[3]; };
+static_assert(sizeof(FxSlot) == 16 && sizeof(TrackFx) == 76, "raw version 5 effect layout");
 struct Project {
   float bpm, swing; int32_t root; Scale scale; int32_t octave; int32_t activeSynths;
   DrumEngine drumEngine; float junglePitch, jungleTight, jungleCrunch;
-  ld::PadParams pads[kNumPads]; SynthParams synths[4]; ld::TrackFx fx[5];
+  ld::PadParams pads[kNumPads]; SynthParams synths[4]; TrackFx fx[5];
   float delayFeedback, master; ld::Scene scenes[kNumScenes]; int32_t chain[kMaxChain];
   ld::ChainAuto chainAuto[kMaxChain]; int32_t chainLen;
 };
@@ -104,7 +107,12 @@ ld::Project upgrade(const v5raw::Project& o) {
   p.drumEngine = o.drumEngine; p.junglePitch = o.junglePitch; p.jungleTight = o.jungleTight; p.jungleCrunch = o.jungleCrunch;
   std::memcpy(static_cast<void*>(p.pads), o.pads, sizeof(p.pads));
   for (int i = 0; i < 4; ++i) std::memcpy(static_cast<void*>(&p.synths[i]), &o.synths[i], sizeof(v5raw::SynthParams));   // newer fields keep their defaults
-  std::memcpy(static_cast<void*>(p.fx), o.fx, sizeof(p.fx));
+  for (int t = 0; t < 5; ++t) {
+    ld::TrackFx& d = p.fx[t];
+    const v5raw::TrackFx& x = o.fx[t];
+    d.level = x.level; d.drive = x.drive; d.eqLow = x.eqLow; d.eqHigh = x.eqHigh; d.delaySend = x.delaySend; d.revSend = x.revSend; d.mute = x.mute;
+    for (int sl = 0; sl < 3; ++sl) { d.slots[sl].type = x.slots[sl].type; d.slots[sl].amount = x.slots[sl].amount; d.slots[sl].rate = x.slots[sl].rate; d.slots[sl].bypass = x.slots[sl].bypass; }
+  }
   p.delayFeedback = o.delayFeedback; p.master = o.master;
   std::memcpy(static_cast<void*>(p.scenes), o.scenes, sizeof(p.scenes));
   std::memcpy(p.chain, o.chain, sizeof(p.chain));
@@ -227,6 +235,7 @@ template <class V> void fields(V& v, Project& p) {
       std::snprintf(pre, sizeof(pre), "fx%d.slot%d", t, sl);
       FxSlot& fs = x.slots[sl];
       LD_F(pre, fs, type); LD_F(pre, fs, amount); LD_F(pre, fs, rate); LD_F(pre, fs, bypass);
+      LD_F(pre, fs, voice); LD_F(pre, fs, p3); LD_F(pre, fs, p4);
     }
   }
   for (int i = 0; i < kNumScenes; ++i) {

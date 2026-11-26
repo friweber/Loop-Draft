@@ -23,38 +23,126 @@ const char* const kEngines[4] = {"Subtractive", "FM 2-Op", "Pluck", "Vector"};
 const char* const kNoteNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
 // Every pedal: the six standard ones of Loop Draft and the stompbox collection.
+// A pedal has up to four knobs and a character switch; the names here follow engine/include/loopdraft/pedals.h.
 struct PedalSpec {
   int type;
   const char* code;
   const char* name;
-  juce::uint32 top, bottom;
+  juce::uint32 top, bottom;             // the enclosure
   bool lightInk;
-  const char* knob1;
-  const char* knob2;                    // "" = this pedal has one control
+  juce::uint32 cap;                     // the knob caps
+  const char* knobs[4];
+  const char* voices[4];
+  const char* about[4];                 // one line about each character
 };
 const PedalSpec kPedals[] = {
-  {1, "OD", "Overdrive", 0xffe0971b, 0xffb56e0c, false, "Drive", ""},
-  {2, "BIT", "Bitcrush", 0xff218c9c, 0xff135b68, true, "Crush", "Rate"},
-  {3, "CHO", "Chorus", 0xff2b6ec2, 0xff1a4682, true, "Depth", "Speed"},
-  {4, "PHA", "Phaser", 0xffd95621, 0xffa1350d, true, "Depth", "Speed"},
-  {5, "LPF", "Low-Pass", 0xff1f7a52, 0xff124d33, true, "Cutoff", "Reso"},
-  {6, "COMP", "Compressor", 0xffc22d32, 0xff871b1f, true, "Squash", ""},
-  {7, "DST", "Distortion", 0xffe0661b, 0xffa8430c, true, "Gain", "Tone"},
-  {8, "FUZZ", "Fuzz", 0xff7a3fb5, 0xff4f2480, true, "Fuzz", "Tone"},
-  {9, "BST", "Booster", 0xffe8e2d0, 0xffbdb59c, false, "Boost", "Treble"},
-  {10, "TREM", "Tremolo", 0xff3e9a45, 0xff25692b, true, "Depth", "Speed"},
-  {11, "VIB", "Vibrato", 0xff2f8fc9, 0xff1b5f8c, true, "Depth", "Speed"},
-  {12, "FLG", "Flanger", 0xff8a5ad6, 0xff5b3699, true, "Feedbk", "Speed"},
-  {13, "ROTO", "Rotary", 0xff8c5a32, 0xff5e3a1d, true, "Depth", "Speed"},
-  {14, "WAH", "Wah", 0xff33363d, 0xff1c1e22, true, "Depth", "Speed"},
-  {15, "AWAH", "Auto-Wah", 0xffe3c22b, 0xffb09210, false, "Sens", "Peak"},
-  {16, "OCT", "Octaver", 0xff6b4a2e, 0xff45301d, true, "Sub", "Tone"},
-  {17, "RING", "Ring Mod", 0xff7d8794, 0xff525b66, true, "Mix", "Pitch"},
-  {18, "DLY", "Delay", 0xffdce6f2, 0xffa9b8cc, false, "Level", "Time"},
-  {19, "TAPE", "Tape Echo", 0xff2e5e46, 0xff1b3b2b, true, "Level", "Time"},
-  {20, "VERB", "Reverb", 0xff5e7fa3, 0xff3b5575, true, "Level", "Size"},
-  {21, "GATE", "Gate", 0xff26282d, 0xff121316, true, "Thresh", "Decay"},
+  {1, "OD", "Overdrive", 0xffe0971b, 0xffb56e0c, false, 0xff1d1b18, {"Drive", "Tone", "Level", "Body"},
+   {"Classic", "Green", "Gold", "Blue"},
+   {"The Loop Draft drive: one knob", "Mids pushed forward, lows kept clean", "Clean signal underneath, lots of headroom", "Flat and open, low gain, follows your touch"}},
+  {2, "BIT", "Bitcrush", 0xff218c9c, 0xff135b68, true, 0xffe9e4d6, {"Crush", "Rate", "Level", ""}, {"Classic"}, {"Fewer bits, lower sample rate"}},
+  {3, "CHO", "Chorus", 0xff2b6ec2, 0xff1a4682, true, 0xffe9e4d6, {"Depth", "Speed", "Mix", "Tone"},
+   {"Classic", "Ensemble", "Wide", "Tri"},
+   {"The Loop Draft chorus", "One dark voice, the bucket-brigade sound", "Two voices against each other, hardly any wobble", "Three voices, like a string machine"}},
+  {4, "PHA", "Phaser", 0xffd95621, 0xffa1350d, true, 0xff1d1b18, {"Depth", "Speed", "Feedbk", "Mix"},
+   {"Classic", "Script", "Stone", "Vibe"},
+   {"The Loop Draft phaser", "Smooth, no feedback. FEEDBK past noon: the later, sharper one", "Deep and resonant", "Uneven stages and a lamp that throbs"}},
+  {5, "LPF", "Low-Pass", 0xff1f7a52, 0xff124d33, true, 0xffe9e4d6, {"Cutoff", "Reso", "Env", "Drive"},
+   {"Classic", "Ladder", "Band"},
+   {"The Loop Draft filter", "Four stages with feedback, fat. ENV lets your playing open it", "Only a slice around the cutoff"}},
+  {6, "COMP", "Compressor", 0xffc22d32, 0xff871b1f, true, 0xffe9e4d6, {"Sustain", "Attack", "Level", "Blend"},
+   {"Classic", "Squash", "Optical", "Studio"},
+   {"The Loop Draft compressor: one knob", "Hard squeeze with a push in the mids", "Slow and gentle, lets go lazily", "Fast and a little gritty"}},
+  {7, "DST", "Distortion", 0xffe0661b, 0xffa8430c, true, 0xff1d1b18, {"Gain", "Tone", "Level", "Mids"},
+   {"Rodent", "Orange", "Stack", "Metal"},
+   {"Hard clipping behind a slow chip: thick, rounded edges", "Hard clipping, TONE scoops the middle", "An amplifier pushed hard, mids forward", "Tight lows, huge gain, middle scooped out"}},
+  {8, "FUZZ", "Fuzz", 0xff7a3fb5, 0xff4f2480, true, 0xffd8d2c0, {"Fuzz", "Tone", "Level", "Bias"},
+   {"Round", "Wall", "Bender", "Octave"},
+   {"Warm, cleans up when you play softly. BIAS makes it sputter", "Two stages in a row: endless sustain, scooped", "Bright and biting, cuts off like a gate", "An octave above rings on top"}},
+  {9, "BST", "Booster", 0xffe8e2d0, 0xffbdb59c, false, 0xff1d1b18, {"Boost", "Treble", "Level", "Bass"},
+   {"Clean", "Treble", "Preamp"},
+   {"Just more, with two tone knobs", "Mostly the top, pushed into soft clipping", "The front end of a tape echo: thicker, brighter"}},
+  {10, "TREM", "Tremolo", 0xff3e9a45, 0xff25692b, true, 0xffe9e4d6, {"Depth", "Speed", "Shape", "Pan"},
+   {"Bias", "Optical", "Harmonic", "Chop"},
+   {"The smooth throb of an amplifier", "Quick up, lazy down", "Lows and highs take turns: it swirls", "On or off"}},
+  {11, "VIB", "Vibrato", 0xff2f8fc9, 0xff1b5f8c, true, 0xff1d1b18, {"Depth", "Speed", "Mix", "Tone"},
+   {"Pitch", "Tape"}, {"Pitch wobble. MIX at noon turns it into a chorus", "Slow wow with a quick flutter on top"}},
+  {12, "FLG", "Flanger", 0xff8a5ad6, 0xff5b3699, true, 0xffe9e4d6, {"Feedbk", "Speed", "Depth", "Manual"},
+   {"Jet", "Mistress", "Zero"},
+   {"The classic take-off", "Feedback turned round: hollow and glassy", "Sweeps through the dry signal, which cancels for a moment"}},
+  {13, "ROTO", "Rotary", 0xff8c5a32, 0xff5e3a1d, true, 0xffe9e4d6, {"Depth", "Speed", "Balance", "Drive"},
+   {"Cabinet", "Simple"}, {"Horn for the highs, drum for the lows, at two speeds", "One speaker turning"}},
+  {14, "WAH", "Wah", 0xff33363d, 0xff1c1e22, true, 0xffc9ccd2, {"Depth", "Speed", "Range", "Sharp"},
+   {"Cry", "Clyde", "Bass"}, {"Narrow and sharp", "Lower and rounder, growls a little", "Keeps everything below the sweep"}},
+  {15, "AWAH", "Auto-Wah", 0xffe3c22b, 0xffb09210, false, 0xff1d1b18, {"Sens", "Peak", "Range", "Decay"},
+   {"Up", "Down", "Low-pass"}, {"Opens when you dig in", "Closes when you dig in", "The funk filter with the lows left in"}},
+  {16, "OCT", "Octaver", 0xff6b4a2e, 0xff45301d, true, 0xffe9e4d6, {"Octave", "Tone", "Dry", "Second"},
+   {"Sub", "Up"}, {"One octave down. SECOND adds two down", "One octave up. SECOND adds the one below"}},
+  {17, "RING", "Ring Mod", 0xff7d8794, 0xff525b66, true, 0xff1d1b18, {"Mix", "Pitch", "Wobble", "W-Speed"},
+   {"Sine", "Square"}, {"Bells and robots", "Harsher, more overtones"}},
+  {18, "DLY", "Delay", 0xffdce6f2, 0xffa9b8cc, false, 0xff1d1b18, {"Level", "Time", "Repeats", "Tone"},
+   {"Digital", "Analog", "Ping-pong"},
+   {"Every repeat a clean copy", "Every repeat duller and softer than the last", "Repeats jump from side to side"}},
+  {19, "TAPE", "Tape Echo", 0xff2e5e46, 0xff1b3b2b, true, 0xffe9e4d6, {"Level", "Time", "Repeats", "Age"},
+   {"Single", "Multi-head", "Worn"},
+   {"One head. REPEATS all the way up feeds itself", "Three heads along the tape", "An old machine: dark and unsteady"}},
+  {20, "VERB", "Reverb", 0xff5e7fa3, 0xff3b5575, true, 0xffe9e4d6, {"Level", "Decay", "Tone", "Pre-dly"},
+   {"Spring", "Plate", "Hall", "Cloud"},
+   {"Band-limited, with the drip of the springs", "Bright and dense", "Darker and longer", "Nearly endless, slowly turning"}},
+  {21, "GATE", "Gate", 0xff26282d, 0xff121316, true, 0xffc9ccd2, {"Thresh", "Decay", "Range", "Hold"},
+   {"Smooth", "Hard"}, {"Fades the noise out", "Slams shut"}},
 };
+// What knob `i` of a pedal is called on a given character. "" = this knob does nothing there.
+const char* knobName(const PedalSpec& sp, int voice, int i) {
+  const bool classic = voice == 0 && sp.type <= 6;               // the standard pedals as Loop Draft has them
+  if (classic) {
+    if (i == 2) return "Level";
+    if (i == 3) return "";
+    if (i == 1 && (sp.type == 1 || sp.type == 6)) return "";
+  }
+  if (i == 3) {
+    if (sp.type == 8 && (voice == 1 || voice == 3)) return "";
+    if (sp.type == 18 && voice == 1) return "Wobble";
+    if (sp.type == 20 && voice == 0) return "Dwell";
+  }
+  if (i == 2 && sp.type == 13 && voice == 1) return "";
+  return sp.knobs[i];
+}
+// What the pedal does to a wave, as a little scope trace: x 0 .. 1, result -1 .. 1.
+float pedalTrace(int type, float x) {
+  const float t = juce::MathConstants<float>::twoPi * x;
+  const auto pulses = [x](float width, float wobble) {
+    float y = 0.0f;
+    for (int n = 0; n < 5; ++n) {
+      const float c = 0.08f + 0.2f * float(n) + wobble * std::sin(float(n) * 2.1f), d = (x - c) / width;
+      y += std::exp(-d * d) * std::pow(0.62f, float(n));
+    }
+    return y * 1.8f - 0.9f;
+  };
+  switch (type) {
+    case 1: return std::tanh(2.5f * std::sin(t * 3.0f)) * 0.85f;
+    case 2: return std::round(std::sin(t * 2.0f) * 3.0f) / 3.0f * 0.85f;
+    case 3: return (std::sin(t * 3.0f) + 0.6f * std::sin(t * 3.4f + 0.6f)) * 0.55f;
+    case 4: return std::sin(t * 3.0f + 2.2f * std::sin(t)) * 0.85f;
+    case 5: { const float d = (x - 0.62f) / 0.07f; return x < 0.62f ? 0.1f + 0.75f * std::exp(-d * d) : 0.85f * std::exp(-d * d) - 0.9f * (1.0f - std::exp(-(x - 0.62f) * 9.0f)) + 0.1f * std::exp(-(x - 0.62f) * 9.0f); }
+    case 6: return std::sin(t * 7.0f) * juce::jmin(0.55f, 1.6f * std::exp(-2.2f * x));
+    case 7: return juce::jlimit(-0.6f, 0.6f, 2.5f * std::sin(t * 3.0f)) * 1.3f;
+    case 8: return std::tanh(9.0f * (std::sin(t * 3.0f) + 0.35f)) * 0.8f;
+    case 9: return std::sin(t * 5.0f) * (0.2f + 0.7f * x);
+    case 10: return std::sin(t * 14.0f) * (0.5f + 0.4f * std::sin(t * 2.0f));
+    case 11: return std::sin(t * 5.0f + 2.5f * std::sin(t * 1.5f)) * 0.8f;
+    case 12: return 0.85f - 1.7f * std::fabs(std::sin(juce::MathConstants<float>::pi * (1.0f + 5.0f * x * x)));
+    case 13: return std::sin(t * 9.0f) * std::cos(t) * 0.85f;
+    case 14: { const float d = (x - 0.5f - 0.25f * std::sin(t)) / 0.09f; return 1.7f * std::exp(-d * d) - 0.85f; }
+    case 15: return std::sin(t * 10.0f * (1.0f - 0.5f * x)) * std::exp(-2.5f * x) * 0.9f;
+    case 16: return (std::sin(t * 6.0f) * 0.4f + std::sin(t * 3.0f) * 0.55f);
+    case 17: return std::sin(t * 2.0f) * std::sin(t * 17.0f) * 0.85f;
+    case 18: return pulses(0.018f, 0.0f);
+    case 19: return pulses(0.035f, 0.015f);
+    case 20: return std::sin(t * 23.0f + 3.0f * std::sin(t * 7.0f)) * std::exp(-3.5f * x) * 0.9f;
+    case 21: return x < 0.55f ? std::sin(t * 9.0f) * 0.8f : 0.0f;
+    default: return 0.0f;
+  }
+}
 const PedalSpec* pedalSpec(int type) {
   for (const auto& sp : kPedals) if (sp.type == type) return &sp;
   return nullptr;
@@ -95,6 +183,26 @@ class Look : public juce::LookAndFeel_V4 {
     setColour(juce::ListBox::backgroundColourId, col::recess);
     setColour(juce::ListBox::outlineColourId, col::line);
     setColour(juce::ScrollBar::thumbColourId, col::line);
+  }
+  // The knob of a pedal: a cap in the pedal's own colour with a pointer, on a dark skirt.
+  void drawRotarySlider(juce::Graphics& g, int x, int y, int w, int h, float pos, float a0, float a1, juce::Slider& sl) override {
+    const float size = float(juce::jmin(w, h)) - 4.0f, cx = float(x) + float(w) * 0.5f, cy = float(y) + float(h) * 0.5f, rad = size * 0.5f;
+    const float ang = a0 + pos * (a1 - a0);
+    const juce::Colour cap = sl.findColour(juce::Slider::rotarySliderFillColourId), ink = sl.findColour(juce::Slider::rotarySliderOutlineColourId);
+    g.setColour(ink.withAlpha(0.55f));
+    for (int i = 0; i <= 10; ++i) {                              // the scale
+      const float a = a0 + float(i) / 10.0f * (a1 - a0);
+      g.fillEllipse(cx + std::sin(a) * rad - 1.2f, cy - std::cos(a) * rad - 1.2f, 2.4f, 2.4f);
+    }
+    const float r1 = rad * 0.8f, r2 = rad * 0.62f;
+    g.setColour(juce::Colours::black.withAlpha(0.35f));
+    g.fillEllipse(cx - r1, cy - r1 + 2.0f, r1 * 2.0f, r1 * 2.0f);
+    g.setColour(juce::Colour(0xff0e0e10));
+    g.fillEllipse(cx - r1, cy - r1, r1 * 2.0f, r1 * 2.0f);
+    g.setGradientFill(juce::ColourGradient(cap.brighter(0.25f), cx, cy - r2, cap.darker(0.25f), cx, cy + r2, false));
+    g.fillEllipse(cx - r2, cy - r2, r2 * 2.0f, r2 * 2.0f);
+    g.setColour(cap.getBrightness() > 0.5f ? juce::Colour(0xff141414) : juce::Colour(0xfff4f1e8));
+    g.drawLine(cx + std::sin(ang) * r2 * 0.25f, cy - std::cos(ang) * r2 * 0.25f, cx + std::sin(ang) * r1 * 0.95f, cy - std::cos(ang) * r1 * 0.95f, 2.6f);
   }
 };
 
@@ -162,6 +270,57 @@ class ParamBar : public juce::Component {
   bool dragging_ = false, setting_ = false;
 };
 
+// One knob of a pedal, with its name underneath. While it is turned the name gives way to the value.
+class Knob : public juce::Component {
+ public:
+  Knob(LoopMasterProcessor& proc, int paramId) : p_(proc), pid_(paramId) {
+    slider_.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+    slider_.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    slider_.setRange(0.0, 1.0, 0.0);
+    slider_.setDoubleClickReturnValue(true, double(ld::Session::defaultParam(paramId, 0)));
+    slider_.onDragStart = [this] { dragging_ = true; const juce::ScopedLock sl(p_.lock()); p_.session().beginEdit(); repaint(); };
+    slider_.onDragEnd = [this] { dragging_ = false; repaint(); };
+    slider_.onValueChange = [this] {
+      if (setting_) return;
+      const juce::ScopedLock sl(p_.lock());
+      if (!dragging_) p_.session().beginEdit();
+      p_.session().setParam(pid_, index_, float(slider_.getValue()));
+      repaint();
+    };
+    addAndMakeVisible(slider_);
+  }
+  void set(int index, const juce::String& label, juce::Colour cap, juce::Colour ink) {
+    index_ = index;
+    if (label != label_ || ink != ink_ || cap != cap_) {
+      label_ = label; ink_ = ink; cap_ = cap;
+      slider_.setColour(juce::Slider::rotarySliderFillColourId, cap);
+      slider_.setColour(juce::Slider::rotarySliderOutlineColourId, ink);
+      repaint();
+    }
+  }
+  // call with the lock held
+  void refresh() {
+    if (dragging_) return;
+    const double v = double(p_.session().getParam(pid_, index_));
+    if (std::abs(v - slider_.getValue()) > 1e-6) { setting_ = true; slider_.setValue(v, juce::dontSendNotification); setting_ = false; }
+  }
+  void resized() override { slider_.setBounds(getLocalBounds().withTrimmedBottom(16)); }
+  void paint(juce::Graphics& g) override {
+    g.setColour(ink_);
+    g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
+    const juce::String text = dragging_ ? juce::String(juce::roundToInt(slider_.getValue() * 100.0)) : label_.toUpperCase();
+    g.drawText(text, getLocalBounds().removeFromBottom(16), juce::Justification::centred, false);
+  }
+
+ private:
+  LoopMasterProcessor& p_;
+  juce::Slider slider_;
+  juce::String label_;
+  juce::Colour ink_, cap_;
+  int pid_, index_ = 0;
+  bool dragging_ = false, setting_ = false;
+};
+
 juce::String fmtPct(float v) { return juce::String(juce::roundToInt(v * 100.0f)) + "%"; }
 juce::String fmtInt(float v) { return juce::String(juce::roundToInt(v)); }
 juce::String fmtOne(float v) { return juce::String(v, 1); }
@@ -214,8 +373,9 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   int fxTrack = 0;
   juce::TextButton fxTrackBtn[5], pedalOn[3], pedalLeft[3], pedalRight[3];
   juce::ComboBox pedalBox[3];
-  std::unique_ptr<ParamBar> pedalA[3], pedalR[3];
-  juce::Rectangle<int> pedalArea[3];
+  std::unique_ptr<Knob> pedalKnob[3][4];
+  juce::TextButton voiceBtn[3][4];
+  juce::Rectangle<int> pedalArea[3], traceArea[3], aboutArea[3];
 
   // library
   juce::TextButton kindBtn[3], loadBtn{"LOAD INTO PROJECT"}, tempoBtn{"TAKE TEMPO AND KEY"};
@@ -230,6 +390,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   explicit Body(LoopMasterProcessor& proc) : p(proc), list("library", this) {
     setLookAndFeel(&look);
     tab = juce::jlimit(0, 4, juce::SystemStats::getEnvironmentVariable("LOOPMASTER_TAB", "0").getIntValue());   // for screenshots
+    {  // also for screenshots: LOOPMASTER_PEDALS="7:1,19:2,20:3" puts those pedals (type:character) on the bass
+      juce::StringArray want;
+      want.addTokens(juce::SystemStats::getEnvironmentVariable("LOOPMASTER_PEDALS", ""), ",", "");
+      const juce::ScopedLock sl(p.lock());
+      for (int i = 0; i < juce::jmin(3, want.size()); ++i) {
+        if (want[i].isEmpty()) continue;
+        p.session().setFxSlot(1, i, want[i].upToFirstOccurrenceOf(":", false, false).getIntValue(), 0.6f, 0.45f, i == 2 && want.size() > 3);
+        p.session().setFxVoice(1, i, want[i].fromFirstOccurrenceOf(":", false, false).getIntValue());
+        fxTrack = 1;
+      }
+    }
     const auto button = [this](juce::TextButton& b, std::function<void()> fn) {
       b.onClick = std::move(fn);
       addAndMakeVisible(b);
@@ -407,11 +578,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       pedalRight[i].setButtonText(">");
       pedalLeft[i].onClick = [this, i] { swapPedals(i, i - 1); };
       pedalRight[i].onClick = [this, i] { swapPedals(i, i + 1); };
-      pedalA[i] = std::make_unique<ParamBar>(p, "-", ld::P_FX_SLOT1_AMOUNT + 2 * i, 0, 0.0f, 1.0f, fmtPct);
-      pedalR[i] = std::make_unique<ParamBar>(p, "-", ld::P_FX_SLOT1_RATE + 2 * i, 0, 0.0f, 1.0f, fmtPct);
+      static const int ids[3][4] = {{ld::P_FX_SLOT1_AMOUNT, ld::P_FX_SLOT1_RATE, ld::P_FX_SLOT1_P3, ld::P_FX_SLOT1_P4},
+                                    {ld::P_FX_SLOT2_AMOUNT, ld::P_FX_SLOT2_RATE, ld::P_FX_SLOT2_P3, ld::P_FX_SLOT2_P4},
+                                    {ld::P_FX_SLOT3_AMOUNT, ld::P_FX_SLOT3_RATE, ld::P_FX_SLOT3_P3, ld::P_FX_SLOT3_P4}};
+      for (int k = 0; k < 4; ++k) {
+        pedalKnob[i][k] = std::make_unique<Knob>(p, ids[i][k]);
+        addChildComponent(pedalKnob[i][k].get());
+        voiceBtn[i][k].onClick = [this, i, k] { const juce::ScopedLock sl(p.lock()); p.session().setFxVoice(fxTrack, i, k); };
+        addChildComponent(voiceBtn[i][k]);
+      }
       for (juce::Component* c : {static_cast<juce::Component*>(&pedalBox[i]), static_cast<juce::Component*>(&pedalOn[i]),
-                                 static_cast<juce::Component*>(&pedalLeft[i]), static_cast<juce::Component*>(&pedalRight[i]),
-                                 static_cast<juce::Component*>(pedalA[i].get()), static_cast<juce::Component*>(pedalR[i].get())})
+                                 static_cast<juce::Component*>(&pedalLeft[i]), static_cast<juce::Component*>(&pedalRight[i])})
         addChildComponent(c);
     }
 
@@ -535,7 +712,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     for (auto& b : fxTrackBtn) b.setVisible(f);
     for (int i = 0; i < 3; ++i) {
       pedalBox[i].setVisible(f); pedalOn[i].setVisible(f); pedalLeft[i].setVisible(f); pedalRight[i].setVisible(f);
-      pedalA[i]->setVisible(f); pedalR[i]->setVisible(f);
+      for (int k = 0; k < 4; ++k) { pedalKnob[i][k]->setVisible(f); voiceBtn[i][k].setVisible(f); }
     }
     for (auto& b : kindBtn) b.setVisible(l);
     loadBtn.setVisible(l); tempoBtn.setVisible(l); styleBox.setVisible(l); list.setVisible(l);
@@ -613,19 +790,27 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       auto line1 = a.removeFromTop(28);
       for (auto& b : fxTrackBtn) { b.setBounds(line1.removeFromLeft(86)); line1.removeFromLeft(4); }
       a.removeFromTop(34);                                      // the signal path, painted
-      const int gap = 26, pw = juce::jmin(280, (a.getWidth() - 2 * gap) / 3), ph = juce::jmin(a.getHeight(), 330);
+      const int gap = 26, pw = juce::jmin(300, (a.getWidth() - 2 * gap) / 3), ph = juce::jmin(a.getHeight(), 430);
       const int x0 = a.getX() + (a.getWidth() - (3 * pw + 2 * gap)) / 2;
       for (int i = 0; i < 3; ++i) {
         pedalArea[i] = juce::Rectangle<int>(x0 + i * (pw + gap), a.getY(), pw, ph);
-        auto c = pedalArea[i].reduced(16, 14);
-        c.removeFromTop(64);                                    // name and light, painted
-        pedalBox[i].setBounds(c.removeFromTop(28)); c.removeFromTop(12);
-        pedalA[i]->setBounds(c.removeFromTop(32)); c.removeFromTop(8);
-        pedalR[i]->setBounds(c.removeFromTop(32)); c.removeFromTop(14);
-        auto foot = c.removeFromBottom(46);
-        pedalLeft[i].setBounds(foot.removeFromLeft(40).reduced(0, 8));
-        pedalRight[i].setBounds(foot.removeFromRight(40).reduced(0, 8));
-        pedalOn[i].setBounds(foot.reduced(10, 0));
+        auto c = pedalArea[i].reduced(14, 12);
+        c.removeFromTop(44);                                    // name and light, painted
+        traceArea[i] = c.removeFromTop(juce::jmax(30, ph / 9)); c.removeFromTop(10);
+        auto knobs = c.removeFromTop(juce::jmin(84, c.getWidth() / 4 + 16));
+        const int kw = knobs.getWidth() / 4;
+        for (int k = 0; k < 4; ++k) pedalKnob[i][k]->setBounds(knobs.removeFromLeft(kw).reduced(2, 0));
+        c.removeFromTop(8);
+        auto voices = c.removeFromTop(24);
+        const int vw = voices.getWidth() / 4;
+        for (int k = 0; k < 4; ++k) voiceBtn[i][k].setBounds(voices.removeFromLeft(vw).reduced(1, 0));
+        aboutArea[i] = c.removeFromTop(32);
+        auto foot = c.removeFromBottom(44);
+        pedalLeft[i].setBounds(foot.removeFromLeft(36).reduced(0, 8));
+        pedalRight[i].setBounds(foot.removeFromRight(36).reduced(0, 8));
+        pedalOn[i].setBounds(foot.reduced(12, 0));
+        c.removeFromBottom(8);
+        pedalBox[i].setBounds(c.removeFromBottom(26));
       }
     } else if (tab == 3) {
       auto a = r;
@@ -763,8 +948,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     if (a < 0 || b < 0 || a > 2 || b > 2) return;
     const juce::ScopedLock sl(p.lock());
     const ld::FxSlot sa = p.session().project().fx[fxTrack].slots[a], sb = p.session().project().fx[fxTrack].slots[b];
-    p.session().setFxSlot(fxTrack, a, int(sb.type), sb.amount, sb.rate, sb.bypass);            // one undo step for both
-    p.session().setFxSlot(fxTrack, b, int(sa.type), sa.amount, sa.rate, sa.bypass, false);
+    p.session().setFxSlotFull(fxTrack, a, sb);                                                 // one undo step for both
+    p.session().setFxSlotFull(fxTrack, b, sa, false);
   }
 
   void paintPedals(juce::Graphics& g) {
@@ -799,19 +984,51 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       g.fillRoundedRectangle(box, 12.0f);
       g.setColour(juce::Colours::black.withAlpha(0.45f));
       g.drawRoundedRectangle(box.reduced(1.0f), 12.0f, 2.0f);
+      g.setColour(juce::Colours::white.withAlpha(0.18f));       // the edge catches the light
+      g.drawRoundedRectangle(box.reduced(4.0f), 9.0f, 1.0f);
       const juce::Colour ink = sp->lightInk ? juce::Colour(0xfff7f7f7) : juce::Colour(0xff1a1408);
+      for (int corner = 0; corner < 4; ++corner) {              // four screws
+        const float sx = corner % 2 ? box.getRight() - 11.0f : box.getX() + 11.0f, sy = corner / 2 ? box.getBottom() - 11.0f : box.getY() + 11.0f;
+        g.setColour(juce::Colours::black.withAlpha(0.4f));
+        g.fillEllipse(sx - 3.5f, sy - 3.5f, 7.0f, 7.0f);
+        g.setColour(juce::Colour(0xffb9bcc2));
+        g.fillEllipse(sx - 2.6f, sy - 2.6f, 5.2f, 5.2f);
+        g.setColour(juce::Colour(0xff4a4d52));
+        g.drawLine(sx - 1.8f, sy - 1.8f, sx + 1.8f, sy + 1.8f, 1.0f);
+      }
       g.setColour(ink);
-      g.setFont(juce::Font(juce::FontOptions(20.0f, juce::Font::bold)));
-      g.drawText(juce::String(sp->name).toUpperCase(), pedalArea[i].getX() + 16, pedalArea[i].getY() + 14, pedalArea[i].getWidth() - 60, 26, juce::Justification::centredLeft, true);
-      g.setFont(juce::Font(juce::FontOptions(12.0f)));
-      g.setColour(ink.withAlpha(0.75f));
-      g.drawText(juce::String(sp->code) + "  -  slot " + juce::String(i + 1), pedalArea[i].getX() + 16, pedalArea[i].getY() + 42, pedalArea[i].getWidth() - 60, 16, juce::Justification::centredLeft, true);
+      g.setFont(juce::Font(juce::FontOptions(19.0f, juce::Font::bold)));
+      g.drawText(juce::String(sp->name).toUpperCase(), pedalArea[i].getX() + 22, pedalArea[i].getY() + 12, pedalArea[i].getWidth() - 100, 24, juce::Justification::centredLeft, true);
+      g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
+      g.setColour(ink.withAlpha(0.7f));
+      g.drawText("LM-" + juce::String(sp->type).paddedLeft('0', 2) + "  " + sp->code, pedalArea[i].getX() + 22, pedalArea[i].getY() + 35, pedalArea[i].getWidth() - 100, 14, juce::Justification::centredLeft, true);
       // the light
-      const juce::Rectangle<float> led(box.getRight() - 38.0f, box.getY() + 18.0f, 16.0f, 16.0f);
+      const juce::Rectangle<float> led(box.getRight() - 42.0f, box.getY() + 18.0f, 14.0f, 14.0f);
       g.setColour(juce::Colours::black.withAlpha(0.6f));
-      g.fillEllipse(led.expanded(2.0f));
-      g.setColour(sl.bypass ? juce::Colour(0xff4a1a1a) : col::red.brighter(0.3f));
+      g.fillEllipse(led.expanded(2.5f));
+      if (!sl.bypass) { g.setColour(col::red.withAlpha(0.35f)); g.fillEllipse(led.expanded(6.0f)); }
+      g.setColour(sl.bypass ? juce::Colour(0xff4a1a1a) : col::red.brighter(0.4f));
       g.fillEllipse(led);
+      // the scope: what this pedal does to a wave
+      const auto tr = traceArea[i].toFloat();
+      g.setColour(juce::Colour(0xff0d0f10));
+      g.fillRoundedRectangle(tr, 5.0f);
+      g.setColour(juce::Colours::white.withAlpha(0.07f));
+      g.drawHorizontalLine(int(tr.getCentreY()), tr.getX() + 4.0f, tr.getRight() - 4.0f);
+      juce::Path wave;
+      const int n = int(tr.getWidth()) - 12;
+      for (int px = 0; px <= n; ++px) {
+        const float v = juce::jlimit(-1.0f, 1.0f, pedalTrace(sp->type, float(px) / float(n)));
+        const float wx = tr.getX() + 6.0f + float(px), wy = tr.getCentreY() - v * (tr.getHeight() * 0.5f - 5.0f);
+        if (px == 0) wave.startNewSubPath(wx, wy); else wave.lineTo(wx, wy);
+      }
+      g.setColour(sl.bypass ? top.withMultipliedSaturation(0.3f).withAlpha(0.5f) : top.brighter(0.5f));
+      g.strokePath(wave, juce::PathStrokeType(1.8f));
+      // what the chosen character is
+      g.setColour(ink.withAlpha(0.85f));
+      g.setFont(juce::Font(juce::FontOptions(11.5f)));
+      const int voice = juce::jlimit(0, 3, int(sl.voice));
+      if (sp->about[voice]) g.drawFittedText(sp->about[voice], aboutArea[i].reduced(2, 2), juce::Justification::centred, 2);
     }
   }
 
@@ -913,10 +1130,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
           const ld::FxSlot& sl = s.project().fx[fxTrack].slots[i];
           const PedalSpec* sp = pedalSpec(int(sl.type));
           pedalBox[i].setSelectedId(sp ? sp->type + 1 : 1, juce::dontSendNotification);
-          pedalA[i]->setIndex(fxTrack); pedalR[i]->setIndex(fxTrack);
-          pedalA[i]->setLabel(sp ? sp->knob1 : "-"); pedalR[i]->setLabel(sp && sp->knob2[0] ? sp->knob2 : "-");
-          pedalA[i]->setVisible(sp != nullptr); pedalR[i]->setVisible(sp != nullptr && sp->knob2[0] != 0);
-          pedalA[i]->refresh(); pedalR[i]->refresh();
+          const int voice = juce::jlimit(0, 3, int(sl.voice));
+          const juce::Colour ink = sp && !sp->lightInk ? juce::Colour(0xff1a1408) : juce::Colour(0xfff7f7f7);
+          for (int k = 0; k < 4; ++k) {
+            const char* name = sp ? knobName(*sp, voice, k) : "";
+            pedalKnob[i][k]->setVisible(name[0] != 0);
+            pedalKnob[i][k]->set(fxTrack, name, juce::Colour(sp ? sp->cap : 0xff1d1b18), ink);
+            pedalKnob[i][k]->refresh();
+            const bool has = sp != nullptr && k < int(ld::kFxVoices[sp->type]) && ld::kFxVoices[sp->type] > 1;
+            voiceBtn[i][k].setVisible(has);
+            if (has) { voiceBtn[i][k].setButtonText(sp->voices[k]); voiceBtn[i][k].setToggleState(k == voice, juce::dontSendNotification); }
+          }
           pedalOn[i].setVisible(sp != nullptr);
           pedalOn[i].setButtonText(sl.bypass ? "OFF" : "ON");
           pedalOn[i].setToggleState(sp != nullptr && !sl.bypass, juce::dontSendNotification);
