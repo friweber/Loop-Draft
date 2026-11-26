@@ -88,6 +88,31 @@ int main() {
   run(400);
   check(drums > drumsBefore * 0.5, "and up again");
 
+  {  // Loop Master Live: the filter and a held effect act on the whole mix
+    run(400);
+    const double plain = mainOut;
+    p.setLiveFilter(-1.0f);                                    // all highs off
+    run(60); run(400);
+    check(mainOut < plain * 0.8, "live: the filter takes sound away");
+    p.setLiveFilter(0.0f);
+    run(60); run(400);
+    check(mainOut > plain * 0.8, "live: and gives it back in the middle");
+    p.liveFx(2, true);                                         // CRUSH
+    run(60); run(400);
+    const double crushed = mainOut;
+    check(std::abs(crushed - plain) > plain * 0.05 && p.liveFxHeld() == 2, "live: a held effect changes the mix");
+    p.liveFx(2, false);
+    run(60); run(400);
+    check(std::abs(mainOut - plain) < std::abs(crushed - plain) * 0.6 && p.liveFxHeld() < 0, "live: let go, the mix is back");
+    p.liveSolo(1);
+    run(60); run(400);
+    check(drums < plain * 0.001 && p.liveSoloed() == 1, "solo silences the other tracks");
+    p.liveSolo(1);
+    run(60); run(400);
+    check(drums > 1.0 && p.liveSoloed() < 0, "and brings them back");
+    check(p.liveMapName(LoopMasterProcessor::kLiveFilter).isEmpty(), "nothing is tied to a controller to begin with");
+  }
+
   head.playing = false;
   run(600);                                                    // delay and reverb ring out
   run(50);
@@ -114,6 +139,8 @@ int main() {
   p.setSongMode(true);
   p.setSongLoop(true);
   p.midiFolder = "/somewhere/midi";
+  p.setSongStartBar(9);
+  p.liveMode = true; p.guideSeen = true; p.fewerControls = true;
   juce::MemoryBlock state;
   p.getStateInformation(state);
   check(state.getSize() > 1000, "state is written");
@@ -126,6 +153,7 @@ int main() {
           "the host's session brings the project back");
   }
   check(q.songMode(), "song mode comes back");
+  check(q.songStartBar() == 9 && q.liveMode && q.guideSeen && q.fewerControls, "the song's first bar and the editor's settings come back");
   check(q.songLoop() && q.midiFolder == "/somewhere/midi", "and so do the song's end and the MIDI folder");
   {
     const juce::ScopedLock sl(q.lock());

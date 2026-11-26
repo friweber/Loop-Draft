@@ -70,6 +70,7 @@ LoopMasterProcessor::LoopMasterProcessor()
   syncRaw_ = params.getRawParameterValue("sync");
   midiTrackRaw_ = params.getRawParameterValue("miditrack");
   session_->engine().setSongLoop(false);          // in a host the song ends where it ends
+  for (auto& ch : noteTaken_) for (auto& n : ch) n.store(false);
 
   buildLibrary();
   adoptProjectValues();
@@ -119,6 +120,24 @@ void LoopMasterProcessor::adoptProjectValues() {
 void LoopMasterProcessor::timerCallback() {
   const juce::ScopedLock sl(sessionLock_);
   session_->poll();
+  {  // keys and knobs of a controller that are tied to something live
+    const auto scope = liveFifo_.read(liveFifo_.getNumReady());
+    const auto handle = [this](const LiveEvent& ev) {
+      const bool isNote = ev.kind == 2, down = isNote ? ev.val > 0 : ev.val >= 64;
+      const int want = learn_.load();
+      if (want >= 0 && want < kLiveTargets) {
+        if (isNote && !down) return;
+        liveMap_[want] = LiveMap{int(ev.kind), int(ev.ch), int(ev.num)};
+        learn_.store(-1);
+        rebuildNoteMap();
+        return;
+      }
+      for (int t = 0; t < kLiveTargets; ++t)
+        if (liveMap_[t].kind == int(ev.kind) && liveMap_[t].ch == int(ev.ch) && liveMap_[t].num == int(ev.num)) applyLive(t, int(ev.val), isNote, down);
+    };
+    for (int i = 0; i < scope.blockSize1; ++i) handle(liveEvents_[scope.startIndex1 + i]);
+    for (int i = 0; i < scope.blockSize2; ++i) handle(liveEvents_[scope.startIndex2 + i]);
+  }
   // A host parameter that moved (automation, a control in the editor) goes into the project.
   // A project value that moved (undo, a preset from the library) goes to the host parameter.
   for (size_t i = 0; i < maps_.size(); ++i) {
@@ -155,6 +174,7 @@ void LoopMasterProcessor::prepareToPlay(double sampleRate, int) {
   else session_->loadStartPreset();
   session_->engine().setSongMode(songMode_.load());
   session_->engine().setSongLoop(songLoop_.load());
+  session_->engine().setDjFilter(djFilter_);
   lastScene_ = -1;
 }
 
@@ -176,6 +196,18 @@ void LoopMasterProcessor::handleMidi(const juce::MidiMessage& m) {
     track = ch == 10 ? 0 : (ch >= 1 && ch <= ld::kNumSynths ? ch : 1);
   } else {
     track = target - 1;
+  }
+  // Loop Master Live: controllers, and the notes that are tied to something, go to the message thread
+  const int chan = juce::jlimit(1, 16, m.getChannel());
+  const bool learning = learn_.load(std::memory_order_relaxed) >= 0;
+  if (m.isController() || ((m.isNoteOn() || m.isNoteOff()) && (learning || noteTaken_[chan - 1][m.getNoteNumber()].load(std::memory_order_relaxed)))) {
+    if (m.isController() && (m.getControllerNumber() >= 120)) { if (m.isAllNotesOff() || m.isAllSoundOff()) e.rtAllNotesOff(); return; }
+    const auto scope = liveFifo_.write(1);
+    if (scope.blockSize1 > 0)
+      liveEvents_[scope.startIndex1] = LiveEvent{uint8_t(m.isController() ? 1 : 2), uint8_t(chan),
+                                                 uint8_t(m.isController() ? m.getControllerNumber() : m.getNoteNumber()),
+                                                 uint8_t(m.isController() ? m.getControllerValue() : (m.isNoteOn() ? m.getVelocity() : 0))};
+    return;
   }
   if (m.isNoteOn()) {
     const int vel = m.getVelocity() >= 100 ? 2 : 1;
@@ -234,7 +266,7 @@ void LoopMasterProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::M
         const auto ppq = pos->getPpqPosition();
         const auto bpm = pos->getBpm();
         if (ppq.hasValue() && bpm.hasValue()) {
-          e.hostTransport(pos->getIsPlaying(), *ppq, *bpm);
+          e.hostTransport(pos->getIsPlaying(), *ppq - (songMode_.load() ? double(songStartBar_.load() - 1) * 4.0 : 0.0), *bpm);
           shownBpm_.store(*bpm);
           leads = true;
           plays = pos->getIsPlaying();
@@ -296,6 +328,15 @@ void LoopMasterProcessor::getStateInformation(juce::MemoryBlock& destData) {
   root.setProperty("songMode", songMode_.load(), nullptr);
   root.setProperty("songLoop", songLoop_.load(), nullptr);
   root.setProperty("midiFolder", midiFolder, nullptr);
+  root.setProperty("songStartBar", songStartBar_.load(), nullptr);
+  root.setProperty("liveMode", liveMode, nullptr);
+  root.setProperty("guideSeen", guideSeen, nullptr);
+  root.setProperty("fewerControls", fewerControls, nullptr);
+  {
+    juce::String map;
+    for (const auto& lm : liveMap_) map << lm.kind << ":" << lm.ch << ":" << lm.num << ",";
+    root.setProperty("liveMap", map, nullptr);
+  }
   juce::MemoryBlock project, breakWav;
   if (projectToMemory(project, breakWav)) {
     root.setProperty("project", project, nullptr);
@@ -318,6 +359,23 @@ void LoopMasterProcessor::setStateInformation(const void* data, int sizeInBytes)
   setSongMode(bool(root.getProperty("songMode", false)));
   setSongLoop(bool(root.getProperty("songLoop", false)));
   midiFolder = root.getProperty("midiFolder", juce::String()).toString();
+  setSongStartBar(int(root.getProperty("songStartBar", 1)));
+  liveMode = bool(root.getProperty("liveMode", false));
+  guideSeen = bool(root.getProperty("guideSeen", false));
+  fewerControls = bool(root.getProperty("fewerControls", false));
+  {
+    juce::StringArray parts;
+    parts.addTokens(root.getProperty("liveMap", juce::String()).toString(), ",", "");
+    const juce::ScopedLock sl(sessionLock_);
+    for (int t = 0; t < kLiveTargets; ++t) {
+      liveMap_[t] = LiveMap{};
+      if (t >= parts.size()) continue;
+      juce::StringArray f;
+      f.addTokens(parts[t], ":", "");
+      if (f.size() == 3) liveMap_[t] = LiveMap{juce::jlimit(0, 2, f[0].getIntValue()), juce::jlimit(0, 16, f[1].getIntValue()), juce::jlimit(0, 127, f[2].getIntValue())};
+    }
+    rebuildNoteMap();
+  }
   const juce::ValueTree saved = root.getChildWithName(params.state.getType());
   if (saved.isValid()) params.replaceState(saved);
   // The project is the truth for the controls it holds; the saved parameters agree with it anyway.
@@ -344,6 +402,114 @@ juce::String LoopMasterProcessor::importLibrary(const LibraryEntry& entry, int s
   std::string err;
   if (session_->importContent(std::string(entry.data, size_t(entry.size)), target, err)) return {};
   return juce::String(err.empty() ? "could not be loaded" : err);
+}
+
+// ---- Loop Master Live ----
+
+namespace {
+struct LiveFx { const char* name; ld::FxType type; int voice; float a, r, p3, p4; };
+const LiveFx kLiveFx[LoopMasterProcessor::kLiveFxCount] = {
+  {"STUTTER", ld::FxType::Slicer, 1, 1.0f, 0.6f, 1.0f, 1.0f},        // the last sixteenth, again and again
+  {"GATE", ld::FxType::Slicer, 0, 1.0f, 0.6f, 0.45f, 0.45f},
+  {"CRUSH", ld::FxType::Crusher, 2, 0.8f, 0.5f, 0.6f, 0.5f},
+  {"ECHO", ld::FxType::DubDelay, 1, 0.8f, 0.6f, 0.75f, 0.35f},       // dotted eighths from side to side, ringing out
+  {"WASH", ld::FxType::Reverb, 3, 0.9f, 0.8f, 0.5f, 0.3f},
+  {"LO-FI", ld::FxType::LoFi, 2, 0.9f, 0.9f, 0.6f, 0.7f},
+};
+}  // namespace
+
+const char* LoopMasterProcessor::liveFxName(int i) { return i >= 0 && i < kLiveFxCount ? kLiveFx[i].name : ""; }
+
+void LoopMasterProcessor::liveFx(int i, bool down) {
+  const juce::ScopedLock sl(sessionLock_);
+  ld::Engine& e = session_->engine();
+  if (down && i >= 0 && i < kLiveFxCount) {
+    const LiveFx& f = kLiveFx[i];
+    e.setPerformFx(int(f.type), f.voice, f.a, f.r, f.p3, f.p4);
+    e.holdPerformFx(true);
+    fxHeld_ = i;
+  } else if (!down && (i == fxHeld_ || i < 0)) {
+    e.holdPerformFx(false);
+    fxHeld_ = -1;
+  }
+}
+
+void LoopMasterProcessor::setLiveFilter(float v) {
+  const juce::ScopedLock sl(sessionLock_);
+  djFilter_ = std::abs(v) < 0.04f ? 0.0f : juce::jlimit(-1.0f, 1.0f, v);   // a little rest in the middle
+  session_->engine().setDjFilter(djFilter_);
+}
+
+void LoopMasterProcessor::liveToggleMute(int track) {
+  if (track < 0 || track >= ld::kNumTracks) return;
+  const juce::ScopedLock sl(sessionLock_);
+  solo_ = -1;
+  session_->beginEdit();
+  session_->setParam(ld::P_FX_MUTE, track, session_->getParam(ld::P_FX_MUTE, track) > 0.5f ? 0.0f : 1.0f);
+}
+
+void LoopMasterProcessor::liveSolo(int track) {
+  const juce::ScopedLock sl(sessionLock_);
+  if (track == solo_) track = -1;
+  session_->beginEdit();
+  if (solo_ < 0 && track >= 0) for (int t = 0; t < ld::kNumTracks; ++t) soloWas_[t] = session_->getParam(ld::P_FX_MUTE, t) > 0.5f;
+  for (int t = 0; t < ld::kNumTracks; ++t) session_->setParam(ld::P_FX_MUTE, t, track < 0 ? (soloWas_[t] ? 1.0f : 0.0f) : (t == track ? 0.0f : 1.0f));
+  solo_ = track;
+}
+
+void LoopMasterProcessor::livePlayStop() {
+  if (hostPlays_.load()) return;
+  const juce::ScopedLock sl(sessionLock_);
+  ld::Engine& e = session_->engine();
+  if (e.isPlaying()) e.stop(); else e.play(e.currentScene());
+}
+
+void LoopMasterProcessor::applyLive(int target, int value, bool isNote, bool down) {
+  if (target >= kLiveGroove && target < kLiveGroove + 8) { if (down) setScene(target - kLiveGroove); }
+  else if (target >= kLiveMute && target < kLiveMute + ld::kNumTracks) { if (down) liveToggleMute(target - kLiveMute); }
+  else if (target >= kLiveLevel && target < kLiveLevel + ld::kNumTracks) {
+    if (isNote) return;
+    if (auto* hp = params.getParameter("lvl" + juce::String(target - kLiveLevel))) hp->setValueNotifyingHost(float(value) / 127.0f);
+  }
+  else if (target >= kLiveFx && target < kLiveFx + kLiveFxCount) liveFx(target - kLiveFx, down);
+  else if (target == kLiveFilter) { if (!isNote) setLiveFilter(float(value) / 63.5f - 1.0f); }
+  else if (target == kLivePlay) { if (down) livePlayStop(); }
+}
+
+void LoopMasterProcessor::rebuildNoteMap() {
+  for (auto& ch : noteTaken_) for (auto& n : ch) n.store(false);
+  for (const auto& lm : liveMap_) if (lm.kind == 2 && lm.ch >= 1 && lm.ch <= 16) noteTaken_[lm.ch - 1][lm.num].store(true);
+}
+
+void LoopMasterProcessor::liveForget(int target) {
+  if (target < 0 || target >= kLiveTargets) return;
+  const juce::ScopedLock sl(sessionLock_);
+  liveMap_[target] = LiveMap{};
+  rebuildNoteMap();
+}
+
+juce::String LoopMasterProcessor::liveMapName(int target) const {
+  if (target < 0 || target >= kLiveTargets) return {};
+  const LiveMap& lm = liveMap_[target];
+  if (lm.kind == 1) return "CC " + juce::String(lm.num);
+  if (lm.kind == 2) return juce::MidiMessage::getMidiNoteName(lm.num, true, true, 3);
+  return {};
+}
+
+float LoopMasterProcessor::shownParam(int pid, int index) {
+  ld::Session& s = *session_;
+  const ld::Engine& e = s.engine();
+  if (e.isPlaying() && !s.previewing()) {
+    const int sc = e.currentScene(), st = e.currentStep();
+    const int lane = st >= 0 ? s.findLane(sc, pid, index) : -1;
+    if (lane >= 0) {
+      const ld::SceneLane& ln = s.project().scenes[sc].lanes[lane];
+      const float beat = float(st) * 0.25f;
+      const int b0 = juce::jlimit(0, ld::kLanePoints - 2, int(beat));
+      return ln.points[b0] + (beat - float(b0)) * (ln.points[b0 + 1] - ln.points[b0]);
+    }
+  }
+  return s.getParam(pid, index);
 }
 
 void LoopMasterProcessor::setSongLoop(bool on) {

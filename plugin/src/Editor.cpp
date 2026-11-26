@@ -455,7 +455,7 @@ class Knob : public juce::Component {
   // call with the lock held
   void refresh() {
     if (dragging_) return;
-    const double v = double(p_.session().getParam(pid_, index_));
+    const double v = double(p_.shownParam(pid_, index_));              // follows a recorded movement while it plays
     if (std::abs(v - slider_.getValue()) > 1e-6) { setting_ = true; slider_.setValue(v, juce::dontSendNotification); setting_ = false; }
   }
   void resized() override { slider_.setBounds(getLocalBounds().withTrimmedBottom(16)); }
@@ -488,6 +488,8 @@ juce::String fmtPan(float v) {
   if (v > 0.02f) return "R" + juce::String(juce::roundToInt(v * 100.0f));
   return "centre";
 }
+
+#include "LiveAndGuide.inc"
 
 }  // namespace
 
@@ -559,6 +561,13 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
 
   // pedals
   int fxTrack = 0, pedalPage = 0;
+  juce::TextButton menuBtn{"MENU"}, boardsBtn{"BOARDS"}, soloBtn[ld::kNumTracks], barCopy{"COPY"}, barPaste{"PASTE"}, songDup{"DUP"}, startDown{"-"}, startUp{"+"};
+  std::shared_ptr<ld::Scene> barClip;                         // the bar that was copied
+  juce::String hover;                                         // what the control under the mouse says about itself
+  int songDragFrom = -1;
+  juce::Rectangle<int> startArea;
+  LiveView live{p};
+  GuideView guide;
   juce::Rectangle<int> chipArea[ld::kFxSlots];
   int slotOf(int i) const { return pedalPage * 3 + i; }
   juce::TextButton fxTrackBtn[5], pedalOn[3], pedalLeft[3], pedalRight[3];
@@ -621,6 +630,18 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     button(songBtn, [this] { p.setSongMode(!p.songMode()); });
     button(bpmDown, [this] { nudgeBpm(-1); });
     button(bpmUp, [this] { nudgeBpm(1); });
+    button(menuBtn, [this] {
+      juce::PopupMenu m;
+      m.addItem(1, "Loop Master Live: the screen for playing a set");
+      m.addItem(2, "Guide: how this page works");
+      m.addSeparator();
+      m.addItem(3, "Fewer pedal controls", true, p.fewerControls);
+      m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&menuBtn), [this](int r) {
+        if (r == 1) setLive(true);
+        else if (r == 2) guide.show(tab);
+        else if (r == 3) p.fewerControls = !p.fewerControls;
+      });
+    });
     for (int i = 0; i < 8; ++i) {
       sceneBtn[i].setButtonText(kSceneNames[i]);
       button(sceneBtn[i], [this, i] { p.setScene(i); bar = 0; });
@@ -905,7 +926,126 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     fillStyles();
     filterLibrary();
 
+    // bar clipboard
+    button(barCopy, [this] {
+      const juce::ScopedLock sl(p.lock());
+      barClip = std::make_shared<ld::Scene>();
+      p.session().copyBar(scene(), bar, *barClip);
+      message = "Bar " + juce::String(bar + 1) + " is copied. Open another bar (or groove) and press PASTE.";
+    });
+    button(barPaste, [this] {
+      if (!barClip) return;
+      const juce::ScopedLock sl(p.lock());
+      p.session().pasteBar(scene(), bar, *barClip, tab == 0 ? 0 : 1 + synth);
+    });
+    // pedal boards
+    boardsBtn.onClick = [this] {
+      juce::PopupMenu m;
+      const char* group = "";
+      for (int i = 0; i < kNumBoards; ++i) {
+        if (juce::String(group) != kBoards[i].group) { group = kBoards[i].group; m.addSectionHeader(juce::String("Made for ") + group); }
+        m.addItem(i + 1, kBoards[i].name);
+      }
+      m.addSeparator();
+      m.addItem(1000, "Empty board");
+      m.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&boardsBtn), [this](int r) {
+        if (r <= 0) return;
+        const juce::ScopedLock sl(p.lock());
+        for (int slot = 0; slot < ld::kFxSlots; ++slot) {
+          ld::FxSlot fs;
+          if (r != 1000 && slot < 4 && kBoards[r - 1].s[slot].type > 0) {
+            const BoardSlot& b = kBoards[r - 1].s[slot];
+            fs.type = ld::FxType(b.type); fs.voice = uint8_t(b.voice); fs.amount = b.a; fs.rate = b.r; fs.p3 = b.p3; fs.p4 = b.p4; fs.mix = b.mix; fs.flags = uint8_t(b.flags);
+          }
+          p.session().setFxSlotFull(fxTrack, slot, fs, slot == 0);       // one undo step for the whole board
+        }
+        pedalPage = 0;
+        message = r == 1000 ? juce::String("The board is empty.") : juce::String(kBoards[r - 1].name) + " is on " + kTrackNames[fxTrack] + ". UNDO takes it off again.";
+      });
+    };
+    addChildComponent(boardsBtn);
+    for (int t = 0; t < ld::kNumTracks; ++t) {
+      soloBtn[t].setButtonText("SOLO");
+      soloBtn[t].onClick = [this, t] { p.liveSolo(t); };
+      addChildComponent(soloBtn[t]);
+    }
+    songDup.onClick = [this] {
+      const juce::ScopedLock sl(p.lock());
+      const ld::Project& pr = p.session().project();
+      if (pr.chainLen >= ld::kMaxChain || songSel < 0 || songSel >= pr.chainLen) return;
+      p.session().chainInsert(songSel + 1, pr.chain[songSel]);
+      ++songSel;
+    };
+    startDown.onClick = [this] { p.setSongStartBar(p.songStartBar() - 1); };
+    startUp.onClick = [this] { p.setSongStartBar(p.songStartBar() + 1); };
+    for (auto* b : {&songDup, &startDown, &startUp}) addChildComponent(b);
+
+    // one sentence about every control, shown at the bottom while the mouse is over it
+    help(menuBtn, "MENU: Loop Master Live for playing a set, the guide for this page, and fewer controls on the pedals.");
+    help(openBtn, "Opens a project file (.ldp): from Loop Master or from Loop Draft on your phone.");
+    help(saveBtn, "Saves the project as a file. Your DAW also keeps it inside its own project.");
+    help(undoBtn, "Takes back the last change."); help(redoBtn, "Brings back what UNDO took away.");
+    help(playBtn, "Starts and stops. While your DAW is playing, its own play button is in charge.");
+    help(bpmDown, "Slower. With FOLLOW HOST lit inside a DAW, the DAW sets the tempo."); help(bpmUp, "Faster. With FOLLOW HOST lit inside a DAW, the DAW sets the tempo.");
+    help(syncBtn, "FOLLOW HOST: lit, Loop Master plays with your DAW's play button, position and tempo.");
+    help(midiBox, "Where notes from a MIDI keyboard or DAW track go: by channel (10 = drums, 1 to 4 = synths), or always to one track.");
+    help(songBtn, "SONG: lit, the row of grooves from the SONG page plays. Unlit, the selected groove goes round.");
+    help(recBtn, "REC KNOBS: lit, any knob you hold and move while it plays is written into the groove as a movement.");
+    for (int i = 0; i < 8; ++i) help(sceneBtn[i], juce::String("Groove ") + kSceneNames[i] + ": one part of your set. The number is its length in bars. While playing, it takes over at the next bar line.");
+    static const char* const tabHelp[6] = {"DRUMS: the drum pattern of the selected groove.", "SYNTH: bass lines and melodies of the selected groove.",
+      "PEDALS: effects on each track, six in a row.", "MIX: levels, tone and sends of all tracks, with MUTE and SOLO.",
+      "SONG: the grooves in a row, and the knob movements inside a groove.", "LIBRARY: ready-made grooves, synth sounds and drum kits."};
+    for (int i = 0; i < 6; ++i) help(tabBtn[i], tabHelp[i]);
+    for (int i = 0; i < 16; ++i) help(barBtn[i], "Opens bar " + juce::String(i + 1) + " of this groove for editing.");
+    help(loopBtn, "LOOP BAR: lit, only the bar you have open plays, so you can work on it. Unlit, the whole groove plays.");
+    help(barAdd, "One more empty bar at the end of this groove."); help(barDel, "Takes the last bar off this groove.");
+    help(barDouble, "Twice as long: the new bars repeat what is there."); help(barCopy, "Copies the bar that is open.");
+    help(barPaste, "Puts the copied bar here: on DRUMS its drums, on SYNTH the notes of the track that is open.");
+    help(browseBtn, "Shows or hides the list of patterns on the right.");
+    help(patternList, "Patterns: a click plays one in place of the groove without changing anything; a second click stops it.");
+    help(folderBtn, "Choose a folder on your disk; its MIDI files appear in the list.");
+    for (int i = 0; i < 8; ++i) help(putBtn[i], juce::String("Puts the selected pattern into groove ") + kSceneNames[i] + ".");
+    help(accentBtn, "ACCENT: lit, the hits or notes you set are loud ones.");
+    help(kitBox, "The drum kit: eight sounds that belong together."); help(instBox, "The synth's sound, as a ready-made instrument.");
+    help(engineBox, "How the synth makes its sound.");
+    for (int i = 0; i < 8; ++i) help(padBtn[i], juce::String("Selects ") + kPadNames[i] + " for the sound controls below, and plays it.");
+    for (int t = 0; t < ld::kNumTracks; ++t) {
+      help(fxTrackBtn[t], juce::String("Shows the pedals of ") + kTrackNames[t] + ".");
+      help(muteBtn[t], juce::String("Silences ") + kTrackNames[t] + ", or brings it back.");
+      help(soloBtn[t], juce::String("Only ") + kTrackNames[t] + " is heard. A second click brings the others back as they were.");
+    }
+    help(boardsBtn, "BOARDS: puts a ready-made chain of pedals on this track. UNDO takes it off again.");
+    for (int i = 0; i < 3; ++i) {
+      help(pedalBox[i], "Which pedal sits in this slot. \"Empty slot\" takes it out.");
+      help(pedalOn[i], "Switches the pedal off and on without losing its settings.");
+      help(pedalLeft[i], "Moves this pedal one place earlier in the chain."); help(pedalRight[i], "Moves this pedal one place later in the chain.");
+      help(*pedalMix[i], "MIX: how much of the pedal you hear against the untouched sound. Half way is parallel processing.");
+      help(subBtn[i], "KEEP SUB: everything below about 120 Hz goes round the pedal, clean and in the middle. For kicks and basses.");
+      help(syncPedalBtn[i], "SYNC: the pedal's speed or time follows the tempo; its speed knob then picks a note length.");
+      for (int k = 0; k < 4; ++k) help(voiceBtn[i][k], "The pedal's character: a different way this kind of pedal is built. The line below says what it is.");
+    }
+    for (int i = 0; i < 8; ++i) help(songAdd[i], juce::String("Puts groove ") + kSceneNames[i] + " into the song, after the selected block.");
+    help(songLeft, "Moves the selected block one place earlier."); help(songRight, "Moves the selected block one place later.");
+    help(songRemove, "Takes the selected block out of the song. The groove itself stays."); help(songDup, "Repeats the selected block.");
+    help(songPlayBtn, "Lit: the song plays, block after block. The same as SONG at the top.");
+    help(songEndBtn, "What happens after the last block when a DAW leads: silence, or the song starts over.");
+    help(startDown, "The song begins one bar earlier on your DAW's timeline."); help(startUp, "The song begins one bar later on your DAW's timeline.");
+    for (auto& b : laneClear) help(b, "Removes this knob movement from the groove.");
+    help(loadBtn, "Loads the selected entry: a groove into the selected groove, a sound onto the open synth, a kit onto the drums.");
+    help(list, "Ready-made material. Pick an entry and press LOAD.");
+
+    // live and guide lie on top of everything
+    live.onExit = [this] { setLive(false); };
+    live.onGuide = [this] { guide.show(6); };
+    addChildComponent(live);
+    guide.onClose = [this] { p.guideSeen = true; };
+    addChildComponent(guide);
     showTab();
+    {
+      const bool shots = juce::SystemStats::getEnvironmentVariable("LOOPMASTER_TAB", "").isNotEmpty();
+      if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_LIVE", "").isNotEmpty() || (p.liveMode && !shots)) setLive(true);
+      if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_GUIDE", "").isNotEmpty() || (!p.guideSeen && !shots)) guide.show(live.isVisible() ? 6 : tab);
+    }
     startTimerHz(20);
   }
 
@@ -948,6 +1088,15 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       if (!f.hasFileExtension("ldp")) f = f.withFileExtension("ldp");
       message = p.saveProjectFile(f) ? "Saved " + f.getFileName() : "Could not save " + f.getFileName();
     });
+  }
+
+  void setLive(bool on) {
+    stopListening();
+    p.liveMode = on;
+    live.setBounds(getLocalBounds());
+    live.setVisible(on);
+    if (on) { live.toFront(true); if (guide.isVisible()) guide.toFront(false); }
+    else { p.liveFx(-1, false); showTab(); }
   }
 
   // ---- pattern browser ----
@@ -1109,7 +1258,10 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     }
     for (auto& b : kindBtn) b.setVisible(l);
     loadBtn.setVisible(l); tempoBtn.setVisible(l); styleBox.setVisible(l); list.setVisible(l);
-    for (auto* b : {&barAdd, &barDel, &barDouble, &loopBtn, &browseBtn}) b->setVisible(ed);
+    for (auto* b : {&barAdd, &barDel, &barDouble, &loopBtn, &browseBtn, &barCopy, &barPaste}) b->setVisible(ed);
+    boardsBtn.setVisible(f);
+    for (auto& b : soloBtn) b.setVisible(m);
+    for (auto* b : {&songDup, &startDown, &startUp}) b->setVisible(sg);
     patternList.setVisible(br); folderBtn.setVisible(br);
     for (auto& b : putBtn) b.setVisible(br);
     for (auto& b : songAdd) b.setVisible(sg);
@@ -1121,10 +1273,14 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   }
 
   void resized() override {
+    live.setBounds(getLocalBounds());
+    guide.setBounds(getLocalBounds());
     auto r = getLocalBounds().reduced(10);
     auto top = r.removeFromTop(30);
     top.removeFromLeft(170);                                   // the name, painted
     for (auto* b : {&openBtn, &saveBtn, &undoBtn, &redoBtn}) { b->setBounds(top.removeFromLeft(62)); top.removeFromLeft(4); }
+    menuBtn.setBounds(top.removeFromRight(70));
+    top.removeFromRight(6);
     midiBox.setBounds(top.removeFromRight(150));
     top.removeFromRight(6);
     syncBtn.setBounds(top.removeFromRight(118));
@@ -1194,6 +1350,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       auto a = r;
       auto line1 = a.removeFromTop(28);
       for (auto& b : fxTrackBtn) { b.setBounds(line1.removeFromLeft(86)); line1.removeFromLeft(4); }
+      boardsBtn.setBounds(line1.removeFromRight(110));
       a.removeFromTop(8);
       auto chips = a.removeFromTop(30);                         // the whole board: six slots in the order the sound takes
       chips.removeFromLeft(86); chips.removeFromRight(86);      // "IN" and "MIXER", painted
@@ -1234,7 +1391,10 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       for (int t = 0; t < 5; ++t) {
         auto c = juce::Rectangle<int>(a.getX() + t * (cw + 8), a.getY(), cw, a.getHeight());
         for (int k = 0; k < 6; ++k) { mixBars[t * 6 + k]->setBounds(c.removeFromTop(30)); c.removeFromTop(6); }
-        muteBtn[t].setBounds(c.removeFromTop(30));
+        auto ms = c.removeFromTop(30);
+        soloBtn[t].setBounds(ms.removeFromRight(ms.getWidth() / 2 - 2));
+        ms.removeFromRight(4);
+        muteBtn[t].setBounds(ms);
       }
       auto c = juce::Rectangle<int>(a.getX() + 5 * (cw + 8), a.getY(), cw, a.getHeight());
       for (int k = 0; k < 3; ++k) { mixBars[30 + k]->setBounds(c.removeFromTop(30)); c.removeFromTop(6); }
@@ -1246,9 +1406,12 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       line1.removeFromLeft(8);
       songLeft.setBounds(line1.removeFromLeft(32)); line1.removeFromLeft(3);
       songRight.setBounds(line1.removeFromLeft(32)); line1.removeFromLeft(6);
-      songRemove.setBounds(line1.removeFromLeft(80)); line1.removeFromLeft(12);
-      songEndBtn.setBounds(line1.removeFromRight(200)); line1.removeFromRight(6);
-      songPlayBtn.setBounds(line1.removeFromRight(140));
+      songDup.setBounds(line1.removeFromLeft(46)); line1.removeFromLeft(3);
+      songRemove.setBounds(line1.removeFromLeft(74)); line1.removeFromLeft(10);
+      songEndBtn.setBounds(line1.removeFromRight(190)); line1.removeFromRight(6);
+      songPlayBtn.setBounds(line1.removeFromRight(124)); line1.removeFromRight(8);
+      startUp.setBounds(line1.removeFromRight(26)); startArea = line1.removeFromRight(juce::jmin(118, juce::jmax(60, line1.getWidth() - 28)));
+      startDown.setBounds(line1.removeFromRight(26));
       a.removeFromTop(8);
       auto lanes = a.removeFromBottom(22 + ld::kSceneLanes * 26);
       a.removeFromBottom(10);
@@ -1278,11 +1441,13 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   // The bar line of the two editors: which bar is open, LOOP BAR, and the buttons that make the groove longer.
   void layoutBars(juce::Rectangle<int> area) {
     browseBtn.setBounds(area.removeFromRight(96)); area.removeFromRight(8);
+    barPaste.setBounds(area.removeFromRight(54)); area.removeFromRight(3);
+    barCopy.setBounds(area.removeFromRight(50)); area.removeFromRight(8);
     barDouble.setBounds(area.removeFromRight(36)); area.removeFromRight(3);
     barAdd.setBounds(area.removeFromRight(56)); area.removeFromRight(3);
     barDel.setBounds(area.removeFromRight(56)); area.removeFromRight(8);
     loopBtn.setBounds(area.removeFromLeft(86)); area.removeFromLeft(8);
-    const int bw = juce::jlimit(22, 40, (area.getWidth() - 15 * 2) / 16);
+    const int bw = juce::jlimit(18, 40, (area.getWidth() - 16 * 2) / 16);
     for (auto& b : barBtn) { b.setBounds(area.removeFromLeft(bw)); area.removeFromLeft(2); }
   }
   // Takes the browser's column off the right of an editor.
@@ -1320,8 +1485,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     g.drawText(juce::String(p.shownBpm(), 1), tempoBox, juce::Justification::centred);
 
     g.setFont(juce::Font(juce::FontOptions(13.0f)));
-    g.setColour(message.isNotEmpty() ? col::yellow : col::muted);
-    const juce::String hint = message.isNotEmpty() ? message
+    g.setColour(hover.isNotEmpty() ? col::silk : (message.isNotEmpty() ? col::yellow : col::muted));
+    const juce::String hint = hover.isNotEmpty() ? hover : message.isNotEmpty() ? message
         : ((tab == 0 || tab == 1) && loopBar && !p.songMode() ? "LOOP BAR is lit: only the bar you have open plays. Unlight it to hear the whole groove."
         : (p.hostPlays() ? "The host leads: its play button, position and tempo."
            : (p.hostLeads() ? "The host stands still. PLAY here plays at the host's tempo; the host's own play button takes over."
@@ -1546,6 +1711,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     g.setFont(juce::Font(juce::FontOptions(12.0f, juce::Font::bold)));
     g.setColour(col::muted);
     g.drawText("ADD", songAdd[0].getX() - 44, songAdd[0].getY(), 40, songAdd[0].getHeight(), juce::Justification::centredLeft);
+    g.drawText("STARTS AT BAR " + juce::String(p.songStartBar()), startArea, juce::Justification::centred, true);
     // the song: every block is a groove, as wide as it is long
     int total = 0;
     for (int c = 0; c < pr.chainLen; ++c) total += juce::jlimit(1, ld::kMaxBars, int(pr.scenes[pr.chain[c]].bars));
@@ -1619,6 +1785,15 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     for (int t = 0; t < 6; ++t) {
       g.setColour(t == 0 ? col::orange : (t == 5 ? col::silk : col::synths[t - 1]));
       g.drawText(t == 5 ? "Whole mix" : kTrackNames[t], pageArea.getX() + t * (cw + 8), pageArea.getY(), cw, 22, juce::Justification::centredLeft);
+      if (t < 5) {                                            // how loud the track is right now
+        const juce::Rectangle<float> meter(float(pageArea.getX() + t * (cw + 8) + cw - 76), float(pageArea.getY() + 8), 72.0f, 7.0f);
+        const float lv = juce::jlimit(0.0f, 1.0f, std::sqrt(p.session().engine().trackPeak(t)));
+        g.setColour(col::recess);
+        g.fillRect(meter);
+        g.setColour(lv > 0.95f ? col::red : col::green);
+        g.fillRect(meter.withWidth(meter.getWidth() * lv));
+        g.setFont(juce::Font(juce::FontOptions(14.0f, juce::Font::bold)));
+      }
     }
   }
 
@@ -1637,7 +1812,19 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     p.session().writeLanePoint(sc, ln.paramId, ln.index, pt, autoFromUnit(ln.paramId, u), first);
   }
   void mouseDrag(const juce::MouseEvent& ev) override { if (tab == 4 && laneDrag >= 0) { drawLane(ev, false); repaint(); } }
-  void mouseUp(const juce::MouseEvent&) override { laneDrag = -1; }
+  void mouseUp(const juce::MouseEvent& ev) override {
+    laneDrag = -1;
+    if (tab == 4 && songDragFrom >= 0) {                        // a block let go over another one takes its place
+      for (size_t c = 0; c < songRects.size(); ++c)
+        if (songRects[c].contains(ev.getPosition()) && int(c) != songDragFrom) {
+          const juce::ScopedLock sl(p.lock());
+          p.session().chainMove(songDragFrom, int(c));
+          songSel = int(c);
+          break;
+        }
+    }
+    songDragFrom = -1;
+  }
   void mouseDoubleClick(const juce::MouseEvent& ev) override {
     if (tab != 4) return;
     for (size_t c = 0; c < songRects.size(); ++c)
@@ -1653,7 +1840,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       for (int i = 0; i < ld::kFxSlots; ++i) if (chipArea[i].contains(ev.getPosition())) { pedalPage = i / 3; repaint(); return; }
     }
     if (tab == 4) {
-      for (size_t c = 0; c < songRects.size(); ++c) if (songRects[c].contains(ev.getPosition())) { songSel = int(c); repaint(); return; }
+      for (size_t c = 0; c < songRects.size(); ++c) if (songRects[c].contains(ev.getPosition())) { songSel = int(c); songDragFrom = int(c); repaint(); return; }
       for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(ev.getPosition())) { laneDrag = i; drawLane(ev, true); repaint(); return; }
       return;
     }
@@ -1682,7 +1869,36 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   int auditionSynth = -1, auditionDeg = 0, auditionTicks = 0;
 
   // ---- keeping the controls in step with the project ----
+  // The sentence of whatever the mouse is over: a control's own, or one for the painted areas.
+  juce::String helpUnderMouse() {
+    juce::Component* under = juce::Desktop::getInstance().getMainMouseSource().getComponentUnderMouse();
+    if (under == nullptr || (under != this && !isParentOf(under))) return {};
+    for (juce::Component* c = under; c != nullptr && c != this; c = c->getParentComponent()) {
+      const juce::var v = c->getProperties()["help"];
+      if (!v.isVoid()) return v.toString();
+      if (c == &live) return live.helpAt(live.getMouseXYRelative());
+    }
+    if (under != this) return {};
+    const auto at = getMouseXYRelative();
+    if (tab == 0 && gridArea.contains(at)) return "The drum grid: one row per drum, sixteen steps per bar. A click sets or removes a hit; a right-click makes it a loud one.";
+    if (tab == 1 && rollArea.contains(at)) return "The note grid: a click sets a note, a click on a note removes it. Higher rows are higher notes of the project's scale.";
+    if (tab == 2) {
+      for (int i = 0; i < ld::kFxSlots; ++i) if (chipArea[i].contains(at)) return "The whole chain, in the order the sound takes. A click shows this half of it below.";
+      for (int i = 0; i < 3; ++i) if (traceArea[i].contains(at)) return "A picture of what this pedal does to a sound.";
+    }
+    if (tab == 4) {
+      for (const auto& r : songRects) if (r.contains(at)) return "A block of the song. Click selects it, drag moves it, a double-click opens its groove for editing.";
+      for (int i = 0; i < ld::kSceneLanes; ++i) if (laneArea[i].contains(at)) return "A knob movement inside this groove, one value per beat. Draw with the mouse to change it.";
+    }
+    return {};
+  }
+
   void timerCallback() override {
+    {
+      const juce::String h = helpUnderMouse();
+      if (h != hover) { hover = h; }
+      live.hover = live.isVisible() ? hover : juce::String();
+    }
     {
       const juce::ScopedLock sl(p.lock());
       ld::Session& s = p.session();
@@ -1708,7 +1924,9 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         synthBtn[i].setToggleState(i == synth, juce::dontSendNotification);
       }
       // the bar editor plays the bar that is open; everywhere else, and in the song, the whole groove plays
-      s.engine().setLoopBar(onGrid && loopBar && !s.previewing() ? bar : -1);
+      s.engine().setLoopBar(onGrid && loopBar && !s.previewing() && !live.isVisible() ? bar : -1);
+      barPaste.setEnabled(barClip != nullptr);
+      if (live.isVisible()) live.tick();
       loopBtn.setToggleState(loopBar, juce::dontSendNotification);
       barAdd.setEnabled(bars < ld::kMaxBars); barDel.setEnabled(bars > 1); barDouble.setEnabled(bars < ld::kMaxBars);
       browseBtn.setToggleState(browse, juce::dontSendNotification);
@@ -1770,17 +1988,18 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
           const juce::Colour ink = sp && !sp->lightInk ? juce::Colour(0xff1a1408) : juce::Colour(0xfff7f7f7);
           for (int k = 0; k < 4; ++k) {
             const char* name = sp ? knobName(*sp, voice, k) : "";
-            pedalKnob[i][k]->setVisible(name[0] != 0);
+            pedalKnob[i][k]->setVisible(name[0] != 0 && !(p.fewerControls && k >= 2));
+            help(*pedalKnob[i][k], knobHelp(name));
             pedalKnob[i][k]->set(ld::fxSlotParamId(slot, k), fxTrack, name, juce::Colour(sp ? sp->cap : 0xff1d1b18), ink);
             pedalKnob[i][k]->refresh();
             const bool has = sp != nullptr && k < int(ld::kFxVoices[sp->type]) && ld::kFxVoices[sp->type] > 1;
             voiceBtn[i][k].setVisible(has);
             if (has) { voiceBtn[i][k].setButtonText(sp->voices[k]); voiceBtn[i][k].setToggleState(k == voice, juce::dontSendNotification); }
           }
-          pedalMix[i]->setVisible(sp != nullptr); subBtn[i].setVisible(sp != nullptr);
+          pedalMix[i]->setVisible(sp != nullptr && !p.fewerControls); subBtn[i].setVisible(sp != nullptr && !p.fewerControls);
           pedalMix[i]->setTarget(ld::fxSlotParamId(slot, 4), fxTrack); pedalMix[i]->refresh();
           subBtn[i].setToggleState((sl.flags & ld::kFxKeepSub) != 0, juce::dontSendNotification);
-          syncPedalBtn[i].setVisible(sp != nullptr && ld::fxCanSync(sl.type, voice));
+          syncPedalBtn[i].setVisible(sp != nullptr && !p.fewerControls && ld::fxCanSync(sl.type, voice));
           syncPedalBtn[i].setToggleState((sl.flags & ld::kFxSync) != 0, juce::dontSendNotification);
           pedalOn[i].setVisible(sp != nullptr);
           pedalOn[i].setButtonText(sl.bypass ? "OFF" : "ON");
@@ -1793,6 +2012,8 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
           const bool used = t <= nSynths;
           for (int k = 0; k < 6; ++k) mixBars[t * 6 + k]->setEnabled(used);
           muteBtn[t].setEnabled(used);
+          soloBtn[t].setEnabled(used);
+          soloBtn[t].setToggleState(p.liveSoloed() == t, juce::dontSendNotification);
           muteBtn[t].setToggleState(s.getParam(ld::P_FX_MUTE, t) > 0.5f, juce::dontSendNotification);
         }
       } else if (tab == 4) {

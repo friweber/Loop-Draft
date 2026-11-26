@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, live]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -315,8 +315,12 @@ jobs:
             LOOPMASTER_TAB=$t LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/tab$t.png" "report/standalone$t.log" || true
           done
+          LOOPMASTER_LIVE=1 LOOPMASTER_TAB=0 LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
+            "$A/Standalone/Loop Master" "report/live.png" "report/live.log" || true
+          LOOPMASTER_GUIDE=1 LOOPMASTER_TAB=0 LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
+            "$A/Standalone/Loop Master" "report/guide.png" "report/guide.log" || true
           n=0
-          for set in "22:0,23:2,24:0" "25:0,26:1,27:2" "28:0,29:0,30:2" "31:2,32:2,10:2"; do
+          for set in "22:0,23:2,24:0" "31:2,32:2,10:2"; do
             n=$((n+1))
             LOOPMASTER_TAB=2 LOOPMASTER_PEDALS=$set LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
               "$A/Standalone/Loop Master" "report/pedals$n.png" "report/pedals$n.log" || true

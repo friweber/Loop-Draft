@@ -55,6 +55,30 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   bool songMode() const { return songMode_.load(); }
   void setSongLoop(bool on);                           // with the host: start the song over after its end, or stay silent
   bool songLoop() const { return songLoop_.load(); }
+  // The song may begin later than the host's bar 1.
+  void setSongStartBar(int bar) { songStartBar_.store(juce::jlimit(1, 999, bar)); }
+  int songStartBar() const { return songStartBar_.load(); }
+  // What a control shows: its own value, or, while a groove that moves it is playing, where that movement is now.
+  float shownParam(int pid, int index);
+
+  // ---- Loop Master Live ----
+  // Everything that can be played live has a number, so a key or knob of a MIDI controller can be tied to it.
+  enum LiveTarget { kLiveGroove = 0, kLiveMute = 8, kLiveLevel = 13, kLiveFx = 18, kLiveFilter = 24, kLivePlay = 25, kLiveTargets = 26 };
+  static constexpr int kLiveFxCount = 6;
+  static const char* liveFxName(int i);
+  void liveFx(int i, bool down);                       // held: one effect on the whole mix
+  int liveFxHeld() const { return fxHeld_; }
+  void setLiveFilter(float v);                         // -1 low-pass .. 0 off .. +1 high-pass
+  float liveFilter() const { return djFilter_; }
+  void liveToggleMute(int track);
+  void liveSolo(int track);                            // -1: nobody. Mutes the others and remembers how they were.
+  int liveSoloed() const { return solo_; }
+  void livePlayStop();
+  void liveLearn(int target) { learn_.store(target); } // the next key or knob that comes in is tied to it; -1 stops waiting
+  int liveLearning() const { return learn_.load(); }
+  void liveForget(int target);
+  juce::String liveMapName(int target) const;          // "CC 21", "C#2", or nothing
+  bool liveMode = false, guideSeen = false, fewerControls = false;   // editor settings kept with the project
   juce::String midiFolder;                             // where the pattern browser looks for .mid files (editor thread)
   // The control the user is holding right now, so its movement can be written into the groove (editor thread).
   struct Touch { int pid = -1, index = 0; float value = 0.0f; } touch;
@@ -75,7 +99,19 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   void renderSpan(juce::AudioBuffer<float>& buffer, int start, int count);
   void handleMidi(const juce::MidiMessage& m);
   void buildLibrary();
-  void adoptProjectValues();                           // after a load: host parameters take the project's values
+  void adoptProjectValues();
+  void applyLive(int target, int value, bool isNote, bool down);
+  void rebuildNoteMap();
+  struct LiveMap { int kind = 0, ch = 0, num = 0; };  // kind: 0 none, 1 controller, 2 note
+  struct LiveEvent { uint8_t kind, ch, num, val; };
+  LiveMap liveMap_[kLiveTargets];
+  std::atomic<bool> noteTaken_[16][128];              // notes that are tied to something do not play an instrument
+  juce::AbstractFifo liveFifo_{256};
+  LiveEvent liveEvents_[256];
+  std::atomic<int> learn_{-1}, songStartBar_{1};
+  int fxHeld_ = -1, solo_ = -1;
+  bool soloWas_[ld::kNumTracks] = {};
+  float djFilter_ = 0.0f;                           // after a load: host parameters take the project's values
 
   juce::CriticalSection sessionLock_;
   std::unique_ptr<ld::Session> session_;
