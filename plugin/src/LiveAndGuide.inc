@@ -240,8 +240,9 @@ class LiveView : public juce::Component {
       g.setColour(wait ? juce::Colours::white : (learning && target >= 0 ? col::orange.withAlpha(0.8f) : juce::Colours::black.withAlpha(0.5f)));
       g.drawRoundedRectangle(f.reduced(1.0f), 8.0f, wait ? 3.0f : (learning && target >= 0 ? 2.0f : 1.0f));
       g.setColour(lit ? col::ink : col::silk);
-      g.setFont(juce::Font(juce::FontOptions(float(juce::jlimit(15, 34, area.getHeight() / 3)), juce::Font::bold)));
-      g.drawText(big, area.reduced(8, 6), juce::Justification::centred, true);
+      const float fit = float(area.getWidth() - 16) / (0.66f * float(juce::jmax(1, big.length())));      // as big as the word allows
+      g.setFont(juce::Font(juce::FontOptions(juce::jlimit(12.0f, 34.0f, juce::jmin(float(area.getHeight()) / 3.0f, fit)), juce::Font::bold)));
+      g.drawText(big, area.reduced(6, 6), juce::Justification::centred, false);
       g.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
       if (small.isNotEmpty()) g.drawText(small, area.reduced(8, 5), juce::Justification::bottomLeft, true);
       const juce::String tied = wait ? juce::String("press a key / turn a knob") : (target >= 0 ? p.liveMapName(target) : juce::String());

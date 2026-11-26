@@ -43,6 +43,20 @@ The builds are not signed. On macOS, remove the download mark once after copying
 - **Song**: the SONG page is the timeline: blocks of grooves in a row, as wide as they are long. With PLAY THE SONG
   lit and FOLLOW HOST on, the song is tied to the host's bars from bar 1: wherever the host plays, that part of the
   song sounds. After the last block it is silent, or starts over (AFTER THE END).
+- **Help**: point at any control and the line at the bottom of the window says what it does. MENU > Guide shows
+  a few numbered steps for the page you are on (it opens by itself the first time).
+- **Boards** (PEDALS): ready-made pedal chains for drums, bass and synths. MENU > Fewer pedal controls hides the
+  third and fourth knob, Mix, KEEP SUB and SYNC.
+- **Bars**: COPY and PASTE move the content of a bar, also to another groove. **Mix**: a meter per track, MUTE and SOLO.
+- **Song**: drag a block to move it, DUP repeats it, STARTS AT BAR sets where on the host's timeline the song begins.
+- **Loop Master Live** (MENU > Loop Master Live): one screen to play a set from.
+  - Eight groove pads: a click starts a groove at the next bar line.
+  - Six effects to hold, on the whole mix: stutter, gate, crush, echo, wash, lo-fi. Echo and wash ring out.
+  - A filter strip over everything: left takes the highs away, right the lows; a double-click puts it back.
+  - MUTE, SOLO, level and a meter per track.
+  - MIDI LEARN: light it, click a pad or control (a track's name for its level), press a key or turn a knob on your
+    controller. A right-click forgets. Notes that are tied to something no longer play an instrument.
+  - Keys: 1 to 8 grooves, space bar play/stop, Q W E R T mutes (the window needs the keyboard focus; some hosts keep it).
 - **PLAY** works on its own when no host leads, and also in a host as long as the host stands still.
 - **Outputs**: the main output carries the whole mix. Five more stereo outputs carry Drums, Bass, Lead, Syn 3 and
   Syn 4 on their own, after their channel strip and effects, without delay, reverb and the master limiter.
