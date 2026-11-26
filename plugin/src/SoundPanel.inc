@@ -16,6 +16,8 @@ struct SynthFace {
   juce::uint32 trace;                   // the colour of what the displays draw
   int order[3];                         // which column comes first: 0 the synth's own part, 1 the filter, 2 the envelope
   bool displaysOnTop;                   // the displays above their knobs, or below them like a console
+  int era;                              // 0: analog (wooden cheeks, screws, round knobs, tube scopes). 1: digital (flat, grooves, rings of lights, LCDs)
+  const char* year;                     // the year its kind of synth is from
 };
 struct Skin {
   const char* name;
@@ -25,13 +27,13 @@ struct Skin {
 };
 const Skin kSkins[] = {
   {"Original",
-   {{"LM-A", "Analog", "Two oscillators into a filter. Basses, leads, pads: the all-rounder.", 0xff2d2a26, 0xff191715, 0xffe8792b, true, 0xffff9a4a, {0, 1, 2}, true},
-    {"LM-F", "FM Two", "Two sine operators, one bending the other. Bells, electric pianos, metallic basses.", 0xff1f5a4c, 0xff11362d, 0xffd9f2e6, true, 0xff6dffcf, {0, 2, 1}, true},
-    {"LM-S", "String", "A plucked string. Guitars, harps, kalimbas, slap basses.", 0xff7a5230, 0xff4d321b, 0xfff1ead8, true, 0xffffd9a0, {0, 1, 2}, false},
-    {"LM-V", "Vector", "Four sound sources in the corners; X and Y blend between them. Moving, morphing sounds.", 0xff24406e, 0xff142645, 0xffffca28, true, 0xffffd84a, {1, 0, 2}, true},
-    {"LM-U", "Unison", "Seven detuned saws and a sub. Supersaw leads, hoovers, reese basses, big pads.", 0xff6b2a5e, 0xff401638, 0xfff7d6ef, true, 0xffff8fe6, {2, 0, 1}, true},
-    {"LM-D", "Drawbar", "An organ built from harmonics, with a percussive click. House organs, stabs, soft pads.", 0xffe6dcc3, 0xffbdb08f, 0xff5a2d1a, false, 0xffffb35c, {0, 2, 1}, false},
-    {"LM-P", "Phase", "A sine wave bent out of shape, more at the start of each note. Digital basses, brass, resonant sweeps.", 0xffc3c9d1, 0xff8d95a0, 0xff1e4fa3, false, 0xff5cc8ff, {1, 2, 0}, true}},
+   {{"LM-A", "Analog", "Two oscillators into a filter. Basses, leads, pads: the all-rounder.", 0xff2d2a26, 0xff191715, 0xffe8792b, true, 0xffff9a4a, {0, 1, 2}, true, 0, "1972"},
+    {"LM-F", "FM Two", "Two sine operators, one bending the other. Bells, electric pianos, metallic basses.", 0xff1f5a4c, 0xff11362d, 0xffd9f2e6, true, 0xff6dffcf, {0, 2, 1}, true, 1, "1983"},
+    {"LM-S", "String", "A plucked string. Guitars, harps, kalimbas, slap basses.", 0xff7a5230, 0xff4d321b, 0xfff1ead8, true, 0xffffd9a0, {0, 1, 2}, false, 0, "1978"},
+    {"LM-V", "Vector", "Four sound sources in the corners; X and Y blend between them. Moving, morphing sounds.", 0xff24406e, 0xff142645, 0xffffca28, true, 0xffffd84a, {1, 0, 2}, true, 1, "1986"},
+    {"LM-U", "Unison", "Seven detuned saws and a sub. Supersaw leads, hoovers, reese basses, big pads.", 0xff6b2a5e, 0xff401638, 0xfff7d6ef, true, 0xffff8fe6, {2, 0, 1}, true, 1, "1996"},
+    {"LM-D", "Drawbar", "An organ built from harmonics, with a percussive click. House organs, stabs, soft pads.", 0xffe6dcc3, 0xffbdb08f, 0xff5a2d1a, false, 0xffffb35c, {0, 2, 1}, false, 0, "1955"},
+    {"LM-P", "Phase", "A sine wave bent out of shape, more at the start of each note. Digital basses, brass, resonant sweeps.", 0xffc3c9d1, 0xff8d95a0, 0xff1e4fa3, false, 0xff5cc8ff, {1, 2, 0}, true, 1, "1984"}},
    0xff0b0d0e, 0x24ffffff, 10.0f},
 };
 constexpr int kNumSkins = int(sizeof(kSkins) / sizeof(kSkins[0]));
@@ -315,8 +317,33 @@ class SoundPanel : public juce::Component {
       g.fillRoundedRectangle(t, skin().corner);
       g.setColour(juce::Colours::black.withAlpha(0.5f));
       g.drawRoundedRectangle(t.reduced(1.0f), skin().corner, 2.0f);
-      g.setColour(juce::Colours::white.withAlpha(0.15f));
-      g.drawRoundedRectangle(t.reduced(4.0f), skin().corner - 3.0f, 1.0f);
+      if (f.era == 0) {                                         // analog: wooden cheeks left and right, screws, a fine line round the panel
+        for (int side = 0; side < 2; ++side) {
+          const juce::Rectangle<float> cheek(side ? t.getRight() - 11.0f : t.getX(), t.getY() + 3.0f, 11.0f, t.getHeight() - 6.0f);
+          g.setGradientFill(juce::ColourGradient(juce::Colour(0xff7b4a22), cheek.getX(), cheek.getY(), juce::Colour(0xff43260f), cheek.getRight(), cheek.getBottom(), false));
+          g.fillRoundedRectangle(cheek, 4.0f);
+          g.setColour(juce::Colours::black.withAlpha(0.22f));
+          for (float y = cheek.getY() + 9.0f; y < cheek.getBottom() - 6.0f; y += 13.0f) g.fillRect(cheek.getX() + 2.0f + std::fmod(y, 5.0f), y, 1.0f, 8.0f);
+        }
+        g.setColour(juce::Colours::white.withAlpha(0.15f));
+        g.drawRoundedRectangle(t.reduced(15.0f, 4.0f), skin().corner - 3.0f, 1.0f);
+        for (int corner = 0; corner < 4; ++corner) {
+          const float sx = corner % 2 ? t.getRight() - 22.0f : t.getX() + 22.0f, sy = corner / 2 ? t.getBottom() - 11.0f : t.getY() + 11.0f;
+          g.setColour(juce::Colours::black.withAlpha(0.4f));
+          g.fillEllipse(sx - 3.5f, sy - 3.5f, 7.0f, 7.0f);
+          g.setColour(juce::Colour(0xffb9bcc2));
+          g.fillEllipse(sx - 2.6f, sy - 2.6f, 5.2f, 5.2f);
+          g.setColour(juce::Colour(0xff4a4d52));
+          g.drawLine(sx - 1.8f, sy - 1.8f, sx + 1.8f, sy + 1.8f, 1.0f);
+        }
+      } else {                                                  // digital: fine grooves across the top, a row of small lights
+        g.setColour(juce::Colours::black.withAlpha(0.14f));
+        for (float y = t.getY() + 5.0f; y < t.getY() + 44.0f; y += 3.0f) g.fillRect(t.getX() + 6.0f, y, t.getWidth() - 12.0f, 1.0f);
+        for (int n = 0; n < 8; ++n) {
+          g.setColour(n == face ? juce::Colour(f.trace) : juce::Colours::black.withAlpha(0.45f));
+          g.fillRect(t.getRight() - 26.0f - float(n) * 11.0f, t.getBottom() - 9.0f, 7.0f, 3.0f);
+        }
+      }
       ink = f.lightInk ? juce::Colour(0xfff4f1e8) : juce::Colour(0xff1a1408);
       dim = ink.withAlpha(0.7f);
       boxFill = juce::Colours::black.withAlpha(f.lightInk ? 0.22f : 0.08f);
@@ -328,7 +355,7 @@ class SoundPanel : public juce::Component {
       g.fillRect(tableArea.getX() + 16, tableArea.getY() + 37, 60, 3);
       g.setColour(dim);
       g.setFont(juce::Font(juce::FontOptions(12.0f)));
-      g.drawText(juce::String(f.code) + "   " + f.about, tableArea.getX() + 190, tableArea.getY() + 10, tableArea.getWidth() - 206, 26, juce::Justification::centredLeft, true);
+      g.drawText(juce::String(f.code) + "  " + (f.era ? "DIGITAL " : "ANALOG ") + f.year + "   " + f.about, tableArea.getX() + 190, tableArea.getY() + 10, tableArea.getWidth() - 206, 26, juce::Justification::centredLeft, true);
     }
     if (!drums) paintDisplays(g);
     for (const auto& sec : sections) {
@@ -414,15 +441,21 @@ class SoundPanel : public juce::Component {
   void paintDisplays(juce::Graphics& g) {
     const Skin& sk = skin();
     const SynthFace& f = sk.faces[face];
-    const juce::Colour trace(f.trace), back(sk.displayBack), grid(sk.displayGrid);
+    const bool lcd = f.era == 1;                                // a digital synth shows dark lines on a lit pane, an analog one a glowing line on black
+    const juce::Colour trace(lcd ? juce::Colour(0xff0e150d) : juce::Colour(f.trace)), back(lcd ? juce::Colour(f.trace).withMultipliedSaturation(0.4f).withBrightness(0.74f) : juce::Colour(sk.displayBack)),
+        grid(lcd ? juce::Colour(0x30000000) : juce::Colour(sk.displayGrid));
     static const char* const ownTitle[ld::kNumSynthModes] = {"THE TWO OSCILLATORS, ADDED", "ONE OPERATOR BENDS THE OTHER  -  faint: the start of a note", "THE STRING", "DRAG THE DOT", "SEVEN VOICES DRIFTING", "THE DRAWBARS", "A SINE, BENT  -  faint: the start of a note"};
     const char* const titles[3] = {ownTitle[face], "FILTER", face == 2 ? "HOW LONG IT RINGS" : "ENVELOPE"};
     for (int d = 0; d < 3; ++d) {
       const auto b = disp[d].toFloat();
       g.setColour(back);
-      g.fillRoundedRectangle(b, 6.0f);
-      g.setColour(juce::Colours::black.withAlpha(0.6f));
-      g.drawRoundedRectangle(b.reduced(0.5f), 6.0f, 1.5f);
+      g.fillRoundedRectangle(b, lcd ? 1.5f : 9.0f);
+      if (lcd) {                                                // the rows of an LCD
+        g.setColour(juce::Colours::black.withAlpha(0.06f));
+        for (float y = b.getY() + 2.0f; y < b.getBottom() - 1.0f; y += 3.0f) g.fillRect(b.getX() + 1.0f, y, b.getWidth() - 2.0f, 1.0f);
+      }
+      g.setColour(lcd ? juce::Colours::black.withAlpha(0.6f) : juce::Colour(0xff4a4640));
+      g.drawRoundedRectangle(b.reduced(0.5f), lcd ? 1.5f : 9.0f, lcd ? 1.5f : 2.5f);
       g.setColour(grid);
       g.fillRect(b.getX() + 6.0f, b.getCentreY(), b.getWidth() - 12.0f, 1.0f);
       g.setColour(trace.withAlpha(0.6f));
@@ -571,7 +604,7 @@ class SoundPanel : public juce::Component {
         for (int i = 0; i < 4; ++i) g.drawText(parts[i], int(area.getX() + area.getWidth() * (xs[i] + xs[i + 1]) * 0.5f) - 8, int(area.getBottom()) - 1, 16, 12, juce::Justification::centred, false);
       }
       glow(env, 1.8f);
-      if (dotX > 0.0f) { g.setColour(juce::Colours::white); g.fillEllipse(dotX - 4.0f, dotY - 4.0f, 8.0f, 8.0f); }
+      if (dotX > 0.0f) { g.setColour(lcd ? juce::Colours::black : juce::Colours::white); g.fillEllipse(dotX - 4.0f, dotY - 4.0f, 8.0f, 8.0f); }
     }
   }
 
@@ -681,6 +714,7 @@ class SoundPanel : public juce::Component {
       for (const auto& sp : sec.knobs) {
         if (pool >= kPool) break;
         knobs[pool]->configure(sp.pid, drums ? pad : synth, sp.label, sp.lo, sp.hi, sp.centre, sp.fmt, cap, ink);
+        knobs[pool]->setEra(drums ? 0 : f.era);
         help(*knobs[pool], juce::String(sp.label).toUpperCase() + ": " + sp.about + ". Double-click puts it back.");
         knobs[pool]->setVisible(true);
         ++pool;

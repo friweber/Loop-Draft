@@ -578,6 +578,27 @@ void Session::setFxVoice(int track, int slot, int voice) {
   sl.voice = uint8_t(clampT(voice, 0, int(kFxVoices[int(sl.type)]) - 1));
   commit();
 }
+void Session::setLfo(int i, const ModLfo& lfo, bool undoStep) {
+  if (i < 0 || i >= kNumLfos) return;
+  if (undoStep) beginEdit();
+  ModLfo l = lfo;
+  if (l.paramId >= P_LAST + 1 || l.paramId < -1) l.paramId = -1;
+  if (l.index < 0 || l.index >= kNumTracks) l.index = 0;
+  if (l.shape >= kNumLfoShapes) l.shape = 0;
+  l.rate = l.rate < 0.0f ? 0.0f : (l.rate > 1.0f ? 1.0f : l.rate);
+  l.depth = l.depth < 0.0f ? 0.0f : (l.depth > 1.0f ? 1.0f : l.depth);
+  proj_.lfos[i] = l;
+  commit();
+}
+void Session::replaceProject(const Project& p) { beginEdit(); proj_ = p; commit(); }
+void Session::putScene(int scene, const Scene& sc) {
+  if (scene < 0 || scene >= kNumScenes) return;
+  beginEdit();
+  proj_.scenes[scene] = sc;
+  if (proj_.scenes[scene].bars < 1) proj_.scenes[scene].bars = 1;
+  if (proj_.scenes[scene].bars > kMaxBars) proj_.scenes[scene].bars = kMaxBars;
+  commit();
+}
 void Session::setFxFlags(int track, int slot, int flags) {
   if (track < 0 || track >= kNumTracks || slot < 0 || slot >= kFxSlots) return;
   beginEdit();

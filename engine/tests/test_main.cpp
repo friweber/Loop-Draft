@@ -1564,6 +1564,48 @@ static void testHostClockMidiAndOutputs() {
 // The stompbox collection: every pedal does something, stays within bounds, dies away, and never allocates.
 // Eight grooves of up to sixteen bars, six pedals, one bar going round, knob movements inside a groove,
 // the song with a host, listening before choosing.
+static void testLfos() {
+  const double sr = 48000.0;
+  const int block = 256;
+  std::vector<float> l(static_cast<size_t>(block), 0.0f), r(static_cast<size_t>(block), 0.0f);
+  Session a(sr);
+  ModLfo lf; lf.paramId = P_FX_LEVEL; lf.index = 0; lf.shape = 3; lf.sync = 0; lf.rate = 0.62f; lf.depth = 1.0f;   // a square, about 2 Hz
+  a.beginEdit(); a.setParam(P_FX_LEVEL, 0, 0.5f);
+  { Scene only; for (int st = 0; st < 16; ++st) only.drums.steps[3][st] = 2; a.putScene(0, only); }   // nothing but hats on every step
+  a.engine().play(0);
+  const auto run = [&](int blocks, double& lo, double& hi) {
+    lo = 1e9; hi = 0.0;
+    for (int w = 0; w < blocks / 24; ++w) {
+      double sum = 0.0;
+      for (int b = 0; b < 24; ++b) { a.engine().render(l.data(), r.data(), block); for (float x : l) sum += double(x) * double(x); }
+      const double e = std::sqrt(sum / double(24 * block));
+      if (e < lo) lo = e; if (e > hi) hi = e;
+    }
+  };
+  double lo0, hi0, lo1, hi1;
+  run(480, lo0, hi0);
+  a.setLfo(0, lf);
+  run(480, lo1, hi1);
+  CHECK(lo0 > 0.0 && lo1 / hi1 < 0.5 * lo0 / hi0);   // with the LFO the track opens and shuts far more than without                        // with it the track opens and shuts
+  CHECK(std::fabs(a.engine().lfoValue(0)) == 1.0f);
+  a.undo(); CHECK_EQ(int(a.project().lfos[0].paramId), -1); a.redo();
+  ModLfo two; two.paramId = P_SYN_CUTOFF; two.index = 1; two.shape = 4; two.rate = 0.5f; two.depth = 0.3f;
+  a.setLfo(2, two);
+  for (int id : {int(P_SYN_CUTOFF), int(P_FX_SLOT3_AMOUNT), int(P_FX_EQ_HIGH), int(P_SYN_FOLD)}) {   // nothing blows up, whatever the target
+    ModLfo x; x.paramId = int16_t(id); x.index = 1; x.depth = 1.0f; x.sync = 0; x.rate = 1.0f; a.setLfo(1, x);
+    for (int b = 0; b < 40; ++b) { a.engine().render(l.data(), r.data(), block); for (float v : l) CHECK(std::isfinite(v) && std::fabs(v) < 4.0f); }
+  }
+  const char* path = "/tmp/ld_test_lfo.ldp";
+  CHECK(a.save(path));
+  Session b(sr);
+  CHECK(b.load(path));
+  CHECK(b.project().lfos[0].paramId == P_FX_LEVEL && b.project().lfos[0].shape == 3 && b.project().lfos[0].sync == 0 && b.project().lfos[0].depth == 1.0f);
+  CHECK(b.project().lfos[2].paramId == P_SYN_CUTOFF && b.project().lfos[2].index == 1 && b.project().lfos[2].rate == 0.5f);
+  CHECK(lfoBeats(0.0f) == 32.0f && lfoBeats(1.0f) == 0.25f && lfoHz(0.0f) < 0.06f && lfoHz(1.0f) > 19.0f && lfoHz(1.0f) < 21.0f);
+  Scene sc; sc.bars = 99; sc.drums.steps[0][0] = 2;
+  b.putScene(5, sc); CHECK_EQ(b.project().scenes[5].bars, kMaxBars); CHECK_EQ(b.project().scenes[5].drums.steps[0][0], 2);
+}
+
 static void testGroovesLanesLoopAndPreview() {
   const double sr = 48000.0;
   const int block = 256;
@@ -2101,6 +2143,7 @@ int main() {
     {"the synth collection", testSynthCollection},
     {"the stompbox collection", testPedalCollection},
     {"grooves, bar loop, knob movements, song with a host, preview", testGroovesLanesLoopAndPreview},
+    {"three LFOs on knobs of your choice", testLfos},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

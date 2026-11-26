@@ -2,6 +2,7 @@
 
 #include "BinaryData.h"
 #include "Editor.h"
+#include "Techno.h"
 
 namespace {
 const char* const kTrackNames[ld::kNumTracks] = {"Drums", "Bass", "Lead", "Syn 3", "Syn 4"};
@@ -404,6 +405,122 @@ juce::String LoopMasterProcessor::importLibrary(const LibraryEntry& entry, int s
   std::string err;
   if (session_->importContent(std::string(entry.data, size_t(entry.size)), target, err)) return {};
   return juce::String(err.empty() ? "could not be loaded" : err);
+}
+
+// ---- the techno database ----
+
+namespace {
+void technoSounds(ld::Project& w, int genre, const std::vector<LibraryEntry>& lib, juce::StringArray& missing) {
+  const techno::Setup& su = techno::kSetups[juce::jlimit(0, 9, genre)];
+  const auto load = [&](const char* kind, const char* name, int synth) {
+    for (const auto& e : lib)
+      if (e.kind == kind && e.name == name) {
+        ld::ContentTarget t;
+        t.scene = 0; t.synth = synth; t.tempoAndKey = false;
+        std::string err;
+        if (!ld::applyContent(std::string(e.data, size_t(e.size)), w, t, err)) missing.add(name);
+        return;
+      }
+    missing.add(name);
+  };
+  load("drumkit", su.kit, 0);
+  w.activeSynths = ld::kNumSynths;
+  for (int i = 0; i < 4; ++i) load("instrument", su.inst[i], i);
+  for (int t = 0; t < ld::kNumTracks; ++t)
+    for (int slot = 0; slot < ld::kFxSlots; ++slot) {
+      ld::FxSlot fs;
+      if (slot < 2 && su.fx[t][slot].type > 0) {
+        const techno::Stomp& st = su.fx[t][slot];
+        fs.type = ld::FxType(st.type); fs.amount = st.amount; fs.rate = st.rate; fs.mix = st.mix;
+        fs.flags = uint8_t((st.flags & 1 ? ld::kFxKeepSub : 0) | ((st.flags & 2) && ld::fxCanSync(fs.type, 0) ? ld::kFxSync : 0));
+      }
+      w.fx[t].slots[slot] = fs;
+    }
+}
+void setChain(ld::Project& w, const int* scenes, int n) {
+  w.chainLen = juce::jlimit(1, ld::kMaxChain, n);
+  for (int i = 0; i < w.chainLen; ++i) { w.chain[i] = scenes[i]; w.chainAuto[i] = ld::ChainAuto(); }
+}
+}  // namespace
+
+juce::String LoopMasterProcessor::technoGenre(int genre, bool song) {
+  const techno::Pack& pk = techno::pack();
+  if (genre < 0 || genre >= int(pk.genres.size()) || genre >= 10) return "That genre is not in the database.";
+  const techno::Genre& g = pk.genres[size_t(genre)];
+  const juce::ScopedLock sl(sessionLock_);
+  auto w = std::make_unique<ld::Project>(session_->project());
+  w->bpm = g.bpm; w->root = g.root; w->scale = static_cast<ld::Scale>(juce::jlimit(0, 3, g.scale));
+  juce::StringArray missing;
+  technoSounds(*w, genre, library_, missing);
+  if (song) {
+    auto tmp = std::make_unique<ld::Scene>();
+    for (int i = 0; i < 6; ++i) {
+      const techno::Part& part = techno::kParts[i];
+      auto sc = std::make_unique<ld::Scene>();
+      int bars[5] = {0, 0, 0, 0, 0};
+      if (const techno::Pattern* d = techno::findPattern(genre, true, part.drums, 0))
+        if (techno::blockToScene(d->off, d->size, *w, 0, *tmp)) { sc->drums = tmp->drums; bars[0] = tmp->bars; }
+      for (int y = 0; y < 4; ++y) {
+        if (part.role[y] < 0) continue;
+        if (const techno::Pattern* q = techno::findPattern(genre, false, part.role[y], part.which[y]))
+          if (techno::blockToScene(q->off, q->size, *w, y + 1, *tmp)) { sc->synth[y] = tmp->synth[y]; bars[1 + y] = tmp->bars; }
+      }
+      int total = 1;
+      for (int b : bars) total = juce::jmax(total, b);
+      if (total == 3) total = 4;
+      if (bars[0] > 0 && bars[0] < total) techno::tileDrums(sc->drums, bars[0], total);
+      for (int y = 0; y < 4; ++y) if (bars[1 + y] > 0 && bars[1 + y] < total) techno::tileSynth(sc->synth[y], bars[1 + y], total);
+      sc->bars = total;
+      w->scenes[i] = *sc;
+    }
+    setChain(*w, techno::kSongChain, 12);
+  }
+  session_->replaceProject(*w);
+  juce::String msg = g.name + (song ? ": a whole song is in grooves A to F (intro, groove, break, peak, build, outro) and on the SONG page. "
+                                    : ": tempo, key, drum kit, four sounds and pedals are set. ");
+  msg << techno::kSetups[genre].why << " UNDO takes it all back.";
+  if (!missing.isEmpty()) msg << " Not found in the library: " << missing.joinIntoString(", ") << ".";
+  return msg;
+}
+
+int LoopMasterProcessor::technoCount(int what) const {
+  const techno::Pack& pk = techno::pack();
+  return int(what == 0 ? pk.genres.size() : (what == 1 ? pk.patterns.size() : pk.songs.size()));
+}
+float LoopMasterProcessor::technoBpm(int genre) const {
+  const techno::Pack& pk = techno::pack();
+  return genre >= 0 && genre < int(pk.genres.size()) ? pk.genres[size_t(genre)].bpm : 0.0f;
+}
+
+juce::String LoopMasterProcessor::technoStarter(int song) {
+  const techno::Pack& pk = techno::pack();
+  if (song < 0 || song >= int(pk.songs.size())) return "That song is not in the database.";
+  const techno::Song& so = pk.songs[size_t(song)];
+  const juce::ScopedLock sl(sessionLock_);
+  auto w = std::make_unique<ld::Project>(session_->project());
+  w->bpm = so.bpm; w->root = so.root; w->scale = static_cast<ld::Scale>(juce::jlimit(0, 3, so.scale));
+  juce::StringArray missing;
+  technoSounds(*w, so.genre, library_, missing);
+  auto tmp = std::make_unique<ld::Scene>();
+  const int n = juce::jmin(ld::kNumScenes, int(so.scenes.size()));
+  for (int i = 0; i < n; ++i) {
+    auto sc = std::make_unique<ld::Scene>();
+    int total = 1;
+    if (techno::blockToScene(so.scenes[size_t(i)].off, so.scenes[size_t(i)].size, *w, 0, *tmp)) { sc->drums = tmp->drums; total = juce::jmax(total, int(tmp->bars)); }
+    for (int y = 0; y < 4; ++y)
+      if (techno::blockToScene(so.scenes[size_t(i)].off, so.scenes[size_t(i)].size, *w, y + 1, *tmp)) { sc->synth[y] = tmp->synth[y]; total = juce::jmax(total, int(tmp->bars)); }
+    sc->bars = total;
+    w->scenes[i] = *sc;
+  }
+  int chain[ld::kMaxChain];
+  int len = 0;
+  for (int i = 0; i < so.chain.length() && len < ld::kMaxChain; ++i) {
+    const int s = int(so.chain[i]) - int('A');
+    if (s >= 0 && s < n) chain[len++] = s;
+  }
+  if (len > 0) setChain(*w, chain, len);
+  session_->replaceProject(*w);
+  return so.title + " is in grooves A to D and on the SONG page. UNDO takes it back.";
 }
 
 // ---- Loop Master Live ----

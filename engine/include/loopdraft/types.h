@@ -202,6 +202,36 @@ struct SceneLane {
   int16_t index = 0;         // track (P_FX_*), synth (P_SYN_*), or 0
   float points[kLanePoints] = {};
 };
+// Three slow waves that each move one knob of your choice, all the time, on top of whatever the knob is set to.
+constexpr int kNumLfos = 3;
+constexpr int kNumLfoShapes = 5;       // sine, triangle, ramp, square, random steps
+struct ModLfo {
+  int16_t paramId = -1;      // -1 = not connected
+  int16_t index = 0;         // track (P_FX_*), synth (P_SYN_*)
+  uint8_t shape = 0;
+  uint8_t sync = 1;          // 1: the rate is a length in beats; 0: free, in Hz
+  uint8_t rsv[2] = {};
+  float rate = 0.4f;         // 0 .. 1 (see lfoBeats / lfoHz)
+  float depth = 0.5f;        // 0 .. 1: at 1 the knob swings over its whole range
+};
+// The lengths a synced LFO steps through, in beats: 8 bars down to a sixteenth.
+inline float lfoBeats(float rate) {
+  static const float k[9] = {32.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 1.0f / 3.0f};
+  int i = int(rate * 8.0f + 0.5f); if (i < 0) i = 0; if (i > 7) i = 7;
+  return k[i];
+}
+inline float lfoHz(float rate) { float r = rate < 0 ? 0 : (rate > 1 ? 1 : rate); float h = 0.05f; for (int i = 0; i < 8; ++i) h *= 1.0f + r * 1.1146f; return h; }   // 0.05 .. 20 Hz
+// What an LFO can move (the same list as in Engine::renderAudio).
+inline bool lfoCanMove(int id) {
+  int slot, knob;
+  if (fxSlotParam(id, slot, knob)) return true;
+  switch (id) {
+    case P_FX_LEVEL: case P_KIT_HARDNESS: case P_FX_DRIVE: case P_FX_EQ_LOW: case P_FX_EQ_HIGH: case P_FX_DELAY: case P_FX_REVERB:
+    case P_SYN_DETUNE: case P_SYN_CUTOFF: case P_SYN_RES: case P_SYN_DECAY: case P_SYN_LEVEL: case P_SYN_FM_RATIO: case P_SYN_FM_INDEX:
+    case P_SYN_FM_FB: case P_SYN_WARMTH: case P_SYN_MOTION: case P_SYN_FOLD: return true;
+    default: return false;
+  }
+}
 struct Scene {
   int32_t bars = 1;          // 1 .. kMaxBars, shared by all tracks of the scene
   DrumPattern drums;
@@ -238,6 +268,7 @@ struct Project {
   float altDrumDrive = 0.0f;
   PadParams altPads[kNumPads];
   DrumPattern altDrums[kNumScenes];
+  ModLfo lfos[kNumLfos];
 };
 
 // Building blocks that work on plain project data (no undo, no audio): shared by the session and the content importer.

@@ -282,6 +282,12 @@ template <class V> void fields(V& v, Project& p) {
       std::snprintf(k, sizeof(k), "sc%d.syn%d.notes", i, y); v.blob(k, pat.notes, sizeof(pat.notes), uint32_t(n) * sizeof(Note));
     }
   }
+  for (int i = 0; i < kNumLfos; ++i) {
+    ModLfo& lf = p.lfos[i];
+    if (v.writing && lf.paramId < 0) continue;
+    std::snprintf(pre, sizeof(pre), "lfo%d", i);
+    LD_F(pre, lf, paramId); LD_F(pre, lf, index); LD_F(pre, lf, shape); LD_F(pre, lf, sync); LD_F(pre, lf, rate); LD_F(pre, lf, depth);
+  }
   for (int i = 0; i < kMaxChain; ++i)
     for (int t = 0; t < kNumTracks; ++t)
       for (int ln = 0; ln < kAutoPerTrack; ++ln) {

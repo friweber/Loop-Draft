@@ -546,6 +546,61 @@ void Engine::renderAudio(float* l, float* r, int n) {
       automate(t, ln.paramId, ln.points[b0] + fr * (ln.points[b0 + 1] - ln.points[b0]));
     }
   }
+  // The three LFOs come last: each swings its knob around wherever everything above has left it.
+  {
+    const double secs = double(n) / sr_;
+    const double bps = tempo() / 60.0;
+    for (int i = 0; i < kNumLfos; ++i) {
+      const ModLfo& lf = p.lfos[i];
+      const double hz = lf.sync ? bps / double(lfoBeats(lf.rate)) : double(lfoHz(lf.rate));
+      double ph = lfoPhase_[i] + hz * secs;
+      if (ph >= 1.0) { ph -= std::floor(ph); lfoRand_[i] = float(int32_t(lfoSeed_ = lfoSeed_ * 1664525u + 1013904223u)) / 2147483648.0f; }
+      lfoPhase_[i] = ph;
+      float w = 0.0f;
+      switch (lf.shape) {
+        case 1: w = float(ph < 0.5 ? 4.0 * ph - 1.0 : 3.0 - 4.0 * ph); break;
+        case 2: w = float(1.0 - 2.0 * ph); break;
+        case 3: w = ph < 0.5 ? 1.0f : -1.0f; break;
+        case 4: w = lfoRand_[i]; break;
+        default: w = float(std::sin(6.283185307179586 * ph)); break;
+      }
+      aLfo_[i].store(w, std::memory_order_relaxed);
+      if (lf.paramId < 0 || lf.depth <= 0.0f) continue;
+      const int t = isSynthParam(lf.paramId) ? 1 + lf.index : lf.index;
+      if (t < 0 || t >= kNumTracks) continue;
+      const float u = w * (lf.depth > 1.0f ? 1.0f : lf.depth) * 0.5f;
+      float* v = nullptr; float lo = 0.0f, hi = 1.0f; bool expo = false;
+      switch (lf.paramId) {
+        case P_FX_LEVEL: v = &effFx[t].level; break;
+        case P_KIT_HARDNESS:
+        case P_FX_DRIVE: v = &effFx[t].drive; break;
+        case P_FX_EQ_LOW: v = &effFx[t].eqLow; lo = -12.0f; hi = 12.0f; break;
+        case P_FX_EQ_HIGH: v = &effFx[t].eqHigh; lo = -12.0f; hi = 12.0f; break;
+        case P_FX_DELAY: v = &effFx[t].delaySend; hi = 0.8f; break;
+        case P_FX_REVERB: v = &effFx[t].revSend; hi = 0.8f; break;
+        default: { int slot, knob; if (fxSlotParam(lf.paramId, slot, knob)) v = &fxSlotKnob(effFx[t].slots[slot], knob); break; }
+      }
+      if (!v && t >= 1) {
+        SynthParams& sp = effSynth[t - 1];
+        switch (lf.paramId) {
+          case P_SYN_DETUNE: v = &sp.detune; lo = -50.0f; hi = 50.0f; break;
+          case P_SYN_CUTOFF: v = &sp.cutoff; lo = 60.0f; hi = 12000.0f; expo = true; break;
+          case P_SYN_RES: v = &sp.res; lo = 0.5f; hi = 15.0f; break;
+          case P_SYN_DECAY: v = &sp.decay; lo = 0.02f; hi = 3.0f; expo = true; break;
+          case P_SYN_LEVEL: v = &sp.level; break;
+          case P_SYN_FM_RATIO: v = &sp.fmRatio; lo = 0.5f; hi = 8.0f; break;
+          case P_SYN_FM_INDEX: v = &sp.fmIndex; hi = 8.0f; break;
+          case P_SYN_FM_FB: v = &sp.fmFeedback; break;
+          case P_SYN_WARMTH: v = &sp.feelWarmth; break;
+          case P_SYN_MOTION: v = &sp.feelMotion; break;
+          case P_SYN_FOLD: v = &sp.fold; break;
+          default: break;
+        }
+      }
+      if (!v) continue;
+      *v = expo ? clampF(*v * std::pow(hi / lo, u), lo, hi) : clampF(*v + u * (hi - lo), lo, hi);
+    }
+  }
   for (int t = 0; t < kNumTracks; ++t) {
     if (tr_[t].cDrive != effFx[t].drive) { tr_[t].drive.set(effFx[t].drive); tr_[t].cDrive = effFx[t].drive; }
   }

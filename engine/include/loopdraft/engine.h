@@ -87,6 +87,7 @@ class Engine {
   void setSongLoop(bool on) { aSongLoop_.store(on, std::memory_order_relaxed); }
   int  queuedScene() const  { return aPending_.load(std::memory_order_relaxed); }
   // For meters: the loudest sample of a track lately (it falls back on its own), after its strip and pedals.
+  float lfoValue(int i) const { return i >= 0 && i < kNumLfos ? aLfo_[i].load(std::memory_order_relaxed) : 0.0f; }   // -1 .. 1, for the display
   float trackPeak(int track) const { return track >= 0 && track < kNumTracks ? aTrackPeak_[track].load(std::memory_order_relaxed) : 0.0f; }
 
   // ---- for playing live: things that act on the whole mix, from any thread ----
@@ -178,6 +179,10 @@ class Engine {
   std::atomic<int> aLoopBar_{-1};
   std::atomic<int> aStep_{-1}, aScene_{0}, aChainPos_{0}, aPending_{-1};
   std::atomic<float> aTrackPeak_[kNumTracks] = {};
+  std::atomic<float> aLfo_[kNumLfos] = {};
+  double lfoPhase_[kNumLfos] = {};
+  float lfoRand_[kNumLfos] = {};
+  uint32_t lfoSeed_ = 0x1234567u;
   std::atomic<int> aPerfType_{0}, aPerfVoice_{0};
   std::atomic<float> aPerfK_[4] = {};
   std::atomic<bool> aPerfOn_{false};

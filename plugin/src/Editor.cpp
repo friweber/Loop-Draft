@@ -1,6 +1,7 @@
 // The Loop Master editor: scenes, drum grid, piano roll, sound and mix controls, and the library.
 // Everything that touches the session holds the processor's lock.
 #include "Editor.h"
+#include "Techno.h"
 
 namespace {
 
@@ -144,6 +145,37 @@ const char* knobName(const PedalSpec& sp, int voice, int i) {
   return sp.knobs[i];
 }
 // What the pedal does to a wave, as a little scope trace: x 0 .. 1, result -1 .. 1.
+// How old each pedal's kind is: the look follows. 0: analog (a painted metal box, screws, round knobs, a glowing
+// tube scope). 1: digital (a flat box with grooves, a ring of lights round each dial, an LCD).
+const int kFxEra[ld::kNumFxTypes] = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1};
+const char* const kFxYear[ld::kNumFxTypes] = {"", "1977", "1998", "1976", "1974", "1972", "1975", "1978", "1966", "1965", "1963", "1968", "1977", "1967",
+                                              "1967", "1972", "1982", "1971", "1983", "1974", "1986", "1985", "1996", "1999", "2001", "1984", "1980",
+                                              "2005", "1979", "1973", "1972", "1994", "2008"};
+float pedalTrace(int type, float x);
+// What the pedal's display shows right now: its picture, bent by where the knobs stand and by the character that is
+// chosen, and moving if the pedal moves. x: 0 .. 1 across the display; secs: a clock.
+float pedalScope(int type, int voice, float amount, float rate, float p3, float mix, float x, float secs) {
+  const float t = juce::MathConstants<float>::twoPi * x;
+  const float dry = std::sin(t * 3.0f) * 0.6f;
+  float xx = x;
+  switch (type) {
+    case 3: case 4: case 10: case 11: case 12: case 13: case 14: case 24: case 28: case 30:      // these move by themselves
+      xx = x + secs * (0.05f + 0.5f * rate); xx -= std::floor(xx); break;
+    case 18: case 19: case 20: case 25: case 27: case 29: case 32: case 31:                      // these ring: longer or shorter
+      xx = juce::jlimit(0.0f, 1.0f, x / (0.45f + 1.1f * rate)); break;
+    default: break;
+  }
+  float wet = pedalTrace(type, xx);
+  switch (voice) {                                             // every character bends the picture its own way
+    case 1: wet = wet + 0.35f * wet * std::fabs(wet) + 0.12f; break;
+    case 2: wet = wet * 0.8f + 0.2f * std::sin(t * 11.0f) * (0.4f + 0.6f * std::fabs(wet)); break;
+    case 3: wet = std::round(wet * 4.0f) / 4.0f; break;
+    default: break;
+  }
+  wet *= 0.75f + 0.5f * p3;
+  const float k = (0.2f + 0.8f * amount) * mix;
+  return dry * (1.0f - k) + wet * k;
+}
 float pedalTrace(int type, float x) {
   const float t = juce::MathConstants<float>::twoPi * x;
   const auto pulses = [x](float width, float wobble) {
@@ -240,71 +272,10 @@ float autoFromUnit(int pid, float u) {
   return pid == ld::P_SYN_CUTOFF ? lo * std::pow(hi / lo, u) : lo + u * (hi - lo);
 }
 
-// ---- a MIDI file as a pattern ----
-// part 0: every note becomes a drum hit (General MIDI drum notes, or the pads' own notes).
-// part 1..: the notes go to that synth, moved to the nearest notes of the project's scale.
+// A MIDI file from the disk as a pattern (see Techno.h for how the notes are read).
 bool midiToScene(const juce::File& file, const ld::Project& pr, int part, ld::Scene& out) {
   juce::FileInputStream in(file);
-  juce::MidiFile mf;
-  if (!in.openedOk() || !mf.readFrom(in)) return false;
-  const int tpq = mf.getTimeFormat();
-  if (tpq <= 0) return false;                                // SMPTE time: no bars to go by
-  const double perStep = double(tpq) / 4.0;
-  out = ld::Scene();
-  int last = -1;
-  bool tenOnly = false;
-  if (part == 0)                                             // a file with a drum channel: only that channel is drums
-    for (int t = 0; t < mf.getNumTracks() && !tenOnly; ++t)
-      for (const auto* h : *mf.getTrack(t)) if (h->message.isNoteOn() && h->message.getChannel() == 10) { tenOnly = true; break; }
-  bool ownChannel = false;                                   // a file with notes on this track's channel: only those
-  if (part > 0)
-    for (int t = 0; t < mf.getNumTracks() && !ownChannel; ++t)
-      for (const auto* h : *mf.getTrack(t)) if (h->message.isNoteOn() && h->message.getChannel() == part) { ownChannel = true; break; }
-  for (int t = 0; t < mf.getNumTracks(); ++t) {
-    for (const auto* h : *mf.getTrack(t)) {
-      const juce::MidiMessage& m = h->message;
-      if (!m.isNoteOn()) continue;
-      const int step = int(std::floor(m.getTimeStamp() / perStep + 0.5));
-      if (step < 0 || step >= ld::kMaxSteps) continue;
-      const int note = m.getNoteNumber();
-      const bool strong = m.getVelocity() >= 100;
-      if (part == 0) {
-        if (tenOnly && m.getChannel() != 10) continue;
-        int pad = -1;
-        for (int i = 0; i < ld::kNumPads && pad < 0; ++i) if (int(pr.pads[i].gmNote) == note) pad = i;
-        if (pad < 0) {
-          switch (note) {
-            case 35: case 36: pad = 0; break;
-            case 38: case 40: pad = 1; break;
-            case 39: pad = 2; break;
-            case 42: case 44: pad = 3; break;
-            case 46: case 49: case 51: case 52: case 55: case 57: case 59: pad = 4; break;
-            case 37: pad = 5; break;
-            case 41: case 43: case 45: case 47: case 48: case 50: pad = 6; break;
-            default: pad = 7; break;
-          }
-        }
-        if (out.drums.steps[pad][step] < 2) out.drums.steps[pad][step] = strong ? 2 : 1;
-      } else {
-        if (m.getChannel() == 10 || (ownChannel && m.getChannel() != part)) continue;
-        ld::SynthPattern& pat = out.synth[part - 1];
-        if (pat.count >= ld::kMaxNotes) continue;
-        const int deg = ld::midiToDegree(pr, part - 1, note);
-        bool twice = false;
-        for (int i = 0; i < pat.count && !twice; ++i) twice = pat.notes[i].step == step && pat.notes[i].degree == deg;
-        if (twice) continue;
-        ld::Note n;
-        n.step = uint16_t(step); n.degree = int8_t(juce::jlimit(-21, 35, deg)); n.vel = strong ? 2 : 1;
-        const double end = h->noteOffObject ? h->noteOffObject->message.getTimeStamp() : m.getTimeStamp() + perStep;
-        n.len = uint8_t(juce::jlimit(1, 255, int(std::floor((end - m.getTimeStamp()) / perStep + 0.5))));
-        pat.notes[pat.count++] = n;
-      }
-      last = juce::jmax(last, step);
-    }
-  }
-  if (last < 0) return false;
-  out.bars = juce::jlimit(1, ld::kMaxBars, last / 16 + 1);
-  return true;
+  return in.openedOk() && techno::midiToScene(in, pr, part, out);
 }
 
 juce::String noteName(int midi) { return juce::String(kNoteNames[((midi % 12) + 12) % 12]) + juce::String(midi / 12 - 1); }
@@ -339,6 +310,24 @@ class Look : public juce::LookAndFeel_V4 {
     const float size = float(juce::jmin(w, h)) - 4.0f, cx = float(x) + float(w) * 0.5f, cy = float(y) + float(h) * 0.5f, rad = size * 0.5f;
     const float ang = a0 + pos * (a1 - a0);
     const juce::Colour cap = sl.findColour(juce::Slider::rotarySliderFillColourId), ink = sl.findColour(juce::Slider::rotarySliderOutlineColourId);
+    if (int(sl.getProperties().getWithDefault("era", 0)) == 1) {  // digital: a ring of lights up to the value, a flat dial with a notch
+      const juce::Colour lit = cap.getBrightness() < 0.35f ? ink : cap;
+      for (int i = 0; i <= 14; ++i) {
+        const float f = float(i) / 14.0f, a = a0 + f * (a1 - a0);
+        g.setColour(f <= pos + 0.001f ? lit.brighter(0.2f) : ink.withAlpha(0.22f));
+        juce::Path seg;
+        seg.addRectangle(-1.6f, -rad, 3.2f, rad * 0.16f);
+        g.fillPath(seg, juce::AffineTransform::rotation(a).translated(cx, cy));
+      }
+      const float r = rad * 0.7f;
+      g.setColour(juce::Colour(0xff15171a));
+      g.fillEllipse(cx - r, cy - r, r * 2.0f, r * 2.0f);
+      g.setColour(juce::Colour(0xff3b4048));
+      g.drawEllipse(cx - r + 0.5f, cy - r + 0.5f, r * 2.0f - 1.0f, r * 2.0f - 1.0f, 1.0f);
+      g.setColour(lit.brighter(0.3f));
+      g.drawLine(cx + std::sin(ang) * r * 0.45f, cy - std::cos(ang) * r * 0.45f, cx + std::sin(ang) * r * 0.92f, cy - std::cos(ang) * r * 0.92f, 2.0f);
+      return;
+    }
     g.setColour(ink.withAlpha(0.55f));
     for (int i = 0; i <= 10; ++i) {                              // the scale
       const float a = a0 + float(i) / 10.0f * (a1 - a0);
@@ -371,7 +360,7 @@ class ParamBar : public juce::Component {
     slider_.setDoubleClickReturnValue(true, double(ld::Session::defaultParam(paramId, index)));
     slider_.onDragStart = [this] {
       dragging_ = true;
-      p_.touch.pid = pid_; p_.touch.index = index_; p_.touch.value = float(slider_.getValue());
+      p_.touch.pid = pid_; p_.touch.index = index_; p_.lastPid = pid_; p_.lastIndex = index_; ++p_.touchSerial; p_.touch.value = float(slider_.getValue());
       if (auto* hp = p_.hostParam(pid_, index_)) hp->beginChangeGesture();
       else { const juce::ScopedLock sl(p_.lock()); p_.session().beginEdit(); }
     };
@@ -434,7 +423,7 @@ class Knob : public juce::Component {
     slider_.setDoubleClickReturnValue(true, double(ld::Session::defaultParam(paramId, 0)));
     slider_.onDragStart = [this] {
       dragging_ = true;
-      p_.touch.pid = pid_; p_.touch.index = index_; p_.touch.value = float(slider_.getValue());
+      p_.touch.pid = pid_; p_.touch.index = index_; p_.lastPid = pid_; p_.lastIndex = index_; ++p_.touchSerial; p_.touch.value = float(slider_.getValue());
       const juce::ScopedLock sl(p_.lock()); p_.session().beginEdit(); repaint();
     };
     slider_.onDragEnd = [this] { dragging_ = false; p_.touch.pid = -1; repaint(); };
@@ -475,6 +464,12 @@ class Knob : public juce::Component {
     const double v = double(p_.shownParam(pid_, index_));              // follows a recorded movement while it plays
     if (std::abs(v - slider_.getValue()) > 1e-6) { setting_ = true; slider_.setValue(v, juce::dontSendNotification); setting_ = false; }
   }
+  // 0: an analog knob (a cap on a skirt). 1: a digital one (a flat dial inside a ring of lights).
+  void setEra(int era) {
+    if (int(slider_.getProperties().getWithDefault("era", 0)) == era) return;
+    slider_.getProperties().set("era", era);
+    slider_.repaint();
+  }
   void resized() override { slider_.setBounds(getLocalBounds().withTrimmedBottom(16)); }
   void paint(juce::Graphics& g) override {
     g.setColour(ink_);
@@ -510,6 +505,7 @@ juce::String fmtPan(float v) {
 
 #include "LiveAndGuide.inc"
 #include "SoundPanel.inc"
+#include "LfoStrip.inc"
 
 }  // namespace
 
@@ -531,7 +527,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   juce::TextButton barAdd{"+ BAR"}, barDel{"- BAR"}, barDouble{"x2"}, loopBtn{"LOOP BAR"}, recBtn{"REC KNOBS"}, browseBtn{"PATTERNS"};
 
   // the pattern browser beside the two editors: the library's grooves and .mid files from a folder
-  struct Pattern { juce::String name; bool midi = false; juce::File file; std::shared_ptr<ld::Scene> scene; };
+  struct Pattern { juce::String name, about, tag; bool midi = false; juce::File file; std::shared_ptr<ld::Scene> scene; int off = -1, size = 0, energy = 0; };
   struct PatternModel : public juce::ListBoxModel {
     Body* b = nullptr;
     int getNumRows() override { return int(b->patterns.size()); }
@@ -541,18 +537,26 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       const bool playing = row == b->previewRow;
       if (playing) g.fillAll(col::green.withAlpha(0.85f)); else if (selected) g.fillAll(col::orange.withAlpha(0.85f));
       g.setColour(selected || playing ? col::ink : col::silk);
-      g.setFont(juce::Font(juce::FontOptions(13.0f)));
-      g.drawText(pt.name, 6, 0, width - 46, height, juce::Justification::centredLeft, true);
-      g.setColour(selected || playing ? col::ink : col::muted);
-      g.setFont(juce::Font(juce::FontOptions(10.0f)));
-      g.drawText(pt.midi ? "MIDI" : "", width - 40, 0, 36, height, juce::Justification::centredRight, false);
+      g.setFont(juce::Font(juce::FontOptions(13.0f, juce::Font::bold)));
+      g.drawText(pt.name, 6, 2, width - 12, 17, juce::Justification::centredLeft, true);
+      g.setColour(selected || playing ? col::ink.withAlpha(0.8f) : col::muted);
+      g.setFont(juce::Font(juce::FontOptions(10.5f)));
+      g.drawText(pt.tag, 6, 19, width - 60, 13, juce::Justification::centredLeft, true);
+      for (int e = 0; e < 5 && pt.energy > 0; ++e) {             // how much energy: five small lights
+        g.setColour((selected || playing ? col::ink : col::orange).withAlpha(e < pt.energy ? 0.95f : 0.2f));
+        g.fillRect(width - 48 + e * 8, 22, 6, 6);
+      }
+      g.setColour(col::line.withAlpha(0.5f));
+      g.fillRect(0, height - 1, width, 1);
     }
     void listBoxItemClicked(int row, const juce::MouseEvent&) override { b->rowClicked(row); }
   } patternModel;
   std::vector<Pattern> patterns;
   std::vector<std::shared_ptr<ld::Scene>> grooveScenes;      // one per library entry (null where it is not a groove)
   juce::ListBox patternList;
-  juce::TextButton putBtn[8], folderBtn{"MIDI FOLDER..."};
+  juce::TextButton putBtn[8], folderBtn{"MIDI FOLDER..."}, catBtn[7], setupBtn{"SET UP SOUNDS"}, buildBtn{"BUILD SONG"};
+  juce::ComboBox collectionBox;
+  int collection = 1, catFilter = -1;     // 0 the library's grooves, 1..10 a techno genre, 11 the starter songs, 12 the MIDI folder
   juce::Rectangle<int> browseArea;
   int previewRow = -1, patternsFor = -99;
   bool previewStartedPlay = false;
@@ -590,7 +594,9 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   GuideView guide;
   // the sound editors of DRUMS and SYNTH
   SoundPanel sound{p};
-  juce::TextButton soundBtn{"EDIT SOUND"}, listenBtn{"LISTEN"};
+  juce::TextButton soundBtn{"EDIT SOUND"}, listenBtn{"LISTEN"}, lfoBtn{"LFOS"};
+  std::unique_ptr<LfoStrip> lfos;
+  bool lfoOpen = false;
   bool soundView = false, listenOn = false;
   int libInst[ld::kNumSynths] = {}, libKit = 0;                // the library preset that was chosen last, as its menu id
   // knob movements: the one that is open in the big editor
@@ -706,6 +712,23 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       p.session().growScene(scene(), juce::jmin(int(ld::kMaxBars), bars * 2));
     });
     button(loopBtn, [this] { loopBar = !loopBar; });
+    lfos = std::make_unique<LfoStrip>(p);
+    lfos->say = [this](const juce::String& t) { message = t; };
+    lfos->nameOf = [this](int pid, int index) { ld::SceneLane ln; ln.paramId = int16_t(pid); ln.index = int16_t(index); return laneName(ln); };
+    addChildComponent(*lfos);
+    button(lfoBtn, [this] { lfoOpen = !lfoOpen; lfos->setVisible(lfoOpen); if (!lfoOpen) lfos->armed = -1; resized(); });
+    help(lfoBtn, "LFOS: three slow waves that each keep moving one knob. Click an LFO, then touch the knob it should move.");
+    if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_GENRE", "").isNotEmpty()) {   // for screenshots: a genre built into a song, the browser open
+      const int g = juce::jlimit(1, 10, juce::SystemStats::getEnvironmentVariable("LOOPMASTER_GENRE", "1").getIntValue());
+      p.technoGenre(g - 1, true);
+      collection = g; browse = true;
+    }
+    if (juce::SystemStats::getEnvironmentVariable("LOOPMASTER_LFO", "").isNotEmpty()) {     // for screenshots
+      const juce::ScopedLock sl(p.lock());
+      ld::ModLfo a; a.paramId = ld::P_SYN_CUTOFF; a.index = 0; a.rate = 0.4f; a.depth = 0.6f; p.session().setLfo(0, a);
+      ld::ModLfo b; b.paramId = ld::P_FX_LEVEL; b.index = 0; b.shape = 3; b.rate = 0.75f; b.depth = 0.35f; p.session().setLfo(1, b);
+      lfoOpen = true; lfos->setVisible(true);
+    }
     button(browseBtn, [this] { browse = !browse; if (!browse) stopListening(); showTab(); });
     button(recBtn, [this] {
       recKnobs = !recKnobs;
@@ -717,7 +740,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     // pattern browser
     patternModel.b = this;
     patternList.setModel(&patternModel);
-    patternList.setRowHeight(22);
+    patternList.setRowHeight(34);
     addChildComponent(patternList);
     for (int i = 0; i < 8; ++i) {
       putBtn[i].setButtonText(kSceneNames[i]);
@@ -734,6 +757,52 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       });
     };
     addChildComponent(folderBtn);
+    {
+      const techno::Pack& pk = techno::pack();
+      collectionBox.addSectionHeading("Techno, by genre");
+      for (int g = 0; g < int(pk.genres.size()) && g < 10; ++g)
+        collectionBox.addItem(pk.genres[size_t(g)].name + "   " + juce::String(juce::roundToInt(pk.genres[size_t(g)].bpm)) + " BPM", 2 + g);
+      collectionBox.addItem("Starter songs (finished)", 12);
+      collectionBox.addSeparator();
+      collectionBox.addItem("Library grooves, all styles", 1);
+      collectionBox.addItem("My MIDI folder", 13);
+      collectionBox.setSelectedId(1 + collection, juce::dontSendNotification);
+      collectionBox.onChange = [this] {
+        collection = juce::jlimit(0, 12, collectionBox.getSelectedId() - 1);
+        catFilter = -1;
+        stopListening();
+        if (collection >= 1 && collection <= 10) {
+          const techno::Genre& g = techno::pack().genres[size_t(collection - 1)];
+          message = g.name + ": " + g.vibe + " SET UP SOUNDS gives the project its tempo, key, kit, sounds and pedals; BUILD SONG also stacks its patterns into a song.";
+        } else if (collection == 11) message = "Three finished songs. Pick one of its parts, then BUILD SONG puts the whole song into A to D.";
+        showTab();
+      };
+      addChildComponent(collectionBox);
+      help(collectionBox, "Where the patterns come from: one of ten techno genres, the three starter songs, the library's grooves or your own MIDI folder.");
+      for (int i = 0; i < 7; ++i) {
+        catBtn[i].onClick = [this, i] { catFilter = i - 1; stopListening(); rebuildPatterns(); };
+        addChildComponent(catBtn[i]);
+        help(catBtn[i], "Shows only the patterns for this part of a song (drums) or this role (synths). ALL shows every one of the genre.");
+      }
+      setupBtn.onClick = [this] {
+        if (collection < 1 || collection > 10) return;
+        stopListening();
+        message = p.technoGenre(collection - 1, false);
+        patternsFor = -99;
+      };
+      buildBtn.onClick = [this] {
+        stopListening();
+        if (collection >= 1 && collection <= 10) message = p.technoGenre(collection - 1, true);
+        else if (collection == 11) {
+          const int row = patternList.getSelectedRow();
+          message = p.technoStarter(row >= 0 ? row / 4 : 0);
+        } else return;
+        p.setScene(0); bar = 0; patternsFor = -99;
+      };
+      addChildComponent(setupBtn); addChildComponent(buildBtn);
+      help(setupBtn, "Sets the project up for this genre: tempo, key, a drum kit, four sounds and pedals. Your grooves stay as they are. One UNDO takes it back.");
+      help(buildBtn, "Builds a whole song: the sounds of the genre, its patterns stacked into grooves (intro, groove, break, peak, build, outro) and the order on the SONG page. It replaces grooves A to F.");
+    }
     {  // every groove of the library, once, as patterns
       auto tmp = std::make_unique<ld::Project>();
       for (const auto& e : p.library()) {
@@ -1212,11 +1281,29 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     stopListening();
     patterns.clear();
     const auto& lib = p.library();
-    for (size_t i = 0; i < lib.size() && i < grooveScenes.size(); ++i) {
+    if (collection >= 1 && collection <= 10) {                 // a techno genre: its patterns for this track
+      const char* const* cats = part == 0 ? techno::kDrumCats : techno::kSynthCats;
+      for (const techno::Pattern& tp : techno::pack().patterns) {
+        if (tp.genre != collection - 1 || tp.drum != (part == 0) || (catFilter >= 0 && tp.cat != catFilter)) continue;
+        Pattern pt;
+        pt.name = tp.title; pt.about = tp.about; pt.off = tp.off; pt.size = tp.size; pt.energy = juce::jlimit(0, 5, tp.energy);
+        pt.tag = juce::String(cats[juce::jlimit(0, part == 0 ? 5 : 4, tp.cat)]) + "  -  " + juce::String(tp.bars) + " bars";
+        patterns.push_back(pt);
+      }
+    } else if (collection == 11) {                             // the starter songs, part by part
+      for (const techno::Song& so : techno::pack().songs)
+        for (size_t i = 0; i < so.scenes.size() && i < 4; ++i) {
+          Pattern pt;
+          pt.name = so.scenes[i].title; pt.about = so.title; pt.tag = so.title.upToFirstOccurrenceOf("(", false, false).trim();
+          pt.off = so.scenes[i].off; pt.size = so.scenes[i].size;
+          patterns.push_back(pt);
+        }
+    }
+    for (size_t i = 0; collection == 0 && i < lib.size() && i < grooveScenes.size(); ++i) {
       const auto& src = grooveScenes[i];
       if (!src) continue;
       Pattern pt;
-      pt.name = lib[i].name;
+      pt.name = lib[i].name; pt.tag = lib[i].style.isNotEmpty() ? lib[i].style : juce::String("library groove");
       if (part == 0) {
         bool any = false;
         for (const auto& row : src->drums.steps) for (int st = 0; st < src->bars * 16 && !any; ++st) any = row[st] != 0;
@@ -1232,12 +1319,12 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       patterns.push_back(pt);
     }
     const juce::File dir(p.midiFolder);
-    if (p.midiFolder.isNotEmpty() && dir.isDirectory()) {
+    if (collection == 12 && p.midiFolder.isNotEmpty() && dir.isDirectory()) {
       juce::Array<juce::File> files = dir.findChildFiles(juce::File::findFiles, true, "*.mid;*.midi");
       files.sort();
       for (int i = 0; i < files.size() && i < 2000; ++i) {
         Pattern pt;
-        pt.name = files[i].getFileNameWithoutExtension(); pt.midi = true; pt.file = files[i];
+        pt.name = files[i].getFileNameWithoutExtension(); pt.midi = true; pt.file = files[i]; pt.tag = "MIDI file";
         patterns.push_back(pt);
       }
     }
@@ -1250,10 +1337,10 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   std::shared_ptr<ld::Scene> patternScene(int row) {
     if (row < 0 || row >= int(patterns.size())) return {};
     Pattern& pt = patterns[size_t(row)];
-    if (!pt.scene && pt.midi) {
+    if (!pt.scene && (pt.midi || pt.off >= 0)) {
       auto sc = std::make_shared<ld::Scene>();
       const juce::ScopedLock sl(p.lock());
-      if (midiToScene(pt.file, p.session().project(), patternsFor, *sc)) pt.scene = sc;
+      if (pt.midi ? midiToScene(pt.file, p.session().project(), patternsFor, *sc) : techno::blockToScene(pt.off, pt.size, p.session().project(), patternsFor, *sc)) pt.scene = sc;
     }
     return pt.scene;
   }
@@ -1262,7 +1349,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   void rowClicked(int row) {
     if (listenOn) { listen(row); return; }
     if (row >= 0 && row < int(patterns.size()))
-      message = patterns[size_t(row)].name + " is selected. LISTEN plays it; A to H under the list puts it into a groove.";
+      message = patterns[size_t(row)].name + (patterns[size_t(row)].about.isNotEmpty() ? ": " + patterns[size_t(row)].about : juce::String(" is selected.")) + " LISTEN plays it; A to H puts it into a groove.";
   }
 
   // Plays the pattern in place of the groove, without changing the project. The same row again stops it.
@@ -1379,7 +1466,17 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     boardsBtn.setVisible(f);
     for (auto& b : soloBtn) b.setVisible(m);
     for (auto* b : {&songDup, &startDown, &startUp}) b->setVisible(sg);
-    patternList.setVisible(br); folderBtn.setVisible(br);
+    patternList.setVisible(br); folderBtn.setVisible(br && collection == 12);
+    collectionBox.setVisible(br);
+    {
+      const bool genre = collection >= 1 && collection <= 10;
+      const int n = d ? 7 : 6;
+      for (int i = 0; i < 7; ++i) {
+        catBtn[i].setVisible(br && genre && i < n);
+        catBtn[i].setButtonText(i == 0 ? "ALL" : (d ? techno::kDrumCats[i - 1] : techno::kSynthCats[juce::jmin(4, i - 1)]));
+      }
+      setupBtn.setVisible(br && genre); buildBtn.setVisible(br && (genre || collection == 11));
+    }
     for (auto& b : putBtn) b.setVisible(br);
     for (auto& b : songAdd) b.setVisible(sg);
     for (auto* b : {&songRemove, &songLeft, &songRight, &songEndBtn, &songPlayBtn}) b->setVisible(sg);
@@ -1411,12 +1508,15 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
     row2.removeFromLeft(8);
     songBtn.setBounds(row2.removeFromLeft(66));
     recBtn.setBounds(row2.removeFromRight(104));
+    row2.removeFromRight(6);
+    lfoBtn.setBounds(row2.removeFromRight(64));
     r.removeFromTop(8);
     auto tabs = r.removeFromTop(30);
     const int tw = (tabs.getWidth() - 20) / 6;
     for (auto& b : tabBtn) { b.setBounds(tabs.removeFromLeft(tw)); tabs.removeFromLeft(4); }
     r.removeFromTop(8);
     r.removeFromBottom(22);                                    // the message line, painted
+    if (lfoOpen) { lfos->setBounds(r.removeFromBottom(60)); r.removeFromBottom(6); }
     pageArea = r;
 
     if (tab == 0) {
@@ -1594,18 +1694,35 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
   void layoutBrowser(juce::Rectangle<int>& a) {
     browseArea = {};
     if (!browse) return;
-    auto col = a.removeFromRight(juce::jlimit(200, 280, a.getWidth() / 4));
+    auto col = a.removeFromRight(juce::jlimit(220, 300, a.getWidth() * 3 / 10));
     a.removeFromRight(10);
     browseArea = col;
     col.removeFromTop(20);                                      // the title, painted
+    collectionBox.setBounds(col.removeFromTop(26));
+    col.removeFromTop(4);
+    if (catBtn[0].isVisible()) {                                // the parts of a song, or the roles: two rows of small buttons
+      const int n = tab == 0 ? 7 : 6, perRow = tab == 0 ? 4 : 3;
+      for (int row = 0; row * perRow < n; ++row) {
+        auto line = col.removeFromTop(22);
+        const int cw = (line.getWidth() - (perRow - 1) * 2) / perRow;
+        for (int i = row * perRow; i < juce::jmin(n, (row + 1) * perRow); ++i) { catBtn[i].setBounds(line.removeFromLeft(cw)); line.removeFromLeft(2); }
+        col.removeFromTop(2);
+      }
+      col.removeFromTop(2);
+    }
     listenBtn.setBounds(col.removeFromTop(24));
     col.removeFromTop(4);
     auto put = col.removeFromBottom(26);
     const int pw = (put.getWidth() - 7 * 2) / 8;
     for (auto& b : putBtn) { b.setBounds(put.removeFromLeft(pw)); put.removeFromLeft(2); }
     col.removeFromBottom(18);                                   // "PUT IN", painted
-    folderBtn.setBounds(col.removeFromBottom(24));
-    col.removeFromBottom(6);
+    if (folderBtn.isVisible() || buildBtn.isVisible()) {
+      auto line = col.removeFromBottom(24);
+      folderBtn.setBounds(line);
+      if (setupBtn.isVisible()) { setupBtn.setBounds(line.removeFromLeft(line.getWidth() / 2 - 2)); line.removeFromLeft(4); }
+      buildBtn.setBounds(line);
+      col.removeFromBottom(6);
+    }
     patternList.setBounds(col);
   }
 
@@ -1772,14 +1889,35 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
         continue;
       }
       const juce::Colour top(sp->top), bottom(sp->bottom);
+      const bool digital = kFxEra[juce::jlimit(0, ld::kNumFxTypes - 1, sp->type)] == 1;
+      const float rnd = digital ? 4.0f : 12.0f;
       g.setGradientFill(juce::ColourGradient(top, box.getX(), box.getY(), bottom, box.getX(), box.getBottom(), false));
-      g.fillRoundedRectangle(box, 12.0f);
+      g.fillRoundedRectangle(box, rnd);
       g.setColour(juce::Colours::black.withAlpha(0.45f));
-      g.drawRoundedRectangle(box.reduced(1.0f), 12.0f, 2.0f);
-      g.setColour(juce::Colours::white.withAlpha(0.18f));       // the edge catches the light
-      g.drawRoundedRectangle(box.reduced(4.0f), 9.0f, 1.0f);
+      g.drawRoundedRectangle(box.reduced(1.0f), rnd, 2.0f);
       const juce::Colour ink = sp->lightInk ? juce::Colour(0xfff7f7f7) : juce::Colour(0xff1a1408);
-      for (int corner = 0; corner < 4; ++corner) {              // four screws
+      if (digital) {                                            // a flat box: fine grooves across the top, a label strip, no screws
+        g.setColour(juce::Colours::black.withAlpha(0.16f));
+        for (float y = box.getY() + 6.0f; y < box.getY() + 44.0f; y += 3.0f) g.fillRect(box.getX() + 6.0f, y, box.getWidth() - 12.0f, 1.0f);
+        g.setColour(juce::Colours::black.withAlpha(0.35f));
+        g.fillRect(box.getX() + 2.0f, box.getBottom() - 52.0f, box.getWidth() - 4.0f, 1.5f);
+      } else {
+        g.setColour(juce::Colours::white.withAlpha(0.18f));     // the edge catches the light
+        g.drawRoundedRectangle(box.reduced(4.0f), 9.0f, 1.0f);
+        juce::Random wear(sp->type * 7919);                     // paint worn off along the edges, the same every time
+        g.setColour(juce::Colour(0xffc9ccd1).withAlpha(0.35f));
+        for (int n = 0; n < 16; ++n) {
+          const bool side = wear.nextBool();
+          const float u = wear.nextFloat(), len = 4.0f + wear.nextFloat() * 14.0f;
+          if (side) g.fillRect(wear.nextBool() ? box.getX() + 1.5f : box.getRight() - 3.0f, box.getY() + 14.0f + u * (box.getHeight() - 40.0f), 1.5f, len);
+          else g.fillRect(box.getX() + 14.0f + u * (box.getWidth() - 40.0f), wear.nextBool() ? box.getY() + 1.5f : box.getBottom() - 3.0f, len, 1.5f);
+        }
+      }
+      g.setColour(ink.withAlpha(0.6f));
+      g.setFont(juce::Font(juce::FontOptions(10.0f, juce::Font::bold)));
+      g.drawText(juce::String(digital ? "DIGITAL  " : "ANALOG  ") + kFxYear[juce::jlimit(0, ld::kNumFxTypes - 1, sp->type)], pedalArea[i].getX() + 22, pedalArea[i].getY() + 35,
+                 pedalArea[i].getWidth() - 66, 14, juce::Justification::centredRight, false);
+      for (int corner = 0; corner < 4 && !digital; ++corner) {  // four screws
         const float sx = corner % 2 ? box.getRight() - 11.0f : box.getX() + 11.0f, sy = corner / 2 ? box.getBottom() - 11.0f : box.getY() + 11.0f;
         g.setColour(juce::Colours::black.withAlpha(0.4f));
         g.fillEllipse(sx - 3.5f, sy - 3.5f, 7.0f, 7.0f);
@@ -1802,20 +1940,42 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       g.setColour(sl.bypass ? juce::Colour(0xff4a1a1a) : col::red.brighter(0.4f));
       g.fillEllipse(led);
       // the scope: what this pedal does to a wave
+      // The display follows the knobs and the character; a pedal that is off shows the wave going through untouched.
       const auto tr = traceArea[i].toFloat();
-      g.setColour(juce::Colour(0xff0d0f10));
-      g.fillRoundedRectangle(tr, 5.0f);
-      g.setColour(juce::Colours::white.withAlpha(0.07f));
-      g.drawHorizontalLine(int(tr.getCentreY()), tr.getX() + 4.0f, tr.getRight() - 4.0f);
-      juce::Path wave;
+      const float secs = float(std::fmod(juce::Time::getMillisecondCounterHiRes() * 0.001, 3600.0));
+      const float amt = sl.bypass ? 0.0f : sl.amount, mixNow = sl.bypass ? 0.0f : sl.mix;
       const int n = int(tr.getWidth()) - 12;
-      for (int px = 0; px <= n; ++px) {
-        const float v = juce::jlimit(-1.0f, 1.0f, pedalTrace(sp->type, float(px) / float(n)));
-        const float wx = tr.getX() + 6.0f + float(px), wy = tr.getCentreY() - v * (tr.getHeight() * 0.5f - 5.0f);
-        if (px == 0) wave.startNewSubPath(wx, wy); else wave.lineTo(wx, wy);
+      const auto at = [&](int px) { return juce::jlimit(-1.0f, 1.0f, pedalScope(sp->type, int(sl.voice), amt, sl.rate, sl.p3, mixNow, float(px) / float(n), secs)); };
+      if (digital) {                                            // an LCD: dark squares on a lit pane
+        const juce::Colour pane = top.withMultipliedSaturation(0.35f).withBrightness(sl.bypass ? 0.5f : 0.78f);
+        g.setColour(pane);
+        g.fillRect(tr);
+        g.setColour(juce::Colours::black.withAlpha(0.55f));
+        g.drawRect(tr, 1.5f);
+        g.setColour(juce::Colour(0xff10160f).withAlpha(0.88f));
+        const float half = tr.getHeight() * 0.5f - 4.0f;
+        for (int px = 0; px <= n; px += 3) {
+          const float v = at(px), q = std::round(v * half / 3.0f) * 3.0f;
+          g.fillRect(tr.getX() + 6.0f + float(px), tr.getCentreY() - juce::jmax(q, 0.0f) - 1.0f, 2.0f, std::fabs(q) + 2.0f);
+        }
+      } else {                                                  // a small tube scope: a glowing line behind round glass
+        g.setColour(juce::Colour(0xff0d0f10));
+        g.fillRoundedRectangle(tr, 9.0f);
+        g.setColour(juce::Colour(0xff4a4640));
+        g.drawRoundedRectangle(tr.reduced(0.5f), 9.0f, 2.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.07f));
+        g.drawHorizontalLine(int(tr.getCentreY()), tr.getX() + 6.0f, tr.getRight() - 6.0f);
+        juce::Path wave;
+        for (int px = 0; px <= n; ++px) {
+          const float wx = tr.getX() + 6.0f + float(px), wy = tr.getCentreY() - at(px) * (tr.getHeight() * 0.5f - 5.0f);
+          if (px == 0) wave.startNewSubPath(wx, wy); else wave.lineTo(wx, wy);
+        }
+        const juce::Colour beam = sl.bypass ? top.withMultipliedSaturation(0.3f).withAlpha(0.5f) : top.brighter(0.5f);
+        g.setColour(beam.withAlpha(0.25f));
+        g.strokePath(wave, juce::PathStrokeType(5.0f));
+        g.setColour(beam);
+        g.strokePath(wave, juce::PathStrokeType(1.8f));
       }
-      g.setColour(sl.bypass ? top.withMultipliedSaturation(0.3f).withAlpha(0.5f) : top.brighter(0.5f));
-      g.strokePath(wave, juce::PathStrokeType(1.8f));
       // what the chosen character is
       g.setColour(ink.withAlpha(0.85f));
       g.setFont(juce::Font(juce::FontOptions(11.5f)));
@@ -2194,6 +2354,13 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
       if (sound.isVisible()) { sound.setTarget(tab == 0, pad, synth); sound.tick(); }
       soundBtn.setToggleState(soundView, juce::dontSendNotification);
       listenBtn.setToggleState(listenOn, juce::dontSendNotification);
+      for (int i = 0; i < 7; ++i) catBtn[i].setToggleState(i == catFilter + 1, juce::dontSendNotification);
+      {
+        bool any = false;
+        for (const auto& lf : s.project().lfos) any = any || lf.paramId >= 0;
+        lfoBtn.setToggleState(lfoOpen || any, juce::dontSendNotification);
+      }
+      if (lfoOpen) lfos->tick();
       loopBtn.setToggleState(loopBar, juce::dontSendNotification);
       barAdd.setEnabled(bars < ld::kMaxBars); barDel.setEnabled(bars > 1); barDouble.setEnabled(bars < ld::kMaxBars);
       browseBtn.setToggleState(browse, juce::dontSendNotification);
@@ -2261,6 +2428,7 @@ struct LoopMasterEditor::Body : public juce::Component, private juce::Timer, pri
             pedalKnob[i][k]->setVisible(name[0] != 0 && !(p.fewerControls && k >= 2));
             help(*pedalKnob[i][k], knobHelp(name));
             pedalKnob[i][k]->set(ld::fxSlotParamId(slot, k), fxTrack, name, juce::Colour(sp ? sp->cap : 0xff1d1b18), ink);
+            pedalKnob[i][k]->setEra(sp ? kFxEra[juce::jlimit(0, ld::kNumFxTypes - 1, sp->type)] : 0);
             pedalKnob[i][k]->refresh();
             const bool has = sp != nullptr && k < int(ld::kFxVoices[sp->type]) && ld::kFxVoices[sp->type] > 1;
             voiceBtn[i][k].setVisible(has);

@@ -51,6 +51,14 @@ class LoopMasterProcessor : public juce::AudioProcessor, private juce::Timer {
   bool openProjectFile(const juce::File& f);          // undoable
   bool saveProjectFile(const juce::File& f);
   juce::String importLibrary(const LibraryEntry& e, int scene, int synth, bool tempoAndKey);   // "" or what went wrong
+  // The techno database. genre 0..9: tempo, key, kit, four sounds and pedals for it; with song, also its patterns
+  // stacked into grooves A..F and a song. One undo step. Returns what to tell the user.
+  juce::String technoGenre(int genre, bool song);
+  int technoCount(int what) const;                     // 0 genres, 1 patterns, 2 songs
+  float technoBpm(int genre) const;
+  juce::String technoStarter(int song);                // one of the three finished starter songs, into A..D
+  // the control that was touched last (the LFOs pick their target this way)
+  int touchSerial = 0, lastPid = -1, lastIndex = 0;
   void setSongMode(bool on);
   bool songMode() const { return songMode_.load(); }
   void setSongLoop(bool on);                           // with the host: start the song over after its end, or stay silent

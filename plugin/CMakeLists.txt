@@ -6,7 +6,7 @@
 # JUCE is fetched at configure time. It is dual-licensed: AGPLv3, or the JUCE licence (free "Starter" tier).
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Oldest macOS the plugin runs on")
-project(LoopMaster VERSION 0.7.0 LANGUAGES C CXX)
+project(LoopMaster VERSION 0.8.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,6 +36,11 @@ endif()
 # The presets, drum kits and grooves, inside the plugin.
 file(GLOB_RECURSE LD_LIBRARY_JSON CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/../content/library/*.json)
 juce_add_binary_data(LoopMasterData NAMESPACE LibraryData SOURCES ${LD_LIBRARY_JSON})
+
+# The techno database: all its MIDI files in one block, and the list that says what is where.
+juce_add_binary_data(LoopMasterTechno HEADER_NAME TechnoData.h NAMESPACE TechnoData SOURCES
+  ${CMAKE_CURRENT_SOURCE_DIR}/../content/techno/pack/techno.json
+  ${CMAKE_CURRENT_SOURCE_DIR}/../content/techno/pack/techno.pack)
 
 set(LM_FORMATS VST3 Standalone)
 if(APPLE)
@@ -70,7 +75,7 @@ target_compile_definitions(LoopMaster PUBLIC
   JUCE_DISPLAY_SPLASH_SCREEN=0
   JUCE_REPORT_APP_USAGE=0)
 target_link_libraries(LoopMaster
-  PRIVATE loopdraft_engine LoopMasterData juce::juce_audio_utils
+  PRIVATE loopdraft_engine LoopMasterData LoopMasterTechno juce::juce_audio_utils
   PUBLIC juce::juce_recommended_config_flags)
 
 # Runs the processor like a host would: transport, outputs, automation, MIDI, state. Used by CI.

@@ -177,6 +177,44 @@ int main() {
     check(err.isEmpty(), "a library entry loads");
   }
 
+  {  // the techno database: every genre builds a song with something in every groove
+    check(q.technoCount(0) == 10 && q.technoCount(1) == 120 && q.technoCount(2) == 3, "the techno database is inside the plugin");
+    bool all = true, clean = true;
+    for (int g = 0; g < 10; ++g) {
+      const juce::String msg = q.technoGenre(g, true);
+      clean = clean && !msg.contains("Not found");
+      const juce::ScopedLock sl(q.lock());
+      const ld::Project& pr = q.session().project();
+      all = all && pr.chainLen == 12 && std::abs(pr.bpm - q.technoBpm(g)) < 0.01f && pr.activeSynths == 4;
+      for (int s = 0; s < 6; ++s) {
+        int hits = 0, notes = 0;
+        for (const auto& row : pr.scenes[s].drums.steps) for (int st = 0; st < pr.scenes[s].bars * 16; ++st) hits += row[st] != 0;
+        for (const auto& sy : pr.scenes[s].synth) notes += sy.count;
+        all = all && hits > 0 && notes > 0 && pr.scenes[s].bars >= 2;
+      }
+      all = all && pr.scenes[3].synth[0].count > 0 && pr.scenes[3].synth[3].count > 0 && pr.fx[1].slots[0].type != ld::FxType::Off;
+    }
+    check(all, "every genre becomes a song: six grooves with drums and synths, a chain of twelve");
+    check(clean, "every sound a genre asks for is in the library");
+    for (int s = 0; s < 3; ++s) {
+      q.technoStarter(s);
+      const juce::ScopedLock sl(q.lock());
+      const ld::Project& pr = q.session().project();
+      bool ok = pr.chainLen >= 11;
+      for (int i = 0; i < 4; ++i) ok = ok && pr.scenes[i].synth[0].count + pr.scenes[i].synth[1].count + pr.scenes[i].synth[2].count + pr.scenes[i].synth[3].count > 0;
+      check(ok, "a starter song loads into A to D");
+    }
+    {
+      const juce::ScopedLock sl(q.lock());
+      ld::ModLfo lf; lf.paramId = ld::P_SYN_CUTOFF; lf.index = 0; lf.depth = 0.8f;
+      q.session().setLfo(1, lf);
+    }
+    juce::MemoryBlock st; q.getStateInformation(st);
+    LoopMasterProcessor r2; r2.setStateInformation(st.getData(), int(st.getSize()));
+    const juce::ScopedLock sl(r2.lock());
+    check(r2.session().project().lfos[1].paramId == ld::P_SYN_CUTOFF && r2.session().project().lfos[1].depth == 0.8f, "an LFO is kept with the project");
+  }
+
   std::printf("\n%s\n", fails ? "SELF-TEST FAILED" : "self-test passed");
   return fails ? 1 : 0;
 }
