@@ -1,0 +1,60 @@
+ok    boards for guitar, bass and synth come with it
+      Clean Sparkle          rms 0.305 peak 0.56
+ok    Electric guitar / Clean Sparkle: a note comes out, not too loud
+      Edge of Breakup        rms 0.280 peak 0.47
+ok    Electric guitar / Edge of Breakup: a note comes out, not too loud
+      Rock Crunch            rms 0.401 peak 0.63
+ok    Electric guitar / Rock Crunch: a note comes out, not too loud
+      Heavy Lead             rms 0.302 peak 0.48
+ok    Electric guitar / Heavy Lead: a note comes out, not too loud
+      Fuzz Garden            rms 0.352 peak 0.64
+ok    Electric guitar / Fuzz Garden: a note comes out, not too loud
+      Funk Wah               rms 0.073 peak 0.46
+ok    Electric guitar / Funk Wah: a note comes out, not too loud
+      Ambient Wash           rms 0.201 peak 0.36
+ok    Electric guitar / Ambient Wash: a note comes out, not too loud
+      Surf Tremolo           rms 0.158 peak 0.31
+ok    Electric guitar / Surf Tremolo: a note comes out, not too loud
+      Tweed Blues            rms 0.228 peak 0.58
+ok    Electric guitar / Tweed Blues: a note comes out, not too loud
+      Chime Jangle           rms 0.304 peak 0.56
+ok    Electric guitar / Chime Jangle: a note comes out, not too loud
+      Eighties Riff          rms 0.443 peak 0.77
+ok    Electric guitar / Eighties Riff: a note comes out, not too loud
+      Jazz Clean Chorus      rms 0.166 peak 0.27
+ok    Electric guitar / Jazz Clean Chorus: a note comes out, not too loud
+      Clean Bass             rms 0.220 peak 0.37
+ok    Bass guitar / Clean Bass: a note comes out, not too loud
+      Growl                  rms 0.300 peak 0.41
+ok    Bass guitar / Growl: a note comes out, not too loud
+      Fuzz Bass              rms 0.242 peak 0.45
+ok    Bass guitar / Fuzz Bass: a note comes out, not too loud
+      Synth Bass             rms 0.115 peak 0.27
+ok    Bass guitar / Synth Bass: a note comes out, not too loud
+      Dub Bass               rms 0.251 peak 0.61
+ok    Bass guitar / Dub Bass: a note comes out, not too loud
+      Wide Pad               rms 0.185 peak 0.29
+ok    Synth / Wide Pad: a note comes out, not too loud
+      Dub Chords             rms 0.125 peak 0.22
+ok    Synth / Dub Chords: a note comes out, not too loud
+      Lo-Fi Keys             rms 0.107 peak 0.21
+ok    Synth / Lo-Fi Keys: a note comes out, not too loud
+      Acid Driver            rms 0.183 peak 0.31
+ok    Synth / Acid Driver: a note comes out, not too loud
+      Space Lead             rms 0.133 peak 0.28
+ok    Synth / Space Lead: a note comes out, not too loud
+      Drum Machine Crush     rms 0.155 peak 0.24
+ok    Synth / Drum Machine Crush: a note comes out, not too loud
+ok    an empty board changes nothing
+ok    pedals switched off let the sound through untouched
+ok    every knob and switch is a parameter the host can record
+ok    a board comes back from the saved state: pedals, characters, knobs, LFOs
+ok    an LFO on a knob is heard
+      tuner: 41.20 Hz played, 41.20 Hz shown
+      tuner: 82.41 Hz played, 82.41 Hz shown
+      tuner: 110.00 Hz played, 110.00 Hz shown
+      tuner: 329.63 Hz played, 329.63 Hz shown
+ok    the tuner reads a bass's low E, a guitar's low E, A and high E within a few cents
+ok    the output is silent while the tuner is on
+
+Loop Pedals self-test passed

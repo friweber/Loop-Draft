@@ -1,0 +1,42 @@
+ok    all six stereo outputs can be switched on
+ok    twelve output channels
+ok    silent while the host is stopped
+ok    plays with the host: main and drum output carry sound
+ok    the host leads
+ok    shows the host's tempo
+ok    the sequencer runs
+ok    the step is where the host's position is
+ok    a host parameter pulls the drums down
+ok    and up again
+ok    live: the filter takes sound away
+ok    live: and gives it back in the middle
+ok    live: a held effect changes the mix
+ok    live: let go, the mix is back
+ok    solo silences the other tracks
+ok    and brings them back
+ok    nothing is tied to a controller to begin with
+ok    quiet again after the host stopped
+ok    a MIDI note on channel 1 plays the bass
+ok    a MIDI note on channel 10 plays the kick
+ok    state is written
+ok    the host's session brings the project back
+ok    song mode comes back
+ok    the song's first bar and the editor's settings come back
+ok    and so do the song's end and the MIDI folder
+ok    groove H keeps its sixteen bars
+ok    the sixth pedal slot is kept
+ok    a knob movement inside a groove is kept
+ok    eight grooves for the host to choose from
+ok    the project survives a change of sample rate
+ok    the engine runs at the new rate
+ok    the library is inside the plugin
+ok    a library entry loads
+ok    the techno database is inside the plugin
+ok    every genre becomes a song: six grooves with drums and synths, a chain of twelve
+ok    every sound a genre asks for is in the library
+ok    a starter song loads into A to D
+ok    a starter song loads into A to D
+ok    a starter song loads into A to D
+ok    an LFO is kept with the project
+
+self-test passed
