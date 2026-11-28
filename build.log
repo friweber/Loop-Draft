@@ -1,0 +1,419 @@
+[  0%] Generating juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_LoopMasterTechno/JuceLibraryCode/TechnoData.h
+[  0%] Generating juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData6.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData7.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData8.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData9.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData10.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData11.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData12.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData13.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData14.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData15.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData16.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData17.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData18.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData19.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData20.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData21.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData22.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData23.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData24.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData25.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData26.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData27.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData28.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData29.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData30.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData31.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData32.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData33.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData34.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData35.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData36.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData37.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData38.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData39.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData40.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData41.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData42.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData43.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData44.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData45.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData46.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData47.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData48.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData49.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData50.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData51.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData52.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData53.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData54.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData55.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData56.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData57.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData58.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData59.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData60.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData61.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData62.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData63.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData64.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData65.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData66.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData67.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData68.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData69.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData70.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData71.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData72.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData73.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData74.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData75.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData76.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData77.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData78.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData79.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData80.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData81.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData82.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData83.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData84.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData85.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData86.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData87.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData88.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData89.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData90.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData91.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData92.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData93.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData94.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData95.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData96.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData97.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData98.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData99.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData100.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData101.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData102.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData103.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData104.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData105.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData106.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData107.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData108.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData109.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData110.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData111.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData112.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData113.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData114.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData115.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData116.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData117.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData118.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData119.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData120.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData121.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData122.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData123.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData124.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData125.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData126.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData127.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData128.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData129.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData130.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData131.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData.h
+[  0%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/content.cpp.o
+[  0%] Building CXX object CMakeFiles/LoopMaster_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  0%] Building CXX object CMakeFiles/LoopMasterTechno.dir/juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData1.cpp.o
+[  1%] Building CXX object CMakeFiles/LoopMasterTechno.dir/juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData2.cpp.o
+[  1%] Linking CXX static library libLoopMasterTechno.a
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm:35:
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp:47:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/functional:601:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/vector:363:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/locale:203:
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:179:1: warning: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' is deprecated [-Wdeprecated-declarations]
+  179 | wstring_convert<_Codecvt, _Elem, _WideAlloc, _ByteAlloc>::to_bytes(const _Elem* __frm, const _Elem* __frm_end) {
+      | ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_processors/format_types/VST3_SDK/public.sdk/source/common/commonstringconvert.cpp:92:22: note: in instantiation of member function 'std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>::to_bytes' requested here
+   92 |         return converter ().to_bytes (reinterpret_cast<const UTF16Type*> (str.data ()),
+      |                             ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:34:7: note: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' has been explicitly marked deprecated here
+   34 | class _LIBCPP_DEPRECATED_IN_CXX17 wstring_convert {
+      |       ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:581:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX17'
+  581 | #    define _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_DEPRECATED
+      |                                         ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:554:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  554 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+[  1%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData1.cpp.o
+[  2%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData2.cpp.o
+[  2%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData3.cpp.o
+[  3%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData4.cpp.o
+[  3%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData5.cpp.o
+[  3%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData6.cpp.o
+[  4%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData7.cpp.o
+[  4%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData8.cpp.o
+[  4%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData9.cpp.o
+[  5%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData10.cpp.o
+[  5%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData11.cpp.o
+[  6%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData12.cpp.o
+[  6%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData13.cpp.o
+[  6%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData14.cpp.o
+[  7%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData15.cpp.o
+[  7%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData16.cpp.o
+[  7%] Built target LoopMasterTechno
+[  7%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData17.cpp.o
+[  8%] Building CXX object CMakeFiles/LoopPedals_vst3_helper.dir/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm.o
+[  9%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData18.cpp.o
+[  9%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData19.cpp.o
+[ 10%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData20.cpp.o
+[ 10%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData21.cpp.o
+[ 10%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData22.cpp.o
+[ 11%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData23.cpp.o
+[ 11%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData24.cpp.o
+[ 12%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/engine.cpp.o
+[ 12%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData25.cpp.o
+[ 13%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData26.cpp.o
+[ 13%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData27.cpp.o
+[ 14%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData28.cpp.o
+[ 14%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData29.cpp.o
+[ 14%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData30.cpp.o
+[ 15%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData31.cpp.o
+[ 15%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData32.cpp.o
+[ 15%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData33.cpp.o
+[ 16%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData34.cpp.o
+1 warning generated.
+[ 16%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData35.cpp.o
+[ 17%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData36.cpp.o
+[ 17%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData37.cpp.o
+[ 17%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData38.cpp.o
+[ 18%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData39.cpp.o
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm:35:
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp:47:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/functional:601:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/vector:363:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/locale:203:
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:179:1: warning: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' is deprecated [-Wdeprecated-declarations]
+  179 | wstring_convert<_Codecvt, _Elem, _WideAlloc, _ByteAlloc>::to_bytes(const _Elem* __frm, const _Elem* __frm_end) {
+      | ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_processors/format_types/VST3_SDK/public.sdk/source/common/commonstringconvert.cpp:92:22: note: in instantiation of member function 'std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>::to_bytes' requested here
+   92 |         return converter ().to_bytes (reinterpret_cast<const UTF16Type*> (str.data ()),
+      |                             ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:34:7: note: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' has been explicitly marked deprecated here
+   34 | class _LIBCPP_DEPRECATED_IN_CXX17 wstring_convert {
+      |       ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:581:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX17'
+  581 | #    define _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_DEPRECATED
+      |                                         ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:554:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  554 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+[ 18%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData40.cpp.o
+[ 18%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData41.cpp.o
+[ 19%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData42.cpp.o
+[ 19%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData43.cpp.o
+[ 20%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData44.cpp.o
+[ 20%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData45.cpp.o
+[ 20%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData46.cpp.o
+[ 21%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData47.cpp.o
+[ 21%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData48.cpp.o
+[ 21%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData49.cpp.o
+[ 22%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData50.cpp.o
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm:35:
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp:47:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/functional:601:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/vector:363:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/locale:203:
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:179:1: warning: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' is deprecated [-Wdeprecated-declarations]
+  179 | wstring_convert<_Codecvt, _Elem, _WideAlloc, _ByteAlloc>::to_bytes(const _Elem* __frm, const _Elem* __frm_end) {
+      | ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_processors/format_types/VST3_SDK/public.sdk/source/common/commonstringconvert.cpp:92:22: note: in instantiation of member function 'std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>::to_bytes' requested here
+   92 |         return converter ().to_bytes (reinterpret_cast<const UTF16Type*> (str.data ()),
+      |                             ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:34:7: note: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' has been explicitly marked deprecated here
+   34 | class _LIBCPP_DEPRECATED_IN_CXX17 wstring_convert {
+      |       ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:581:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX17'
+  581 | #    define _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_DEPRECATED
+      |                                         ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:554:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  554 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+[ 22%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData51.cpp.o
+[ 23%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData52.cpp.o
+[ 23%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData53.cpp.o
+[ 23%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData54.cpp.o
+[ 24%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData55.cpp.o
+[ 24%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData56.cpp.o
+[ 24%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData57.cpp.o
+[ 25%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData58.cpp.o
+[ 25%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData59.cpp.o
+[ 26%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData60.cpp.o
+[ 26%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData61.cpp.o
+[ 26%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData62.cpp.o
+[ 27%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData63.cpp.o
+[ 27%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData64.cpp.o
+[ 27%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData65.cpp.o
+[ 28%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData66.cpp.o
+[ 28%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData67.cpp.o
+[ 29%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData68.cpp.o
+[ 29%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData69.cpp.o
+1 warning generated.
+[ 29%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData70.cpp.o
+[ 30%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData71.cpp.o
+[ 30%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData72.cpp.o
+[ 30%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData73.cpp.o
+[ 31%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData74.cpp.o
+[ 31%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData75.cpp.o
+[ 32%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData76.cpp.o
+[ 32%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData77.cpp.o
+[ 32%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData78.cpp.o
+1 warning generated.
+[ 33%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData79.cpp.o
+[ 34%] Linking CXX executable LoopMaster_vst3_helper
+[ 34%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData80.cpp.o
+[ 34%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData81.cpp.o
+[ 35%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData82.cpp.o
+[ 35%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/export.cpp.o
+[ 35%] Built target LoopMaster_vst3_helper
+[ 35%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData83.cpp.o
+[ 36%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData84.cpp.o
+[ 36%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData85.cpp.o
+[ 36%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData86.cpp.o
+[ 37%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData87.cpp.o
+[ 37%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData88.cpp.o
+[ 37%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData89.cpp.o
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.mm:35:
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_plugin_client/VST3/juce_VST3ManifestHelper.cpp:47:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/functional:601:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/vector:363:
+In file included from /Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/locale:203:
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:179:1: warning: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' is deprecated [-Wdeprecated-declarations]
+  179 | wstring_convert<_Codecvt, _Elem, _WideAlloc, _ByteAlloc>::to_bytes(const _Elem* __frm, const _Elem* __frm_end) {
+      | ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_audio_processors/format_types/VST3_SDK/public.sdk/source/common/commonstringconvert.cpp:92:22: note: in instantiation of member function 'std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>::to_bytes' requested here
+   92 |         return converter ().to_bytes (reinterpret_cast<const UTF16Type*> (str.data ()),
+      |                             ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/wstring_convert.h:34:7: note: 'wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>' has been explicitly marked deprecated here
+   34 | class _LIBCPP_DEPRECATED_IN_CXX17 wstring_convert {
+      |       ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:581:41: note: expanded from macro '_LIBCPP_DEPRECATED_IN_CXX17'
+  581 | #    define _LIBCPP_DEPRECATED_IN_CXX17 _LIBCPP_DEPRECATED
+      |                                         ^
+/Applications/Xcode_26.6.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/__config:554:49: note: expanded from macro '_LIBCPP_DEPRECATED'
+  554 | #      define _LIBCPP_DEPRECATED __attribute__((__deprecated__))
+      |                                                 ^
+[ 38%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData90.cpp.o
+[ 38%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData91.cpp.o
+[ 39%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData92.cpp.o
+[ 39%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData93.cpp.o
+[ 39%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData94.cpp.o
+[ 40%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData95.cpp.o
+[ 40%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData96.cpp.o
+[ 40%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData97.cpp.o
+[ 41%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData98.cpp.o
+[ 42%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/project.cpp.o
+[ 42%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData99.cpp.o
+[ 43%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData100.cpp.o
+[ 43%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData101.cpp.o
+[ 43%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData102.cpp.o
+[ 44%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData103.cpp.o
+[ 44%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData104.cpp.o
+[ 44%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData105.cpp.o
+[ 44%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/project_io.cpp.o
+[ 45%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData106.cpp.o
+[ 45%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData107.cpp.o
+[ 46%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData108.cpp.o
+[ 46%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData109.cpp.o
+[ 46%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData110.cpp.o
+[ 47%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData111.cpp.o
+[ 47%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData112.cpp.o
+[ 48%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData113.cpp.o
+[ 48%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData114.cpp.o
+[ 48%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData115.cpp.o
+[ 49%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData116.cpp.o
+[ 49%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData117.cpp.o
+[ 49%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData118.cpp.o
+[ 50%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData119.cpp.o
+[ 50%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData120.cpp.o
+[ 51%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData121.cpp.o
+1 warning generated.
+[ 51%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData122.cpp.o
+[ 51%] Linking CXX executable LoopPedals_vst3_helper
+[ 51%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/session.cpp.o
+[ 51%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData123.cpp.o
+[ 52%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData124.cpp.o
+[ 52%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData125.cpp.o
+[ 52%] Built target LoopPedals_vst3_helper
+[ 53%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/voices.cpp.o
+[ 53%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData126.cpp.o
+[ 54%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData127.cpp.o
+[ 54%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData128.cpp.o
+[ 55%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData129.cpp.o
+[ 55%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData130.cpp.o
+[ 55%] Building CXX object CMakeFiles/LoopMasterData.dir/juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData131.cpp.o
+[ 56%] Linking CXX static library libLoopMasterData.a
+[ 56%] Built target LoopMasterData
+[ 56%] Building CXX object CMakeFiles/loopdraft_engine.dir/Users/runner/work/Loop-Draft/Loop-Draft/engine/src/wav.cpp.o
+[ 57%] Linking CXX static library libloopdraft_engine.a
+[ 57%] Built target loopdraft_engine
+[ 57%] Building CXX object CMakeFiles/LoopMaster.dir/src/Processor.cpp.o
+[ 57%] Building CXX object CMakeFiles/LoopMaster.dir/src/Editor.cpp.o
+[ 58%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 58%] Building CXX object CMakeFiles/LoopPedals.dir/pedals/PedalsProcessor.cpp.o
+[ 58%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 58%] Building CXX object CMakeFiles/LoopPedals.dir/pedals/PedalsEditor.cpp.o
+[ 58%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 59%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_ara.cpp.o
+[ 59%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors_lv2_libs.cpp.o
+[ 60%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 60%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_processors/juce_audio_processors.mm.o
+[ 61%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm.o
+[ 61%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:61:2: warning: This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [-W#pragma-messages]
+   61 |  JUCE_COMPILER_WARNING ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_core/system/juce_PlatformDefs.h:292:38: note: expanded from macro 'JUCE_COMPILER_WARNING'
+  292 |  #define JUCE_COMPILER_WARNING(msg)  _Pragma (JUCE_STRINGIFY (message (msg)))
+      |                                      ^
+<scratch space>:163:2: note: expanded from here
+  163 |  message ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+[ 61%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm.o
+[ 62%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:61:2: warning: This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [-W#pragma-messages]
+   61 |  JUCE_COMPILER_WARNING ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_core/system/juce_PlatformDefs.h:292:38: note: expanded from macro 'JUCE_COMPILER_WARNING'
+  292 |  #define JUCE_COMPILER_WARNING(msg)  _Pragma (JUCE_STRINGIFY (message (msg)))
+      |                                      ^
+<scratch space>:163:2: note: expanded from here
+  163 |  message ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+[ 63%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Harfbuzz.cpp.o
+1 warning generated.
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:61:2: warning: This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [-W#pragma-messages]
+   61 |  JUCE_COMPILER_WARNING ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_core/system/juce_PlatformDefs.h:292:38: note: expanded from macro 'JUCE_COMPILER_WARNING'
+  292 |  #define JUCE_COMPILER_WARNING(msg)  _Pragma (JUCE_STRINGIFY (message (msg)))
+      |                                      ^
+<scratch space>:47:2: note: expanded from here
+   47 |  message ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+1 warning generated.
+In file included from /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.mm:35:
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_gui_basics/juce_gui_basics.cpp:61:2: warning: This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [-W#pragma-messages]
+   61 |  JUCE_COMPILER_WARNING ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/_deps/juce-src/modules/juce_core/system/juce_PlatformDefs.h:292:38: note: expanded from macro 'JUCE_COMPILER_WARNING'
+  292 |  #define JUCE_COMPILER_WARNING(msg)  _Pragma (JUCE_STRINGIFY (message (msg)))
+      |                                      ^
+<scratch space>:47:2: note: expanded from here
+   47 |  message ("This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored")
+      |  ^
+[ 63%] Building C object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[ 63%] Building C object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_graphics/juce_graphics_Sheenbidi.c.o
+[ 63%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+[ 64%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+[ 64%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_graphics/juce_graphics.mm.o
+1 warning generated.
+[ 65%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_events/juce_events.mm.o
+1 warning generated.
+[ 65%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 65%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+[ 65%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_core/juce_core_CompilationTime.cpp.o
+[ 66%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+[ 66%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_core/juce_core.mm.o
+[ 67%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_data_structures/juce_data_structures.mm.o
+[ 67%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 68%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+[ 68%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_basics/juce_audio_basics.mm.o
+[ 69%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_utils/juce_audio_utils.mm.o
+[ 69%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+[ 69%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_formats/juce_audio_formats.mm.o
+[ 69%] Building CXX object CMakeFiles/LoopMaster.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+[ 69%] Building CXX object CMakeFiles/LoopPedals.dir/_deps/juce-src/modules/juce_audio_devices/juce_audio_devices.mm.o
+[ 70%] Linking CXX static library "LoopMaster_artefacts/Release/libLoop Master_SharedCode.a"
+[ 71%] Linking CXX static library "LoopPedals_artefacts/Release/libLoop Pedals_SharedCode.a"
+[ 71%] Built target LoopPedals
+[ 71%] Built target LoopMaster
+[ 71%] Generating LoopPedals_artefacts/JuceLibraryCode/LoopPedals_Standalone/PkgInfo
+[ 72%] Generating LoopPedals_artefacts/JuceLibraryCode/LoopPedals_VST3/PkgInfo
+[ 72%] Generating LoopMaster_artefacts/JuceLibraryCode/LoopMaster_Standalone/PkgInfo
+[ 72%] Generating LoopPedals_artefacts/JuceLibraryCode/LoopPedals_AU/PkgInfo
+[ 73%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 73%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 73%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 73%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 74%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 74%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 75%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 76%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 77%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 77%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 77%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 77%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 78%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 78%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 78%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 79%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 79%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 79%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 79%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 80%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 80%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 81%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 81%] Building CXX object CMakeFiles/LoopPedals_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 81%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 81%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 81%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 82%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 83%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 83%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 83%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 83%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 84%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 85%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 85%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 85%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 85%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 86%] Building CXX object CMakeFiles/LoopMaster_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 87%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+Copying OS X content LoopMaster_artefacts/Release/Standalone/Loop Master.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 87%] Linking CXX executable "LoopMaster_artefacts/Release/Standalone/Loop Master.app/Contents/MacOS/Loop Master"
+[ 87%] Building CXX object CMakeFiles/LoopPedals_Standalone.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+Copying OS X content LoopPedals_artefacts/Release/Standalone/Loop Pedals.app/Contents/Resources/RecentFilesMenuTemplate.nib
+[ 87%] Linking CXX executable "LoopPedals_artefacts/Release/Standalone/Loop Pedals.app/Contents/MacOS/Loop Pedals"
+[ 87%] Built target LoopMaster_Standalone
+[ 88%] Generating LoopMaster_artefacts/JuceLibraryCode/LoopMaster_AU/PkgInfo
+[ 88%] Built target LoopPedals_Standalone
+[ 88%] Generating LoopMaster_artefacts/JuceLibraryCode/LoopMaster_VST3/PkgInfo
+[ 88%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 88%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 89%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 90%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX_utils.cpp.o
+[ 90%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 90%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_ARA.cpp.o
+[ 90%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Standalone.cpp.o
+[ 90%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 91%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_Unity.cpp.o
+[ 92%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 92%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AAX.mm.o
+[ 93%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_1.mm.o
+[ 93%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 93%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 94%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 94%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 94%] Building CXX object CMakeFiles/LoopMaster_VST3.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 95%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 95%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 95%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 96%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 96%] Building CXX object CMakeFiles/LoopPedals_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 97%] Linking CXX CFBundle shared module "LoopPedals_artefacts/Release/AU/Loop Pedals.component/Contents/MacOS/Loop Pedals"
+[ 97%] Built target LoopPedals_AU
+[ 97%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm.o
+[ 98%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_AUv3.mm.o
+[ 98%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_LV2.mm.o
+[ 98%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST2.mm.o
+[ 99%] Building CXX object CMakeFiles/LoopMaster_AU.dir/_deps/juce-src/modules/juce_audio_plugin_client/juce_audio_plugin_client_VST3.mm.o
+[ 99%] Linking CXX CFBundle shared module "LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3/Contents/MacOS/Loop Pedals"
+[ 99%] Linking CXX CFBundle shared module "LoopMaster_artefacts/Release/AU/Loop Master.component/Contents/MacOS/Loop Master"
+[ 99%] Built target LoopMaster_AU
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3
+[ 99%] Built target LoopPedals_VST3
+[100%] Linking CXX CFBundle shared module "LoopMaster_artefacts/Release/VST3/Loop Master.vst3/Contents/MacOS/Loop Master"
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.vst3: code object is not signed at all
+-- Replacing invalid signature with ad-hoc signature
+/Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.vst3: replacing existing signature
+removing moduleinfo.json
+creating /Users/runner/work/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.vst3
+[100%] Built target LoopMaster_VST3
