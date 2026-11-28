@@ -1,65 +1,6 @@
 #include "PedalsProcessor.h"
 
-// ---- the boards that come with it ----
-// type numbers and characters as in loopdraft/types.h and pedals.h. flags: 1 keeps the lows clean, 2 runs in time.
-// 33 amp (0 clean, 1 crunch, 2 lead, 3 bass), 34 cab (0 4x12, 1 2x12 open, 2 1x10, 3 bass), 35 tone control.
-#define S(type, voice, a, r, p3, p4, mix, flags) {type, voice, a, r, p3, p4, mix, flags}
-#define NONE {0, 0, 0, 0, 0, 0, 0, 0}
-const FactoryBoard kFactoryBoards[] = {
-  {"Electric guitar", "Clean Sparkle", "A clean amp with a compressor in front, chorus and a room behind.",
-   {S(6, 1, 0.45f, 0.4f, 0.5f, 0.6f, 1, 0), S(33, 0, 0.35f, 0.6f, 0.5f, 0.6f, 1, 0), S(34, 1, 0.5f, 0.6f, 0.5f, 0.3f, 1, 0), S(3, 1, 0.45f, 0.35f, 0.5f, 0.5f, 0.6f, 0),
-    S(20, 0, 0.35f, 0.45f, 0.5f, 0.5f, 0.3f, 0), NONE, NONE, NONE}},
-  {"Electric guitar", "Edge of Breakup", "A green overdrive pushing a crunch amp: clean when you play softly, grit when you dig in.",
-   {S(1, 1, 0.35f, 0.55f, 0.55f, 0.5f, 1, 0), S(33, 1, 0.35f, 0.55f, 0.5f, 0.5f, 1, 0), S(34, 0, 0.5f, 0.55f, 0.5f, 0.35f, 1, 0), S(19, 0, 0.35f, 0.4f, 0.4f, 0.5f, 0.35f, 0),
-    S(20, 0, 0.3f, 0.4f, 0.5f, 0.5f, 0.25f, 0), NONE, NONE, NONE}},
-  {"Electric guitar", "Rock Crunch", "A booster into a stack. Chords crunch, single notes sing.",
-   {S(9, 1, 0.45f, 0.5f, 0.5f, 0.5f, 1, 0), S(33, 1, 0.65f, 0.5f, 0.5f, 0.55f, 1, 0), S(34, 0, 0.55f, 0.5f, 0.5f, 0.4f, 1, 0), S(18, 1, 0.3f, 0.3f, 0.3f, 0.5f, 0.3f, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Electric guitar", "Heavy Lead", "Gate, a tight boost, the lead channel, a 4x12, then delay and room for solos.",
-   {S(21, 0, 0.35f, 0.4f, 0.8f, 0.3f, 1, 0), S(1, 1, 0.2f, 0.6f, 0.65f, 0.3f, 1, 0), S(33, 2, 0.6f, 0.5f, 0.5f, 0.55f, 1, 0), S(34, 0, 0.55f, 0.5f, 0.5f, 0.45f, 1, 0),
-    S(35, 0, 0.5f, 0.42f, 0.55f, 0.45f, 1, 0), S(18, 0, 0.35f, 0.45f, 0.35f, 0.5f, 0.3f, 2), S(20, 0, 0.3f, 0.5f, 0.5f, 0.5f, 0.22f, 0), NONE}},
-  {"Electric guitar", "Fuzz Garden", "A fuzz into a clean amp, a slow phaser and a tape echo.",
-   {S(8, 0, 0.6f, 0.5f, 0.5f, 0.5f, 1, 0), S(33, 0, 0.3f, 0.5f, 0.5f, 0.5f, 1, 0), S(34, 0, 0.5f, 0.5f, 0.5f, 0.35f, 1, 0), S(4, 1, 0.5f, 0.2f, 0.5f, 0.5f, 0.6f, 0),
-    S(19, 0, 0.4f, 0.5f, 0.45f, 0.5f, 0.35f, 0), NONE, NONE, NONE}},
-  {"Electric guitar", "Funk Wah", "A compressor and a wah that opens with every stroke, into a clean amp.",
-   {S(6, 1, 0.5f, 0.3f, 0.5f, 0.5f, 1, 0), S(15, 0, 0.6f, 0.5f, 0.5f, 0.5f, 1, 0), S(33, 0, 0.3f, 0.65f, 0.5f, 0.6f, 1, 0), S(34, 1, 0.5f, 0.6f, 0.5f, 0.3f, 1, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Electric guitar", "Ambient Wash", "Play one note and let it bloom: shimmer, delay in time, a cloud of grains.",
-   {S(6, 1, 0.5f, 0.4f, 0.5f, 0.6f, 1, 0), S(33, 0, 0.25f, 0.5f, 0.5f, 0.5f, 1, 0), S(34, 1, 0.5f, 0.5f, 0.5f, 0.3f, 1, 0), S(18, 0, 0.45f, 0.5f, 0.5f, 0.45f, 0.4f, 2),
-    S(32, 0, 0.5f, 0.6f, 0.5f, 0.5f, 0.45f, 0), S(27, 0, 0.5f, 0.4f, 0.5f, 0.5f, 0.3f, 0), NONE, NONE}},
-  {"Electric guitar", "Surf Tremolo", "A clean amp, tremolo and a splashing reverb.",
-   {S(33, 0, 0.35f, 0.6f, 0.5f, 0.55f, 1, 0), S(34, 1, 0.5f, 0.6f, 0.5f, 0.3f, 1, 0), S(10, 0, 0.6f, 0.55f, 0.5f, 0.5f, 1, 0), S(20, 1, 0.5f, 0.5f, 0.5f, 0.6f, 0.4f, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Bass guitar", "Clean Bass", "Even and full: compressor, tone control, a tube head and an 8x10.",
-   {S(6, 1, 0.5f, 0.4f, 0.5f, 0.5f, 1, 0), S(35, 1, 0.58f, 0.45f, 0.52f, 0.4f, 1, 0), S(33, 3, 0.3f, 0.5f, 0.5f, 0.45f, 1, 0), S(34, 3, 0.5f, 0.55f, 0.5f, 0.4f, 1, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Bass guitar", "Growl", "An overdrive on the upper half only, the lows stay clean; the head pushed.",
-   {S(6, 1, 0.5f, 0.4f, 0.5f, 0.5f, 1, 0), S(1, 3, 0.55f, 0.55f, 0.5f, 0.5f, 0.7f, 1), S(33, 3, 0.55f, 0.55f, 0.5f, 0.5f, 1, 0), S(34, 3, 0.5f, 0.55f, 0.5f, 0.45f, 1, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Bass guitar", "Fuzz Bass", "A wall of fuzz with the sub left alone underneath.",
-   {S(8, 0, 0.65f, 0.45f, 0.5f, 0.5f, 0.8f, 1), S(33, 3, 0.35f, 0.5f, 0.5f, 0.45f, 1, 0), S(34, 3, 0.5f, 0.5f, 0.5f, 0.45f, 1, 0), S(21, 0, 0.3f, 0.4f, 0.8f, 0.3f, 1, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Bass guitar", "Synth Bass", "An octave below, a filter that opens with every note: a bass guitar as a synth.",
-   {S(16, 0, 0.6f, 0.45f, 0.5f, 0.3f, 1, 0), S(15, 0, 0.6f, 0.45f, 0.5f, 0.5f, 1, 0), S(6, 1, 0.55f, 0.3f, 0.5f, 0.5f, 1, 0), S(33, 3, 0.3f, 0.5f, 0.5f, 0.45f, 1, 0),
-    S(34, 3, 0.5f, 0.5f, 0.5f, 0.4f, 1, 0), NONE, NONE, NONE}},
-  {"Bass guitar", "Dub Bass", "Round and deep, no top at all.",
-   {S(35, 1, 0.7f, 0.4f, 0.25f, 0.35f, 1, 0), S(6, 1, 0.55f, 0.5f, 0.5f, 0.5f, 1, 0), S(34, 3, 0.6f, 0.35f, 0.5f, 0.5f, 1, 0), NONE, NONE, NONE, NONE, NONE}},
-  {"Synth", "Wide Pad", "Makes a plain pad wide and endless: ensemble chorus, shimmer, a long room.",
-   {S(3, 2, 0.55f, 0.3f, 0.5f, 0.5f, 0.7f, 0), S(32, 0, 0.5f, 0.6f, 0.5f, 0.5f, 0.4f, 0), S(20, 0, 0.45f, 0.7f, 0.5f, 0.5f, 0.4f, 0), NONE, NONE, NONE, NONE, NONE}},
-  {"Synth", "Dub Chords", "For short chord stabs: a phaser and a dub delay in time that swallows them.",
-   {S(4, 1, 0.45f, 0.2f, 0.5f, 0.5f, 0.5f, 0), S(29, 0, 0.55f, 0.45f, 0.5f, 0.5f, 0.5f, 2), S(20, 0, 0.45f, 0.65f, 0.5f, 0.5f, 0.35f, 0), NONE, NONE, NONE, NONE, NONE}},
-  {"Synth", "Lo-Fi Keys", "Old tape, a slow tremolo and a tape echo for keys and electric pianos.",
-   {S(28, 0, 0.5f, 0.4f, 0.5f, 0.5f, 0.8f, 0), S(10, 0, 0.4f, 0.4f, 0.5f, 0.5f, 1, 0), S(19, 0, 0.35f, 0.45f, 0.4f, 0.5f, 0.3f, 0), NONE, NONE, NONE, NONE, NONE}},
-  {"Synth", "Acid Driver", "Distortion with the lows kept clean and a delay in time: for a 303 line.",
-   {S(7, 0, 0.55f, 0.5f, 0.5f, 0.5f, 0.6f, 1), S(18, 0, 0.35f, 0.45f, 0.4f, 0.5f, 0.3f, 2), S(20, 0, 0.3f, 0.4f, 0.5f, 0.5f, 0.2f, 0), NONE, NONE, NONE, NONE, NONE}},
-  {"Synth", "Space Lead", "A little drive, a flanger sweeping slowly, delay and a long reverb.",
-   {S(1, 2, 0.4f, 0.5f, 0.5f, 0.5f, 1, 0), S(12, 0, 0.5f, 0.2f, 0.5f, 0.5f, 0.5f, 0), S(18, 0, 0.4f, 0.5f, 0.45f, 0.5f, 0.35f, 2), S(20, 0, 0.45f, 0.7f, 0.5f, 0.5f, 0.35f, 0),
-    NONE, NONE, NONE, NONE}},
-  {"Synth", "Drum Machine Crush", "For a drum machine: punch, a crusher mixed in, a gated room.",
-   {S(22, 0, 0.5f, 0.4f, 0.5f, 0.5f, 1, 0), S(23, 0, 0.4f, 0.5f, 0.5f, 0.5f, 0.3f, 0), S(25, 0, 0.5f, 0.4f, 0.5f, 0.5f, 0.25f, 0), NONE, NONE, NONE, NONE, NONE}},
-};
-#undef S
-#undef NONE
+#include "FactoryBoards.inc"
 const int kNumFactoryBoards = int(sizeof(kFactoryBoards) / sizeof(kFactoryBoards[0]));
 
 LoopPedalsProcessor::LoopPedalsProcessor()

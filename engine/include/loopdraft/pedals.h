@@ -777,7 +777,7 @@ struct Pedal {
       case FxType::Amp: {                          // GAIN, TONE, LEVEL, PRESENCE
         // voices: 0 CLEAN (glassy, breaks up late), 1 CRUNCH (a British stack on the edge), 2 LEAD (high gain, tight lows),
         // 3 BASS (a tube bass head: full lows, a growl when pushed)
-        static const float kGain[4] = {5.0f, 28.0f, 140.0f, 9.0f}, kTight[4] = {70.0f, 110.0f, 160.0f, 30.0f}, kOut[4] = {0.9f, 0.55f, 0.33f, 0.8f};
+        static const float kGain[4] = {5.0f, 28.0f, 140.0f, 9.0f}, kTight[4] = {70.0f, 110.0f, 160.0f, 30.0f}, kOut[4] = {0.8f, 0.3f, 0.2f, 0.62f};
         const int v = voice < 0 ? 0 : (voice > 3 ? 3 : voice);
         const float g = 1.0f + a * a * kGain[v];
         const float comp = kOut[v] / (1.0f + a * (v == 2 ? 0.6f : 1.2f));
@@ -809,7 +809,7 @@ struct Pedal {
           const float thump = band(c, x, gR, 0.6f);                // the box resonates where it is tuned
           float y = x + thump * p4 * 1.6f;
           y = lp(c, 1, y, top); y = lp(c, 2, y, top); y = lp(c, 3, y, top); y = lp(c, 4, y, top);   // and nothing gets out above the cone's reach
-          *ch[c] = y * level * 1.5f;
+          *ch[c] = y * level * 1.1f;
         }
         break;
       }
