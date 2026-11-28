@@ -23,7 +23,7 @@ int main() {
     rms = std::sqrt(sum / double(blocks * block));
     return finite;
   };
-  check(kNumFactoryBoards >= 15, "boards for guitar, bass and synth come with it");
+  check(kNumFactoryBoards >= 23, "boards for guitar, bass and synth come with it");
   for (int i = 0; i < kNumFactoryBoards; ++i) {
     q.loadFactory(i);
     double rms = 0.0; float peak = 0.0f;

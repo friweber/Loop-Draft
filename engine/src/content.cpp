@@ -249,7 +249,7 @@ const char* const kWaveNames[] = {"saw", "square", "triangle", "sine"};
 const char* const kEngineNames[] = {"subtractive", "fm", "pluck", "vector", "unison", "organ", "phase"};
 const char* const kLfoNames[] = {"off", "cutoff", "pitch", "volume"};
 const char* const kFxNames[] = {"off", "overdrive", "bitcrush", "chorus", "phaser", "filter", "compressor", "distortion", "fuzz", "booster", "tremolo", "vibrato", "flanger", "rotary", "wah", "autowah", "octaver", "ringmod", "delay", "tapeecho", "reverb", "gate",
-                               "punch", "crusher", "slicer", "gatedverb", "boom", "cloud", "lofi", "dubdelay", "freqshift", "resonator", "shimmer", "amp", "cab", "eq"};
+                               "punch", "crusher", "slicer", "gatedverb", "boom", "cloud", "lofi", "dubdelay", "freqshift", "resonator", "shimmer", "amp", "cab", "eq", "amp2"};
 static_assert(sizeof(kFxNames) / sizeof(kFxNames[0]) == size_t(kNumFxTypes), "a name for every effect type");
 const char* const kScaleNames[] = {"minor", "major", "dorian", "pentatonic"};
 const char* const kRootNames[] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};

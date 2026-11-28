@@ -24,9 +24,33 @@ Turn **In** up until the IN light turns yellow when you play hard, never red.
   foot switch.
 - Most pedals have up to four knobs, a row of characters (the same effect built another way), **Mix**, **KEEP SUB**
   (lows below about 120 Hz go round the pedal: for bass) and, where it makes sense, **SYNC** to the tempo.
-- 35 pedals: everything from Loop Master, and three made for instruments plugged straight in: **Amp** (clean,
-  crunch, lead, bass), **Cab** (4x12, 2x12 open, 1x10, bass 8x10) and **Tone Control** (three bands).
+- 36 pedals: everything from Loop Master, and four made for instruments plugged straight in: two amp pedals with four
+  amplifiers each, **Cab** (4x12, 2x12 open, 1x10, bass 8x10) and **Tone Control** (three bands).
   A guitar straight into an interface sounds thin and harsh through a drive alone: put an Amp and a Cab on the board.
+
+### The amplifiers
+
+Each is built from what tells that kind of amplifier apart: where the lows are cut before the tubes, what is pushed
+into them, how many stages clip and how lopsided, the dip of the tone controls, how hard the power amp works, how much
+the supply gives way under a chord (sag), and whether feedback keeps the top in check. They run at twice the sample
+rate inside. Knobs: Gain, Tone, Level, Presence.
+
+| Amp: Vintage | In the manner of | Listen for |
+|---|---|---|
+| Tweed '57 | small American tweed combos | thick mids, loose lows, sags and rasps early; cleans up with a soft touch |
+| Blackface '65 | American "blackface" combos | lots of clean headroom, scooped mids, glassy top, tight lows |
+| Chime '63 | British class A combos with top boost | jangle around 2-3 kHz, early breakup that sings in the power amp |
+| Plexi '68 | British 100 watt stacks | bark in the upper mids, crunch that follows your picking |
+
+| Amp: Stage | In the manner of | Listen for |
+|---|---|---|
+| British 800 | early-eighties master-volume heads | tighter, hotter, punching mids, a rasp from the cold clipper |
+| Modern | nineties rectified high-gain heads | a wall: scooped mids, huge lows, fizzing top |
+| Jazz Clean | seventies transistor jazz combos | flat, wide, spotless at any volume |
+| Bass Tube | sixties 300 watt tube bass heads | whole lows, mids that growl when pushed |
+
+Pair them with the right Cab: Tweed with 1x10, Blackface and Chime and Jazz Clean with 2x12 Open, Plexi, 800 and Modern
+with 4x12, Bass Tube with Bass 8x10.
 - **TUNER**: note, cents and a needle; the output is silent while it is on.
 
 ## Boards
@@ -45,4 +69,4 @@ board as it stands under "My boards" (files in `Documents/Loop Pedals/Boards`, s
 ## Not there yet
 
 No MIDI foot controller, no looper, no impulse responses for the Cab, no stereo routing options beyond the input
-choice. The amp and cab are simple models, not captures of particular amplifiers.
+choice. The amps and the cab are models built from typical circuit behaviour, not captures of particular amplifiers, and they have been tuned by measurement, not yet by ear.

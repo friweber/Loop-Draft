@@ -774,26 +774,10 @@ struct Pedal {
         break;
       }
       // --------------------------------------------------------------------------------------- amplifier, speaker, tone
-      case FxType::Amp: {                          // GAIN, TONE, LEVEL, PRESENCE
-        // voices: 0 CLEAN (glassy, breaks up late), 1 CRUNCH (a British stack on the edge), 2 LEAD (high gain, tight lows),
-        // 3 BASS (a tube bass head: full lows, a growl when pushed)
-        static const float kGain[4] = {5.0f, 28.0f, 140.0f, 9.0f}, kTight[4] = {70.0f, 110.0f, 160.0f, 30.0f}, kOut[4] = {0.8f, 0.3f, 0.2f, 0.62f};
+      case FxType::Amp:                            // GAIN, TONE, LEVEL, PRESENCE: tweed, blackface, chime, plexi
+      case FxType::Amp2: {                         // the same knobs: British 800, modern high gain, jazz clean, bass tube
         const int v = voice < 0 ? 0 : (voice > 3 ? 3 : voice);
-        const float g = 1.0f + a * a * kGain[v];
-        const float comp = kOut[v] / (1.0f + a * (v == 2 ? 0.6f : 1.2f));
-        for (int c = 0; c < 2; ++c) {
-          float x = *ch[c];
-          x -= lp(c, 0, x, op(kTight[v]));                         // the lows that would turn to mud stay out of the tubes
-          if (v == 1 || v == 2) x += (x - lp(c, 1, x, op(720.0f))) * 0.8f;   // a push in the upper mids before the clipping
-          float y = fastTanh(x * g * 0.6f + 0.12f) - 0.1194273f;    // first tube: a little lopsided
-          if (v >= 1) y = fastTanh(y * (v == 2 ? 3.5f : 1.8f));     // second tube
-          if (v == 2) y = fastTanh(y * 1.6f - 0.08f) + 0.0798300f;  // and a third for the lead channel
-          const float low = lp(c, 2, y, op(v == 3 ? 260.0f : 420.0f)), high = y - low;
-          y = low * (1.5f - rt * 0.9f) + high * (0.35f + rt * 1.5f); // TONE: from dark to bright
-          const float air = y - lp(c, 3, y, op(3200.0f));
-          y += air * (p4 - 0.5f) * 2.5f;                           // PRESENCE: the very top
-          *ch[c] = y * comp * level * 1.6f;
-        }
+        amp((type == FxType::Amp2 ? 4 : 0) + v, ch, a, rt, level, p4);
         break;
       }
       case FxType::Cab: {                          // SIZE, MIC, LEVEL, THUMP
@@ -860,6 +844,98 @@ struct Pedal {
   }
 
  private:
+  // ---- eight amplifiers ----
+  // What tells one amplifier from another, as far as a player hears it: where the lows are cut before the tubes
+  // (tight or loose), what is pushed into them (a bright cap, a mid hump), how many stages clip and how lopsided,
+  // the dip of the tone controls between pre and power amp, how hard the power amp is driven and how much the
+  // supply gives way under a chord (sag), and whether negative feedback keeps the top in check (presence).
+  struct AmpModel {
+    float hpIn;                 // lows cut before the first tube, Hz
+    float brightHz, bright;     // highs lifted before the first tube ...
+    bool brightCap;             // ... less and less as GAIN goes up (a cap across the volume pot)
+    float humpLo, humpHi, hump; // a band pushed before the tubes (negative: pulled)
+    float gain;                 // how much GAIN adds, in total
+    int stages;                 // clipping stages in the preamp
+    float coupling;             // lows cut between stages, Hz: the higher, the tighter under gain
+    float bias;                 // how lopsided the tubes clip (even harmonics)
+    int clip;                   // 0 soft tube, 1 cold clipper (one side early and hard), 2 transistor (clean, then a wall)
+    float scoopHz, scoop;       // the tone stack's dip (negative: a push)
+    float lowPost;              // lows added after the distortion
+    float pivot;                // where TONE turns
+    float power;                // how hard the power amp is driven
+    float sag;                  // how much the supply gives way
+    float presHz, pres;         // PRESENCE
+    float cleanLow;             // lows that go round the tubes (bass amps)
+    float out;
+  };
+  void amp(int model, float* ch[2], float a, float rt, float level, float p4) {
+    static const AmpModel kAmps[8] = {
+      // TWEED '57: small, no feedback, loose lows, thick mids, gives way under every chord, rasps when pushed
+      {40.0f, 2500.0f, 0.15f, false, 250.0f, 1400.0f, 0.45f, 60.0f, 2, 30.0f, 0.32f, 0, 500.0f, -0.10f, 0.0f, 900.0f, 1.9f, 1.3f, 2600.0f, 1.6f, 0.0f, 0.44f},
+      // BLACKFACE '65: headroom, scooped mids, glassy top that softens as you turn up, tight clean lows
+      {70.0f, 1800.0f, 1.0f, true, 300.0f, 1200.0f, -0.10f, 9.0f, 1, 80.0f, 0.10f, 0, 480.0f, 0.80f, 0.30f, 1100.0f, 0.9f, 0.15f, 4200.0f, 2.2f, 0.0f, 0.85f},
+      // CHIME '63: class A, no feedback, jangle around 2-3 kHz, breaks up early and compresses, the power amp does the singing
+      {75.0f, 1300.0f, 0.9f, false, 1600.0f, 4200.0f, 0.75f, 26.0f, 1, 90.0f, 0.22f, 0, 650.0f, 0.22f, 0.0f, 1500.0f, 2.3f, 0.75f, 3000.0f, 1.9f, 0.0f, 0.42f},
+      // PLEXI '68: a bright cap, bark in the upper mids, two stages, the power amp crunches; cleans up when you play softly
+      {50.0f, 750.0f, 0.8f, true, 700.0f, 2200.0f, 0.40f, 55.0f, 2, 70.0f, 0.18f, 0, 650.0f, 0.22f, 0.10f, 1000.0f, 1.5f, 0.40f, 3600.0f, 2.4f, 0.0f, 0.36f},
+      // BRITISH 800 '81: tighter and hotter, a cold clipper gives the rasp, mids that punch, less bass
+      {80.0f, 900.0f, 0.7f, false, 500.0f, 1500.0f, 0.60f, 150.0f, 2, 120.0f, 0.10f, 1, 700.0f, 0.12f, 0.10f, 1000.0f, 1.0f, 0.20f, 3800.0f, 2.4f, 0.0f, 0.40f},
+      // MODERN '92: a wall. Very high gain, mids scooped out, huge lows put back after the distortion, a fizzing top
+      {90.0f, 1200.0f, 0.8f, false, 600.0f, 1800.0f, 0.35f, 420.0f, 3, 150.0f, 0.08f, 0, 750.0f, 0.78f, 1.4f, 1300.0f, 1.0f, 0.50f, 4500.0f, 2.8f, 0.0f, 0.25f},
+      // JAZZ CLEAN '75: transistors. Flat, wide and spotless at any volume, a hard edge only at the very end
+      {40.0f, 3000.0f, 0.55f, false, 500.0f, 1200.0f, -0.18f, 3.0f, 1, 40.0f, 0.0f, 2, 800.0f, 0.10f, 0.0f, 1200.0f, 0.55f, 0.0f, 5000.0f, 2.0f, 0.0f, 0.9f},
+      // BASS TUBE '69: 300 watts of tubes. The lows go through whole, the mids growl when pushed
+      {28.0f, 1500.0f, 0.3f, false, 250.0f, 900.0f, 0.45f, 14.0f, 2, 40.0f, 0.22f, 0, 420.0f, 0.30f, 0.0f, 500.0f, 1.3f, 0.30f, 2500.0f, 1.8f, 0.9f, 0.45f},
+    };
+    const AmpModel& m = kAmps[model < 0 ? 0 : (model > 7 ? 7 : model)];
+    // everything runs twice per sample, so that what the clipping throws above the top of hearing does not fold back
+    const auto c2 = [this](float hz) { return op(hz * 0.5f); };
+    const float total = 1.0f + a * a * m.gain;
+    const float g = m.stages == 1 ? total : (m.stages == 2 ? std::sqrt(total) : std::cbrt(total));
+    const float cIn = c2(m.hpIn), cBr = c2(m.brightHz), cH1 = c2(m.humpLo), cH2 = c2(m.humpHi), cCo = c2(m.coupling);
+    const float cS1 = c2(m.scoopHz / 1.9f), cS2 = c2(m.scoopHz * 1.9f), cLow = c2(120.0f), cPiv = c2(m.pivot), cPr = c2(m.presHz), cDc = c2(12.0f);
+    const float cClean = c2(110.0f);
+    const float bright = m.bright * (m.brightCap ? 1.0f - 0.8f * a : 1.0f);
+    const float sagUp = c2(60.0f), sagDown = c2(4.0f);
+    const float offs = fastTanh(m.bias);
+    const auto one = [](float& st, float x, float coef) { st += coef * (x - st); return st; };
+    for (int c = 0; c < 2; ++c) {
+      const float in = *ch[c];
+      float acc = 0.0f;
+      for (int half = 0; half < 2; ++half) {
+        float x = half == 0 ? 0.5f * (prev[c] + in) : in;
+        const float clean = m.cleanLow > 0.0f ? one(apy[c][0], x, cClean) : 0.0f;
+        x -= one(z[c][0], x, cIn);
+        x += (x - one(z[c][1], x, cBr)) * bright;
+        x += (one(z[c][2], x, cH2) - one(z[c][3], x, cH1)) * m.hump;
+        // the preamp
+        float y;
+        if (m.clip == 2) { const float t = x * g; y = t > 1.0f ? 1.0f : (t < -1.0f ? -1.0f : 1.5f * t - 0.5f * t * t * t); }      // transistors: straight, then a wall
+        else y = fastTanh(x * g + m.bias) - offs;
+        if (m.stages >= 2) {
+          y -= one(z[c][4], y, cCo);
+          const float t = y * g;
+          y = m.clip == 1 ? (fastTanh(t * 1.3f + 0.5f) - 0.4621172f) * 1.15f : fastTanh(t - m.bias * 0.6f) + fastTanh(m.bias * 0.6f);   // the cold clipper: one side hits its ceiling long before the other
+        }
+        if (m.stages >= 3) { y -= one(z[c][5], y, cCo); y = fastTanh(y * g * 0.8f); }
+        // the tone controls between pre and power amp
+        y -= (one(apx[c][0], y, cS2) - one(apx[c][1], y, cS1)) * m.scoop;
+        if (m.lowPost > 0.0f) y += one(apx[c][2], y, cLow) * m.lowPost;
+        const float low = one(apx[c][3], y, cPiv);
+        y = low * (1.35f - rt * 0.7f) + (y - low) * (0.3f + rt * 1.5f);
+        // the power amp, and the supply that gives way under it
+        float pw = y * m.power / (1.0f + m.sag * env);
+        const float mag = pw < 0.0f ? -pw : pw;
+        env += (mag > env ? sagUp : sagDown) * (mag - env);
+        pw = m.clip == 2 ? (pw > 1.2f ? 1.2f : (pw < -1.2f ? -1.2f : pw)) : fastTanh(pw + 0.08f * pw * pw);
+        pw += (pw - one(apx[c][4], pw, cPr)) * (p4 - 0.5f) * m.pres;
+        pw -= one(apx[c][5], pw, cDc);
+        acc += pw + clean * m.cleanLow * 2.0f;
+      }
+      prev[c] = in;
+      *ch[c] = acc * 0.5f * m.out * level;
+    }
+  }
   static float unit(float x) { return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x); }
   static float hardClip(float x) { return x < -1.0f ? -1.0f : (x > 1.0f ? 1.0f : x); }
   static void advance(float& phase, float by) { phase += by; if (phase >= 1.0f) phase -= 1.0f; }

@@ -100,10 +100,12 @@ const PedalSpec kPedals[] = {
   {32, "SHIM", "Shimmer", 0xffe8d9f5, 0xffb59fd0, false, 0xff1d1b18, {"Level", "Decay", "Shimmer", "Tone"},
    {"Octave", "Fifth", "Freeze"},
    {"A reverb whose tail climbs an octave", "Climbs a fifth", "HOLD up: the room stands still while you play over it"}},
-  {33, "AMP", "Amp", 0xff2a2623, 0xff141210, true, 0xffd9c9a0, {"Gain", "Tone", "Level", "Presence"},
-   {"Clean", "Crunch", "Lead", "Bass"},
-   {"A glassy clean amplifier that breaks up late", "A stack on the edge: chords crunch, single notes sing", "High gain with tight lows, for leads and heavy riffs",
-    "A tube bass head: full lows, a growl when pushed"}},
+  {33, "AMP-V", "Amp: Vintage", 0xffc9a86a, 0xff8e6f3a, false, 0xff2a1d10, {"Gain", "Tone", "Level", "Presence"},
+   {"Tweed '57", "Blackface '65", "Chime '63", "Plexi '68"},
+   {"Small and loose: thick mids, gives way under every chord, rasps when pushed. Blues, early rock'n'roll",
+    "Loud and clean: scooped mids, a glassy top, tight lows. Funk, country, surf, the pedal platform",
+    "Class A jangle: bright, breaks up early and sings in the power amp. British invasion, indie",
+    "The stack: bark in the upper mids, crunch that cleans up when you play softly. Classic rock"}},
   {34, "CAB", "Cab", 0xff6b4a2c, 0xff3d2915, true, 0xff1d1b18, {"Size", "Mic", "Level", "Thump"},
    {"4x12", "2x12 Open", "1x10", "Bass 8x10"},
    {"A closed box with four speakers: big and tight. Put it after an amp or a drive", "An open-backed combo: airy, less low end", "One small speaker: boxy, for old records",
@@ -111,6 +113,12 @@ const PedalSpec kPedals[] = {
   {35, "EQ", "Tone Control", 0xffd8d8d0, 0xffa9a99f, false, 0xff1d1b18, {"Low", "Mid", "High", "Mid Freq"},
    {"Guitar", "Bass", "Wide"},
    {"Three bands, 15 dB up or down; in the middle it does nothing", "The bands sit where a bass needs them", "Low and high sit far apart: for synths and whole mixes"}},
+  {36, "AMP-S", "Amp: Stage", 0xff2a2623, 0xff141210, true, 0xffd9c9a0, {"Gain", "Tone", "Level", "Presence"},
+   {"British 800", "Modern", "Jazz Clean", "Bass Tube"},
+   {"Hotter and tighter than the stack: punching mids, a rasp on top. Eighties rock and metal",
+    "A wall of gain: scooped mids, huge lows, a fizzing top. Modern metal",
+    "Transistors: flat, wide and spotless at any volume. Jazz, clean chorus sounds, synths",
+    "300 watts of tubes for bass: the lows go through whole, the mids growl when pushed"}},
 };
 // What knob `i` of a pedal is called on a given character. "" = this knob does nothing there.
 const char* knobName(const PedalSpec& sp, int voice, int i) {
@@ -134,10 +142,10 @@ const char* knobName(const PedalSpec& sp, int voice, int i) {
 // What the pedal does to a wave, as a little scope trace: x 0 .. 1, result -1 .. 1.
 // How old each pedal's kind is: the look follows. 0: analog (a painted metal box, screws, round knobs, a glowing
 // tube scope). 1: digital (a flat box with grooves, a ring of lights round each dial, an LCD).
-const int kFxEra[ld::kNumFxTypes] = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0};
+const int kFxEra[ld::kNumFxTypes] = {0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0};
 const char* const kFxYear[ld::kNumFxTypes] = {"", "1977", "1998", "1976", "1974", "1972", "1975", "1978", "1966", "1965", "1963", "1968", "1977", "1967",
                                               "1967", "1972", "1982", "1971", "1983", "1974", "1986", "1985", "1996", "1999", "2001", "1984", "1980",
-                                              "2005", "1979", "1973", "1972", "1994", "2008", "1965", "1962", "1975"};
+                                              "2005", "1979", "1973", "1972", "1994", "2008", "1957", "1962", "1975", "1981"};
 float pedalTrace(int type, float x);
 // What the pedal's display shows right now: its picture, bent by where the knobs stand and by the character that is
 // chosen, and moving if the pedal moves. x: 0 .. 1 across the display; secs: a clock.
@@ -207,6 +215,7 @@ float pedalTrace(int type, float x) {
     case 31: return std::sin(t * 12.0f) * std::exp(-3.0f * std::fmod(x * 2.0f, 1.0f)) * 0.9f;
     case 32: return (std::sin(t * 5.0f) * (1.0f - x) + std::sin(t * 10.0f) * x) * (0.4f + 0.5f * std::sin(juce::MathConstants<float>::pi * x));
     case 33: return std::tanh(std::sin(t * 3.0f) * 4.0f + 0.3f) * 0.8f;                        // an amp: the wave pressed flat
+    case 36: return std::tanh(std::sin(t * 3.0f) * 9.0f) * 0.75f;                                 // a hot amp: nearly square
     case 34: return 0.75f * std::sin(t * 2.0f) + 0.1f * std::sin(t * 6.0f);                    // a speaker: round
     case 35: return 0.5f * std::sin(t * 2.0f) + 0.3f * std::sin(t * 7.0f);                      // a tone control: lows and highs
     default: return 0.0f;
@@ -219,7 +228,7 @@ const PedalSpec* pedalSpec(int type) {
 // how the menu is ordered: families, each with its pedals (by type number)
 struct PedalFamily { const char* name; int types[8]; };   // a 0 ends the list
 const PedalFamily kPedalFamilies[] = {
-  {"Amp and tone", {33, 34, 35, 0, 0, 0, 0, 0}},
+  {"Amp and tone", {33, 36, 34, 35, 0, 0, 0, 0}},
   {"Drive", {1, 7, 8, 9, 2, 0, 0, 0}},
   {"Dynamics", {6, 21, 0, 0, 0, 0, 0, 0}},
   {"Modulation", {3, 12, 4, 10, 11, 13, 17, 0}},

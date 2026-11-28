@@ -1607,13 +1607,13 @@ static void testPedalChain() {
   const double mid = rms();
   fill(9000.0, 0.1f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
   CHECK(mid > 0.04 && rms() < mid * 0.35);
-  // the lead channel squashes: a note ten times louder comes out less than twice as loud; the clean channel stays loud and clear
-  slots[0] = FxSlot(); slots[0].type = FxType::Amp; slots[0].voice = 2; slots[0].amount = 0.7f;
+  // the modern high-gain amp squashes: a note ten times louder comes out less than twice as loud; the blackface stays loud and clear
+  slots[0] = FxSlot(); slots[0].type = FxType::Amp2; slots[0].voice = 1; slots[0].amount = 0.7f;
   fill(200.0, 0.05f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
   const double soft = rms();
   fill(200.0, 0.5f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
   CHECK(soft > 0.05 && rms() < soft * 2.0 && rms() < 1.2);
-  slots[0].voice = 0; slots[0].amount = 0.3f;
+  slots[0].type = FxType::Amp; slots[0].voice = 1; slots[0].amount = 0.3f;   // the blackface: clean
   fill(200.0, 0.2f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
   std::printf("      amp clean %.3f lead soft %.3f cab mid %.3f\n", rms(), soft, mid);
   CHECK(rms() > 0.08 && rms() < 0.6);

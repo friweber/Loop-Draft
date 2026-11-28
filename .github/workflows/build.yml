@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, amps]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', 'plugin/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -339,8 +339,10 @@ jobs:
           pshot() { xvfb-run -a -s "-screen 0 1200x760x24" bash -c '"$0" > "$2" 2>&1 & sleep 8; import -window root "$1"; kill $! 2>/dev/null' "$P" "report/$1.png" "report/$1.log" || true; }
           LOOPPEDALS_BOARD=3 pshot board-heavy-lead &
           LOOPPEDALS_BOARD=3 LOOPPEDALS_FIRST=4 LOOPPEDALS_LFO=1 pshot board-heavy-lead-2 &
-          LOOPPEDALS_BOARD=8 LOOPPEDALS_TUNER=1 pshot board-bass-tuner &
-          LOOPPEDALS_BOARD=13 pshot board-synth-pad &
+          LOOPPEDALS_BOARD=12 LOOPPEDALS_TUNER=1 pshot board-bass-tuner &
+          LOOPPEDALS_BOARD=8 pshot board-tweed &
+          LOOPPEDALS_BOARD=10 pshot board-eighties &
+          LOOPPEDALS_BOARD=17 pshot board-synth-pad &
           wait
           LOOPMASTER_TAB=0 LOOPMASTER_GENRE=4 shot browse-drums
           LOOPMASTER_TAB=1 LOOPMASTER_GENRE=2 shot browse-synth
