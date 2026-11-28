@@ -540,6 +540,8 @@ class PedalsEditor : public juce::AudioProcessorEditor, private juce::Timer {
     sl.setTextBoxIsEditable(false);
     sl.textFromValueFunction = [before, after](double v) { return juce::String(before) + (after[0] && v > 0.05 ? "+" : "") + juce::String(juce::roundToInt(v)) + after; };
     sl.setDoubleClickReturnValue(true, double(param->convertFrom0to1(static_cast<juce::AudioProcessorParameter*>(param)->getDefaultValue())));
+    sl.setValue(double(param->get()), juce::dontSendNotification);
+    sl.updateText();
     sl.onDragStart = [this, &sl, param] { held = &sl; param->beginChangeGesture(); };
     sl.onDragEnd = [this, param] { held = nullptr; param->endChangeGesture(); };
     sl.onValueChange = [this, &sl, param] { if (!setting) param->setValueNotifyingHost(param->convertTo0to1(float(sl.getValue()))); };
