@@ -1,0 +1,268 @@
+MSBuild version 18.12.3-1.26559.12+8df097b6f for .NET Framework
+
+  Checking File Globs
+  1>Checking Build System
+  Generating LoopMaster_artefacts/JuceLibraryCode/LoopMaster_resources.rc
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  Generating LoopPedals_artefacts/JuceLibraryCode/LoopPedals_resources.rc
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  LoopPedals_rc_lib.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopPedals_rc_lib.dir\Release\LoopPedals_rc_lib.lib
+  LoopMaster_rc_lib.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopMaster_rc_lib.dir\Release\LoopMaster_rc_lib.lib
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  Generating juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_LoopMasterTechno/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_LoopMasterTechno/JuceLibraryCode/TechnoData.h
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  juce_VST3ManifestHelper.cpp
+  Generating juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData1.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData2.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData3.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData4.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData5.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData6.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData7.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData8.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData9.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData10.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData11.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData12.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData13.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData14.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData15.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData16.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData17.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData18.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData19.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData20.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData21.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData22.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData23.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData24.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData25.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData26.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData27.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData28.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData29.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData30.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData31.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData32.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData33.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData34.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData35.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData36.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData37.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData38.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData39.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData40.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData41.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData42.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData43.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData44.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData45.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData46.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData47.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData48.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData49.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData50.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData51.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData52.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData53.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData54.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData55.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData56.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData57.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData58.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData59.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData60.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData61.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData62.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData63.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData64.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData65.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData66.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData67.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData68.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData69.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData70.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData71.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData72.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData73.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData74.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData75.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData76.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData77.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData78.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData79.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData80.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData81.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData82.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData83.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData84.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData85.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData86.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData87.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData88.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData89.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData90.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData91.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData92.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData93.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData94.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData95.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData96.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData97.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData98.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData99.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData100.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData101.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData102.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData103.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData104.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData105.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData106.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData107.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData108.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData109.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData110.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData111.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData112.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData113.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData114.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData115.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData116.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData117.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData118.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData119.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData120.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData121.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData122.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData123.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData124.cpp, juce_binarydata_LoopMasterData/JuceLibraryCode/BinaryData125.cpp, juce_binarydata_LoopMasterData/JuceLibBuilding Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  BinaryData1.cpp
+  BinaryData2.cpp
+  content.cpp
+  Generating Code...
+  BinaryData1.cpp
+  BinaryData2.cpp
+  LoopMasterTechno.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\Release\LoopMasterTechno.lib
+  BinaryData3.cpp
+  BinaryData4.cpp
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  BinaryData5.cpp
+  BinaryData6.cpp
+  juce_VST3ManifestHelper.cpp
+  BinaryData7.cpp
+  BinaryData8.cpp
+  BinaryData9.cpp
+  BinaryData10.cpp
+  BinaryData11.cpp
+  BinaryData12.cpp
+  BinaryData13.cpp
+  engine.cpp
+  BinaryData14.cpp
+  BinaryData15.cpp
+  BinaryData16.cpp
+  BinaryData17.cpp
+  BinaryData18.cpp
+  BinaryData19.cpp
+  BinaryData20.cpp
+  Generating Code...
+  Compiling...
+  BinaryData21.cpp
+  BinaryData22.cpp
+  BinaryData23.cpp
+  export.cpp
+  BinaryData24.cpp
+  BinaryData25.cpp
+  BinaryData26.cpp
+  BinaryData27.cpp
+  BinaryData28.cpp
+  BinaryData29.cpp
+  BinaryData30.cpp
+  BinaryData31.cpp
+  BinaryData32.cpp
+  BinaryData33.cpp
+  BinaryData34.cpp
+  BinaryData35.cpp
+  BinaryData36.cpp
+  BinaryData37.cpp
+  BinaryData38.cpp
+  BinaryData39.cpp
+  BinaryData40.cpp
+  Generating Code...
+  Compiling...
+  BinaryData41.cpp
+  project.cpp
+  BinaryData42.cpp
+  BinaryData43.cpp
+  project_io.cpp
+  BinaryData44.cpp
+  BinaryData45.cpp
+  BinaryData46.cpp
+  BinaryData47.cpp
+  BinaryData48.cpp
+  BinaryData49.cpp
+  BinaryData50.cpp
+  BinaryData51.cpp
+  BinaryData52.cpp
+  BinaryData53.cpp
+  BinaryData54.cpp
+  BinaryData55.cpp
+  BinaryData56.cpp
+  BinaryData57.cpp
+  BinaryData58.cpp
+  BinaryData59.cpp
+  BinaryData60.cpp
+  Generating Code...
+  Compiling...
+  session.cpp
+  BinaryData61.cpp
+  BinaryData62.cpp
+  BinaryData63.cpp
+  BinaryData64.cpp
+  BinaryData65.cpp
+  BinaryData66.cpp
+  BinaryData67.cpp
+  BinaryData68.cpp
+  BinaryData69.cpp
+  BinaryData70.cpp
+  BinaryData71.cpp
+  BinaryData72.cpp
+  BinaryData73.cpp
+  BinaryData74.cpp
+  BinaryData75.cpp
+  BinaryData76.cpp
+  BinaryData77.cpp
+  BinaryData78.cpp
+  voices.cpp
+  BinaryData79.cpp
+  BinaryData80.cpp
+  Generating Code...
+  Compiling...
+  BinaryData81.cpp
+  BinaryData82.cpp
+  BinaryData83.cpp
+  BinaryData84.cpp
+  BinaryData85.cpp
+  BinaryData86.cpp
+  BinaryData87.cpp
+  wav.cpp
+  BinaryData88.cpp
+  BinaryData89.cpp
+  BinaryData90.cpp
+  LoopMaster_vst3_helper.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\Release\LoopMaster_vst3_helper.exe
+  BinaryData91.cpp
+  BinaryData92.cpp
+  BinaryData93.cpp
+  BinaryData94.cpp
+  BinaryData95.cpp
+  BinaryData96.cpp
+  BinaryData97.cpp
+  BinaryData98.cpp
+  BinaryData99.cpp
+  BinaryData100.cpp
+  LoopPedals_vst3_helper.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\Release\LoopPedals_vst3_helper.exe
+  Generating Code...
+  Compiling...
+  BinaryData101.cpp
+  BinaryData102.cpp
+  BinaryData103.cpp
+  BinaryData104.cpp
+  BinaryData105.cpp
+  BinaryData106.cpp
+  BinaryData107.cpp
+  BinaryData108.cpp
+  Generating Code...
+  BinaryData109.cpp
+  BinaryData110.cpp
+  BinaryData111.cpp
+  BinaryData112.cpp
+  BinaryData113.cpp
+  BinaryData114.cpp
+  BinaryData115.cpp
+  BinaryData116.cpp
+  BinaryData117.cpp
+  BinaryData118.cpp
+  BinaryData119.cpp
+  BinaryData120.cpp
+  Generating Code...
+  Compiling...
+  BinaryData121.cpp
+  BinaryData122.cpp
+  BinaryData123.cpp
+  BinaryData124.cpp
+  BinaryData125.cpp
+  BinaryData126.cpp
+  BinaryData127.cpp
+  BinaryData128.cpp
+  BinaryData129.cpp
+  BinaryData130.cpp
+  BinaryData131.cpp
+  Generating Code...
+  LoopMasterData.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\Release\LoopMasterData.lib
+  loopdraft_engine.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\Release\loopdraft_engine.lib
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  PedalsProcessor.cpp
+  PedalsEditor.cpp
+  juce_audio_processors.cpp
+  juce_audio_processors_ara.cpp
+  Processor.cpp
+  juce_audio_processors_lv2_libs.cpp
+  Editor.cpp
+  juce_gui_extra.cpp
+  juce_audio_processors.cpp
+  juce_audio_processors_ara.cpp
+  juce_audio_processors_lv2_libs.cpp
+  juce_gui_extra.cpp
+  juce_gui_basics.cpp
+  juce_gui_basics.cpp
+  juce_graphics.cpp
+  juce_graphics.cpp
+  juce_graphics_Harfbuzz.cpp
+D:\a\Loop-Draft\Loop-Draft\plugin\build\_deps\juce-src\modules\juce_gui_basics\juce_gui_basics.cpp(61): warning : This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopPedals.vcxproj]
+D:\a\Loop-Draft\Loop-Draft\plugin\build\_deps\juce-src\modules\juce_gui_basics\juce_gui_basics.cpp(61): warning : This version of JUCE does not use the splash screen, the flag JUCE_DISPLAY_SPLASH_SCREEN is ignored [D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopMaster.vcxproj]
+  juce_events.cpp
+  juce_graphics_Harfbuzz.cpp
+  juce_events.cpp
+  juce_core.cpp
+  juce_core.cpp
+  juce_core_CompilationTime.cpp
+  juce_data_structures.cpp
+  juce_core_CompilationTime.cpp
+  juce_data_structures.cpp
+  juce_audio_basics.cpp
+  juce_audio_basics.cpp
+  juce_audio_utils.cpp
+  juce_audio_utils.cpp
+  juce_audio_formats.cpp
+  juce_audio_formats.cpp
+  juce_audio_devices.cpp
+  juce_audio_devices.cpp
+  juce_graphics_Sheenbidi.c
+  LoopPedals.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopPedals_artefacts\Release\Loop Pedals_SharedCode.lib
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  juce_audio_plugin_client_AAX.cpp
+  juce_audio_plugin_client_AAX_utils.cpp
+  juce_audio_plugin_client_ARA.cpp
+  juce_audio_plugin_client_LV2.cpp
+  juce_audio_plugin_client_Standalone.cpp
+  juce_audio_plugin_client_Unity.cpp
+  juce_audio_plugin_client_VST2.cpp
+  juce_audio_plugin_client_VST3.cpp
+  juce_graphics_Sheenbidi.c
+  LoopMaster.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopMaster_artefacts\Release\Loop Master_SharedCode.lib
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  juce_audio_plugin_client_AAX.cpp
+  juce_audio_plugin_client_AAX_utils.cpp
+  juce_audio_plugin_client_ARA.cpp
+  juce_audio_plugin_client_LV2.cpp
+  juce_audio_plugin_client_Standalone.cpp
+  juce_audio_plugin_client_Unity.cpp
+  juce_audio_plugin_client_VST2.cpp
+  juce_audio_plugin_client_VST3.cpp
+     Creating library D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.lib and object D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.exp
+  LoopPedals_VST3.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopPedals_artefacts\Release\VST3\Loop Pedals.vst3\Contents\x86_64-win\Loop Pedals.vst3
+  removing moduleinfo.json
+  creating D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3
+     Creating library D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.lib and object D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.exp
+  LoopMaster_VST3.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopMaster_artefacts\Release\VST3\Loop Master.vst3\Contents\x86_64-win\Loop Master.vst3
+  removing moduleinfo.json
+  creating D:/a/Loop-Draft/Loop-Draft/plugin/build/LoopMaster_artefacts/Release/VST3/Loop Master.vst3
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
+  juce_audio_plugin_client_AAX.cpp
+  juce_audio_plugin_client_AAX_utils.cpp
+  juce_audio_plugin_client_ARA.cpp
+  juce_audio_plugin_client_LV2.cpp
+  juce_audio_plugin_client_Standalone.cpp
+  juce_audio_plugin_client_Unity.cpp
+  juce_audio_plugin_client_VST2.cpp
+  juce_audio_plugin_client_VST3.cpp
+  juce_audio_plugin_client_AAX.cpp
+  juce_audio_plugin_client_AAX_utils.cpp
+  juce_audio_plugin_client_ARA.cpp
+  juce_audio_plugin_client_LV2.cpp
+  juce_audio_plugin_client_Standalone.cpp
+  juce_audio_plugin_client_Unity.cpp
+  juce_audio_plugin_client_VST2.cpp
+  juce_audio_plugin_client_VST3.cpp
+  LoopPedals_Standalone.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopPedals_artefacts\Release\Standalone\Loop Pedals.exe
+  LoopMaster_Standalone.vcxproj -> D:\a\Loop-Draft\Loop-Draft\plugin\build\LoopMaster_artefacts\Release\Standalone\Loop Master.exe
+  Building Custom Rule D:/a/Loop-Draft/Loop-Draft/plugin/CMakeLists.txt
