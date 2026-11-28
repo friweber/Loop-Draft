@@ -1,0 +1,184 @@
+starting with the Warehouse 303 preset (first start, earlier project kept=0)
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+selftest playing=true step=3 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 154 ms, load 1% peak 13%, dropouts 0
+selftest export midi=true wav=true share=true
+selftest playing=true step=6 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 57 ms, load 2% peak 8%, dropouts 1
+selftest playing=true step=10 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 179 ms, load 3% peak 100%, dropouts 1
+selftest playing=true step=13 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 164 ms, load 3% peak 22%, dropouts 1
+selftest playing=true step=1 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 159 ms, load 3% peak 9%, dropouts 1
+selftest playing=true step=3 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 56 ms, load 3% peak 38%, dropouts 2
+selftest playing=true step=7 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 143 ms, load 5% peak 46%, dropouts 2
+selftest playing=true step=10 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 153 ms, load 4% peak 11%, dropouts 2
+selftest playing=true step=14 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 157 ms, load 23% peak 1688%, dropouts 2
+selftest playing=true step=2 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 4360 (91 ms), out 165 ms, load 13% peak 7%, dropouts 2
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+selftest playing=false step=-1 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 67 ms, load 0% peak 4%, dropouts 0
+selftest playing=true step=3 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 153 ms, load 2% peak 26%, dropouts 0
+selftest playing=true step=3 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 150 ms, load 2% peak 11%, dropouts 0
+selftest playing=true step=7 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 157 ms, load 2% peak 14%, dropouts 0
+selftest export midi=true wav=true share=true
+selftest playing=true step=10 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 157 ms, load 3% peak 34%, dropouts 0
+first frame after 1488 ms
+selftest playing=true step=14 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 146 ms, load 3% peak 17%, dropouts 0
+selftest playing=true step=1 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 153 ms, load 3% peak 14%, dropouts 0
+selftest playing=true step=5 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 153 ms, load 5% peak 112%, dropouts 0
+selftest playing=true step=8 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 150 ms, load 4% peak 25%, dropouts 0
+selftest playing=true step=12 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 154 ms, load 5% peak 50%, dropouts 0
+selftest playing=true step=0 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 152 ms, load 6% peak 134%, dropouts 0
+selftest playing=true step=3 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 150 ms, load 4% peak 3%, dropouts 0
+selftest playing=true step=7 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 150 ms, load 4% peak 18%, dropouts 0
+selftest playing=true step=10 sound=true
+selftest audio: AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 139 ms, load 3% peak 13%, dropouts 0
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3752 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3381 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3671 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 6%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3215 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 2417 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3060 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 2651 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3567 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 4419 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 3699 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+kit bounce ok=true
+first frame after 3175 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=4 ownBreak=true
+first frame after 2723 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=4 ownBreak=true
+first frame after 2772 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+kit back in slicer ownBreak=true
+first frame after 1957 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+project reopened mode=3 list=1 msg=Opened "CI test". UNDO goes back to what was open before.
+first frame after 1884 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 2621 ms
+project restored
+boot audio=true bpm=131 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+first frame after 2143 ms
+lib items=132 bad=0 groove=[Loaded "Rolling Acid 136". UNDO takes it back.] own=[Loaded "CI bass". UNDO takes it back.] bpm=136
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 3%, dropouts 0
+kit engine=1 ownBreak=false
+autopick bass=23,81 drums=62 msg=Cutoff is already automated here.
+first frame after 2098 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+autopick bass=23,81 drums=62 msg=Cutoff is already automated here.
+first frame after 2481 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=1 ownBreak=false
+dsyn engine=5 pad0=true
+first frame after 1784 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+dsyn after restart engine=5 pad0=true
+first frame after 2390 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 2329 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 1839 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 1808 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 1829 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 1825 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 2%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 2065 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 1919 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), out 70 ms, load 0% peak 13%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 2208 ms
+project restored
+boot audio=true bpm=136 AAudio 48000 Hz, burst 960, buffer 3840 (80 ms), load 0% peak 0%, dropouts 0
+kit engine=5 ownBreak=false
+first frame after 2729 ms
