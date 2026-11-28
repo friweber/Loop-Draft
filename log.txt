@@ -1,0 +1,40 @@
+2026-11-28 12:09:12.029 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.029 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.031 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.033 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.034 Df LoopDraft[22805:10e29] [com.apple.UIKit:Application] Deactivation reason removed: 12; deactivation reasons: 4128 -> 32; animating application lifecycle event: 1
+2026-11-28 12:09:12.034 Df LoopDraft[22805:10e29] [com.apple.KeyboardArbiter:Client] Send setDeactivating: N (-DeactivationReason:SuspendedEventsOnly)
+2026-11-28 12:09:12.034 Df LoopDraft[22805:10e29] [com.apple.UIKit:Application] Deactivation reason removed: 5; deactivation reasons: 32 -> 0; animating application lifecycle event: 0
+2026-11-28 12:09:12.036 Df LoopDraft[22805:10e29] [com.apple.KeyboardArbiter:Client] startConnection
+2026-11-28 12:09:12.036 Df LoopDraft[22805:10e29] [com.apple.xpc:connection] [0x1081ee580] activating connection: mach=true listener=false peer=false name=com.apple.UIKit.KeyboardManagement.hosted
+2026-11-28 12:09:12.101 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.101 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Scene did update interface style to 1, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.101 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Push traits update to screen for new style 1, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.102 Df LoopDraft[22805:10e29] [com.apple.KeyboardArbiter:Client] handleKeyboardChange: set currentKeyboard:N (wasKeyboard:N)
+2026-11-28 12:09:12.124 Df LoopDraft[22805:10e29] [com.apple.UIKit:KeyboardSceneDelegate] forceReloadInputViews
+2026-11-28 12:09:12.129 Df LoopDraft[22805:10e29] [com.apple.UIKit:KeyboardSceneDelegate] Reloading input views for key-window scene responder: <(null): 0x0; > force:Y
+2026-11-28 12:09:12.130 Df LoopDraft[22805:10e29] [com.apple.UIKit:KeyboardArbiterClientLog] isWritingToolsHandlingKeyboardTracking:Y (WT ready:Y, Arbiter ready:Y)
+2026-11-28 12:09:12.261 A  LoopDraft[22805:10e4a] (RunningBoardServices) didChangeInheritances
+2026-11-28 12:09:12.310 Df LoopDraft[22805:10e29] [com.apple.FrontBoard:SceneClient] [(FBSceneManager):sceneID:com.loopdraft.app-default] Sending action(s) in update: <_UIOrientationRequestAction: 0x59150000>
+2026-11-28 12:09:12.341 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.341 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Scene did update interface style to 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.342 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Not push traits update to screen for new style 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.449 A  LoopDraft[22805:10e43] (RunningBoardServices) didChangeInheritances
+2026-11-28 12:09:12.648 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Push traits update to screen for new style 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.649 Df LoopDraft[22805:10e29] [com.apple.UIKit:Orientation] <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41) Scene will change interface orientation: landscapeRight (3)
+2026-11-28 12:09:12.841 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Should send trait collection or coordinate space update, interface style 2 -> 2, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.856 Df LoopDraft[22805:10e29] [com.apple.FrontBoard:SceneClient] [(FBSceneManager):sceneID:com.loopdraft.app-default] Sending action(s) in update: <_UIOrientationRequestAction: 0x59150001>
+2026-11-28 12:09:12.857 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.881 Df LoopDraft[22805:10e29] [com.apple.UIKit:AppLifecycle] sceneOfRecord: sceneID: sceneID:com.loopdraft.app-default  persistentID: F034E05B-4EF4-4D96-8E18-1D8A24BFBB41
+2026-11-28 12:09:12.881 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Scene did update interface style to 1, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:12.881 Df LoopDraft[22805:10e29] [com.apple.UIKit:InterfaceStyle] Push traits update to screen for new style 1, <UIWindowScene: 0x1019f73a0> (F034E05B-4EF4-4D96-8E18-1D8A24BFBB41)
+2026-11-28 12:09:13.163 Df LoopDraft[22805:10e29] [com.apple.UIKit:EventEnvironment] Enqueuing clear events of window: <_UIWindowSceneUserInterfaceStyleAnimationSnapshotWindow: 0x102199000>; contextId: 0x9E74C4EC
+2026-11-28 12:09:13.164 Df LoopDraft[22805:10e29] [com.apple.UIKit:EventEnvironment] Performing clear events of window: <_UIWindowSceneUserInterfaceStyleAnimationSnapshotWindow: 0x102199000>; contextId: 0x0
+2026-11-28 12:09:15.362 Df LoopDraft[22805:10e44] (libAudioDSP.dylib) cannot migrate AudioUnit assets for current process
+2026-11-28 12:09:20.742 Df LoopDraft[22805:10e29] [com.apple.app_launch_measurement:General] Bailing responsive launch check as reached maximum count
+2026-11-28 12:09:20.745 Df LoopDraft[22805:10e29] [com.apple.network:activity] <nw_activity 50:1 [6EDB426A-2F49-4BC6-B88C-982B7EA1A207] (global parent) (reporting strategy default) complete (reason failure)> complete with reason 3 (failure), duration 10815ms
+2026-11-28 12:09:20.745 Df LoopDraft[22805:10e29] [com.apple.network:activity] <nw_activity 50:2 [ACE60E19-8BB7-4144-8FC0-FE422EC07511] (reporting strategy default) complete (reason failure)> complete with reason 3 (failure), duration 10816ms
+2026-11-28 12:09:20.745 Df LoopDraft[22805:10e29] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [6EDB426A-2F49-4BC6-B88C-982B7EA1A207] (global parent) (reporting strategy default) complete (reason failure)>
+2026-11-28 12:09:20.745 Df LoopDraft[22805:10e29] [com.apple.network:activity] Unset the global parent activity
+2026-11-28 12:09:20.745 Df LoopDraft[22805:10e29] [com.apple.app_launch_measurement:ApplicationLaunch] alm_release_pageins_recording_assertion: releasing pageins recording assertion
+2026-11-28 12:09:20.746 Df LoopDraft[22805:10e29] [com.apple.app_launch_measurement:General] Bailing responsive launch check as reached maximum count
