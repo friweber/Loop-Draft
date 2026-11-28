@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <memory>
 #include <new>
 #include <string>
 #include <thread>
@@ -12,6 +13,7 @@
 
 #include "loopdraft/engine.h"
 #include "loopdraft/session.h"
+#include "loopdraft/pedalboard.h"
 
 // ---- count heap allocations, to prove the audio path makes none ----
 static std::atomic<bool> g_count{false};
@@ -1564,6 +1566,59 @@ static void testHostClockMidiAndOutputs() {
 // The stompbox collection: every pedal does something, stays within bounds, dies away, and never allocates.
 // Eight grooves of up to sixteen bars, six pedals, one bar going round, knob movements inside a groove,
 // the song with a host, listening before choosing.
+static void testPedalChain() {
+  const double sr = 48000.0;
+  const int n = 4800;
+  std::vector<float> l(static_cast<size_t>(n)), r(static_cast<size_t>(n));
+  const auto fill = [&](double hz, float amp) { for (int i = 0; i < n; ++i) l[size_t(i)] = r[size_t(i)] = amp * float(std::sin(6.283185307 * hz * double(i) / sr)); };
+  const auto rms = [&]() { double s = 0.0; for (int i = n / 2; i < n; ++i) s += double(l[size_t(i)]) * double(l[size_t(i)]); return std::sqrt(s / double(n / 2)); };
+  auto chain = std::make_unique<PedalChain>();
+  chain->prepare(sr);
+  FxSlot slots[kBoardSlots];
+  // every pedal and every character, on a quiet and on a hot note: nothing blows up
+  for (int type = 1; type < kNumFxTypes; ++type)
+    for (int voice = 0; voice < kFxVoices[type]; ++voice)
+      for (float amp : {0.05f, 0.9f}) {
+        for (auto& sl : slots) sl = FxSlot();
+        slots[0].type = FxType(type); slots[0].voice = uint8_t(voice); slots[0].amount = 0.8f; slots[0].rate = 0.6f; slots[0].p3 = 0.5f; slots[0].p4 = 0.7f;
+        fill(200.0, amp);
+        chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+        bool ok = true;
+        for (int i = 0; i < n; ++i) ok = ok && std::isfinite(l[size_t(i)]) && std::fabs(l[size_t(i)]) < 8.0f && std::isfinite(r[size_t(i)]);
+        CHECK(ok);
+      }
+  for (auto& sl : slots) sl = FxSlot();
+  // an empty board changes nothing
+  fill(200.0, 0.3f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(std::fabs(rms() - 0.3 / std::sqrt(2.0)) < 1e-3);
+  // the tone control in the middle is flat; LOW up lifts a low note, HIGH down takes the top away
+  slots[0].type = FxType::Eq; slots[0].amount = 0.5f; slots[0].rate = 0.5f; slots[0].p3 = 0.5f; slots[0].p4 = 0.5f;
+  fill(200.0, 0.3f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(std::fabs(rms() - 0.3 / std::sqrt(2.0)) < 2e-3);
+  slots[0].amount = 1.0f;
+  fill(50.0, 0.1f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(rms() > 0.1 / std::sqrt(2.0) * 2.5);
+  slots[0].amount = 0.5f; slots[0].p3 = 0.0f;
+  fill(9000.0, 0.1f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(rms() < 0.1 / std::sqrt(2.0) * 0.8);
+  // the speaker lets 300 Hz through and very little of 9 kHz
+  slots[0] = FxSlot(); slots[0].type = FxType::Cab; slots[0].p4 = 0.3f;
+  fill(300.0, 0.1f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  const double mid = rms();
+  fill(9000.0, 0.1f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(mid > 0.04 && rms() < mid * 0.35);
+  // the lead channel squashes: a note ten times louder comes out less than twice as loud; the clean channel stays loud and clear
+  slots[0] = FxSlot(); slots[0].type = FxType::Amp; slots[0].voice = 2; slots[0].amount = 0.7f;
+  fill(200.0, 0.05f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  const double soft = rms();
+  fill(200.0, 0.5f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  CHECK(soft > 0.05 && rms() < soft * 2.0 && rms() < 1.2);
+  slots[0].voice = 0; slots[0].amount = 0.3f;
+  fill(200.0, 0.2f); chain->process(l.data(), r.data(), n, slots, kBoardSlots, 120.0f, false, 0.0);
+  std::printf("      amp clean %.3f lead soft %.3f cab mid %.3f\n", rms(), soft, mid);
+  CHECK(rms() > 0.08 && rms() < 0.6);
+}
+
 static void testLfos() {
   const double sr = 48000.0;
   const int block = 256;
@@ -2144,6 +2199,7 @@ int main() {
     {"the stompbox collection", testPedalCollection},
     {"grooves, bar loop, knob movements, song with a host, preview", testGroovesLanesLoopAndPreview},
     {"three LFOs on knobs of your choice", testLfos},
+    {"a pedal board for sound from outside; amp, cab and tone control", testPedalChain},
   };
   int failedTests = 0;
   for (const auto& t : tests) {

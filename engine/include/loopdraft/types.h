@@ -39,9 +39,10 @@ enum class FxType     : uint8_t {
   // the stompbox collection (pedals.h)
   Distortion, Fuzz, Booster, Tremolo, Vibrato, Flanger, Rotary, Wah, AutoWah, Octaver, RingMod, Delay, TapeEcho, Reverb, Gate,
   // made for drums and synths
-  Punch, Crusher, Slicer, GatedVerb, Boom, Cloud, LoFi, DubDelay, FreqShift, Resonator, Shimmer
+  Punch, Crusher, Slicer, GatedVerb, Boom, Cloud, LoFi, DubDelay, FreqShift, Resonator, Shimmer,
+  Amp, Cab, Eq                        // what a guitar plugged straight in needs: an amplifier, its speaker, a tone control
 };
-constexpr int kNumFxTypes = int(FxType::Shimmer) + 1;
+constexpr int kNumFxTypes = int(FxType::Eq) + 1;
 enum class DrumEngine : uint8_t {
   Classic808, Punch909, LoFiAcoustic, FmIndustrial, JungleSlicer,
   HardcoreGabber, WarehouseRumble, NeuroTechstep, EbmElectro, GlitchBreakcore
@@ -154,7 +155,7 @@ constexpr uint8_t kFxSync = 2;      // the pedal's speed or time follows the tem
 constexpr int kMaxFxVoices = 4;
 // How many characters each pedal has, in the order of FxType.
 constexpr uint8_t kFxVoices[] = {1, 4, 1, 4, 4, 3, 4, 4, 4, 3, 4, 2, 3, 2, 3, 3, 2, 2, 3, 3, 4, 2,
-                                 2, 3, 2, 2, 2, 4, 3, 3, 3, 3, 3};
+                                 2, 3, 2, 2, 2, 4, 3, 3, 3, 3, 3, 4, 4, 3};
 static_assert(int(sizeof(kFxVoices)) == kNumFxTypes, "one voice count per pedal");
 
 // Which slot and which of its knobs (0 amount, 1 rate, 2 p3, 3 p4) a parameter id stands for. False if it is not a slot knob.

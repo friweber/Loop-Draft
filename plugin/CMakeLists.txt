@@ -78,6 +78,37 @@ target_link_libraries(LoopMaster
   PRIVATE loopdraft_engine LoopMasterData LoopMasterTechno juce::juce_audio_utils
   PUBLIC juce::juce_recommended_config_flags)
 
+# Loop Pedals: only the pedals, as an effect for sound that comes in (a guitar, a bass, a synth), and as an app.
+juce_add_plugin(LoopPedals
+  PRODUCT_NAME "Loop Pedals"
+  COMPANY_NAME "Loop Draft"
+  BUNDLE_ID com.loopdraft.looppedals
+  PLUGIN_MANUFACTURER_CODE Lpdr
+  PLUGIN_CODE Lppd
+  FORMATS ${LM_FORMATS}
+  IS_SYNTH FALSE
+  NEEDS_MIDI_INPUT FALSE
+  NEEDS_MIDI_OUTPUT FALSE
+  IS_MIDI_EFFECT FALSE
+  EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+  COPY_PLUGIN_AFTER_BUILD FALSE
+  MICROPHONE_PERMISSION_ENABLED TRUE
+  MICROPHONE_PERMISSION_TEXT "Loop Pedals needs the audio input to hear your instrument."
+  VST3_CATEGORIES Fx
+  AU_MAIN_TYPE kAudioUnitType_Effect
+  LV2URI "https://github.com/friweber/Loop-Draft/loop-pedals")
+target_sources(LoopPedals PRIVATE pedals/PedalsProcessor.cpp pedals/PedalsEditor.cpp)
+target_include_directories(LoopPedals PUBLIC src pedals)
+target_compile_definitions(LoopPedals PUBLIC
+  JUCE_WEB_BROWSER=0
+  JUCE_USE_CURL=0
+  JUCE_VST3_CAN_REPLACE_VST2=0
+  JUCE_DISPLAY_SPLASH_SCREEN=0
+  JUCE_REPORT_APP_USAGE=0)
+target_link_libraries(LoopPedals
+  PRIVATE loopdraft_engine juce::juce_audio_utils
+  PUBLIC juce::juce_recommended_config_flags)
+
 # Runs the processor like a host would: transport, outputs, automation, MIDI, state. Used by CI.
 option(LOOPMASTER_SELFTEST "Build the plugin self-test" OFF)
 if(LOOPMASTER_SELFTEST)
@@ -85,4 +116,8 @@ if(LOOPMASTER_SELFTEST)
   target_include_directories(LoopMasterSelfTest PRIVATE $<TARGET_PROPERTY:LoopMaster,INCLUDE_DIRECTORIES>)
   target_compile_definitions(LoopMasterSelfTest PRIVATE $<TARGET_PROPERTY:LoopMaster,COMPILE_DEFINITIONS>)
   target_link_libraries(LoopMasterSelfTest PRIVATE LoopMaster)
+  add_executable(LoopPedalsSelfTest tests/PedalsSelfTest.cpp)
+  target_include_directories(LoopPedalsSelfTest PRIVATE $<TARGET_PROPERTY:LoopPedals,INCLUDE_DIRECTORIES>)
+  target_compile_definitions(LoopPedalsSelfTest PRIVATE $<TARGET_PROPERTY:LoopPedals,COMPILE_DEFINITIONS>)
+  target_link_libraries(LoopPedalsSelfTest PRIVATE LoopPedals)
 endif()

@@ -773,6 +773,66 @@ struct Pedal {
         }
         break;
       }
+      // --------------------------------------------------------------------------------------- amplifier, speaker, tone
+      case FxType::Amp: {                          // GAIN, TONE, LEVEL, PRESENCE
+        // voices: 0 CLEAN (glassy, breaks up late), 1 CRUNCH (a British stack on the edge), 2 LEAD (high gain, tight lows),
+        // 3 BASS (a tube bass head: full lows, a growl when pushed)
+        static const float kGain[4] = {5.0f, 28.0f, 140.0f, 9.0f}, kTight[4] = {70.0f, 110.0f, 160.0f, 30.0f}, kOut[4] = {0.9f, 0.55f, 0.33f, 0.8f};
+        const int v = voice < 0 ? 0 : (voice > 3 ? 3 : voice);
+        const float g = 1.0f + a * a * kGain[v];
+        const float comp = kOut[v] / (1.0f + a * (v == 2 ? 0.6f : 1.2f));
+        for (int c = 0; c < 2; ++c) {
+          float x = *ch[c];
+          x -= lp(c, 0, x, op(kTight[v]));                         // the lows that would turn to mud stay out of the tubes
+          if (v == 1 || v == 2) x += (x - lp(c, 1, x, op(720.0f))) * 0.8f;   // a push in the upper mids before the clipping
+          float y = fastTanh(x * g * 0.6f + 0.12f) - 0.1194273f;    // first tube: a little lopsided
+          if (v >= 1) y = fastTanh(y * (v == 2 ? 3.5f : 1.8f));     // second tube
+          if (v == 2) y = fastTanh(y * 1.6f - 0.08f) + 0.0798300f;  // and a third for the lead channel
+          const float low = lp(c, 2, y, op(v == 3 ? 260.0f : 420.0f)), high = y - low;
+          y = low * (1.5f - rt * 0.9f) + high * (0.35f + rt * 1.5f); // TONE: from dark to bright
+          const float air = y - lp(c, 3, y, op(3200.0f));
+          y += air * (p4 - 0.5f) * 2.5f;                           // PRESENCE: the very top
+          *ch[c] = y * comp * level * 1.6f;
+        }
+        break;
+      }
+      case FxType::Cab: {                          // SIZE, MIC, LEVEL, THUMP
+        // voices: 0 4x12 (closed, big), 1 2x12 OPEN (airy, less low end), 2 1x10 (small, boxy), 3 BASS 8x10
+        static const float kLow[4] = {85.0f, 110.0f, 150.0f, 45.0f}, kTop[4] = {4600.0f, 5600.0f, 3800.0f, 3200.0f}, kRes[4] = {110.0f, 135.0f, 190.0f, 70.0f};
+        const int v = voice < 0 ? 0 : (voice > 3 ? 3 : voice);
+        const float size = 1.35f - a * 0.7f;                       // a bigger box: everything lower
+        const float top = op(kTop[v] * size * (0.6f + rt * 0.9f)); // MIC: at the cone's edge (dark) or its centre (bright)
+        const float lowC = op(kLow[v] * size), gR = svfG(kRes[v] * size);
+        for (int c = 0; c < 2; ++c) {
+          float x = *ch[c];
+          x -= lp(c, 0, x, lowC);                                  // no speaker goes all the way down
+          const float thump = band(c, x, gR, 0.6f);                // the box resonates where it is tuned
+          float y = x + thump * p4 * 1.6f;
+          y = lp(c, 1, y, top); y = lp(c, 2, y, top); y = lp(c, 3, y, top); y = lp(c, 4, y, top);   // and nothing gets out above the cone's reach
+          *ch[c] = y * level * 1.5f;
+        }
+        break;
+      }
+      case FxType::Eq: {                           // LOW, MID, HIGH, MID FREQ
+        // voices: 0 GUITAR (100 Hz / 4 kHz), 1 BASS (60 Hz / 2.5 kHz), 2 WIDE (150 Hz / 7 kHz). Every band: 15 dB up or down.
+        static const float kLo[3] = {100.0f, 60.0f, 150.0f}, kHi[3] = {4000.0f, 2500.0f, 7000.0f};
+        const int v = voice < 0 ? 0 : (voice > 2 ? 2 : voice);
+        if (moved || k[7] == 0.0f) {
+          k[0] = std::pow(10.0f, (a - 0.5f) * 1.5f) - 1.0f;
+          k[1] = std::pow(10.0f, (rt - 0.5f) * 1.5f) - 1.0f;
+          k[2] = std::pow(10.0f, (p3 - 0.5f) * 1.5f) - 1.0f;
+          k[3] = svfG(180.0f * std::pow(20.0f, p4));               // 180 Hz .. 3.6 kHz
+          k[7] = 1.0f;
+        }
+        const float cl = op(kLo[v]), chh = op(kHi[v]);
+        for (int c = 0; c < 2; ++c) {
+          const float x = *ch[c];
+          const float low = lp(c, 0, x, cl), high = x - lp(c, 1, x, chh);
+          const float mid = band(c, x, k[3], 1.1f) * 1.1f;
+          *ch[c] = x + low * k[0] + mid * k[1] + high * k[2];
+        }
+        break;
+      }
       case FxType::Shimmer: {                      // LEVEL, DECAY, SHIMMER (freeze: HOLD), TONE
         const bool frozen = voice == 2 && p3 > 0.5f;                 // HOLD up: what is in the room now stays, new notes play over it
         const float fb = frozen ? 1.0f : 0.80f + rt * 0.18f, damp = frozen ? 1.0f : 0.35f;

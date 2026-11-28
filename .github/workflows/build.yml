@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, pedals]
     paths: ['engine/**', 'android/**', 'ios/**', 'content/**', 'plugin/**', '.github/workflows/build.yml']
   workflow_dispatch:
 
@@ -260,24 +260,32 @@ jobs:
       - name: Package
         shell: bash
         run: |
-          A=plugin/build/LoopMaster_artefacts/Release
-          ls "$A" "$A"/*
-          mkdir -p "out/Loop Master"
-          cp -R "$A/VST3/Loop Master.vst3" "out/Loop Master/"
-          if [ -d "$A/AU/Loop Master.component" ]; then cp -R "$A/AU/Loop Master.component" "out/Loop Master/"; fi
-          if [ -d "$A/LV2/Loop Master.lv2" ]; then cp -R "$A/LV2/Loop Master.lv2" "out/Loop Master/"; fi
-          if [ -d "$A/Standalone/Loop Master.app" ]; then cp -R "$A/Standalone/Loop Master.app" "out/Loop Master/";
-          elif [ -f "$A/Standalone/Loop Master.exe" ]; then cp "$A/Standalone/Loop Master.exe" "out/Loop Master/";
-          else cp "$A/Standalone/Loop Master" "out/Loop Master/"; fi
-          cp plugin/README.md "out/Loop Master/README.md"
-          if [ "${{ runner.os }}" = "macOS" ]; then
-            for b in "out/Loop Master"/*.vst3 "out/Loop Master"/*.component "out/Loop Master"/*.app; do codesign --force --deep -s - "$b"; done
-            lipo -archs "out/Loop Master/Loop Master.vst3/Contents/MacOS/Loop Master"
-          fi
-          cd out
-          if [ "${{ runner.os }}" = "Windows" ]; then 7z a -bso0 "../LoopMaster-${{ matrix.name }}.zip" "Loop Master";
-          else zip -qry "../LoopMaster-${{ matrix.name }}.zip" "Loop Master"; fi
-          cd .. && ls -l LoopMaster-*.zip
+          pack() {   # target name, product name, zip name, readme
+            A="plugin/build/$1_artefacts/Release"; N="$2"
+            ls "$A" "$A"/*
+            mkdir -p "out/$N"
+            cp -R "$A/VST3/$N.vst3" "out/$N/"
+            if [ -d "$A/AU/$N.component" ]; then cp -R "$A/AU/$N.component" "out/$N/"; fi
+            if [ -d "$A/LV2/$N.lv2" ]; then cp -R "$A/LV2/$N.lv2" "out/$N/"; fi
+            if [ -d "$A/Standalone/$N.app" ]; then cp -R "$A/Standalone/$N.app" "out/$N/";
+            elif [ -f "$A/Standalone/$N.exe" ]; then cp "$A/Standalone/$N.exe" "out/$N/";
+            else cp "$A/Standalone/$N" "out/$N/"; fi
+            cp "$4" "out/$N/README.md"
+            if [ "${{ runner.os }}" = "macOS" ]; then
+              for b in "out/$N"/*.vst3 "out/$N"/*.component "out/$N"/*.app; do codesign --force --deep -s - "$b"; done
+              lipo -archs "out/$N/$N.vst3/Contents/MacOS/$N"
+            fi
+            ( cd out
+              if [ "${{ runner.os }}" = "Windows" ]; then 7z a -bso0 "../$3-${{ matrix.name }}.zip" "$N";
+              else zip -qry "../$3-${{ matrix.name }}.zip" "$N"; fi )
+            ls -l "$3"-*.zip
+          }
+          pack LoopMaster "Loop Master" LoopMaster plugin/README.md
+          pack LoopPedals "Loop Pedals" LoopPedals plugin/pedals/README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoopPedals-${{ matrix.name }}
+          path: LoopPedals-${{ matrix.name }}.zip
       - uses: actions/upload-artifact@v4
         with:
           name: LoopMaster-${{ matrix.name }}
@@ -294,6 +302,8 @@ jobs:
           elif [ "${{ runner.os }}" = "macOS" ]; then unzip -q pv.zip; PV=./pluginval.app/Contents/MacOS/pluginval; RUN="";
           else unzip -q pv.zip; PV=./pluginval; RUN="xvfb-run -a"; fi
           set +e
+          $RUN "$PV" --strictness-level 5 --validate-in-process --timeout-ms 180000 "plugin/build/LoopPedals_artefacts/Release/VST3/Loop Pedals.vst3" > report/pluginval-pedals-${{ matrix.name }}.txt 2>&1 || { tail -40 report/pluginval-pedals-${{ matrix.name }}.txt; echo "pluginval failed on Loop Pedals"; exit 1; }
+          tail -4 report/pluginval-pedals-${{ matrix.name }}.txt
           $RUN "$PV" --strictness-level 5 --validate-in-process --timeout-ms 180000 "$A/VST3/Loop Master.vst3" > report/pluginval-${{ matrix.name }}.txt 2>&1
           code=$?
           tail -25 report/pluginval-${{ matrix.name }}.txt
@@ -306,6 +316,7 @@ jobs:
           mkdir -p report
           set -o pipefail
           xvfb-run -a plugin/build/LoopMasterSelfTest | tee report/selftest.txt
+          xvfb-run -a plugin/build/LoopPedalsSelfTest | tee report/selftest-pedals.txt
       - name: Pictures of the editor
         if: runner.os == 'Linux'
         continue-on-error: true
@@ -324,6 +335,13 @@ jobs:
           LOOPMASTER_GUIDE=1 LOOPMASTER_TAB=0 LOOPMASTER_DEMO=1 xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 7; import -window root "$1"; kill $! 2>/dev/null' \
             "$A/Standalone/Loop Master" "report/guide.png" "report/guide.log" || true
           shot() { xvfb-run -a -s "-screen 0 1080x740x24" bash -c '"$0" > "$2" 2>&1 & sleep 8; import -window root "$1"; kill $! 2>/dev/null' "$A/Standalone/Loop Master" "report/$1.png" "report/$1.log" || true; }
+          P="plugin/build/LoopPedals_artefacts/Release/Standalone/Loop Pedals"
+          pshot() { xvfb-run -a -s "-screen 0 1200x760x24" bash -c '"$0" > "$2" 2>&1 & sleep 8; import -window root "$1"; kill $! 2>/dev/null' "$P" "report/$1.png" "report/$1.log" || true; }
+          LOOPPEDALS_BOARD=3 pshot board-heavy-lead &
+          LOOPPEDALS_BOARD=3 LOOPPEDALS_FIRST=4 LOOPPEDALS_LFO=1 pshot board-heavy-lead-2 &
+          LOOPPEDALS_BOARD=8 LOOPPEDALS_TUNER=1 pshot board-bass-tuner &
+          LOOPPEDALS_BOARD=13 pshot board-synth-pad &
+          wait
           LOOPMASTER_TAB=0 LOOPMASTER_GENRE=4 shot browse-drums
           LOOPMASTER_TAB=1 LOOPMASTER_GENRE=2 shot browse-synth
           LOOPMASTER_TAB=4 LOOPMASTER_GENRE=7 shot genre-song
@@ -359,7 +377,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: LoopMaster-*
+          pattern: Loop*-*
           merge-multiple: true
       - name: Upload
         env:
@@ -367,4 +385,4 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ls -l
-          gh release upload latest LoopMaster-*.zip --clobber
+          gh release upload latest LoopMaster-*.zip LoopPedals-*.zip --clobber
